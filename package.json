@@ -1,0 +1,31 @@
+{
+  "name": "zwush-wa-bot",
+  "module": "src/index.ts",
+  "main": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/qrcode": "^1.5.6",
+    "@types/qrcode-terminal": "^0.12.2"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@types/sharp": "^0.32.0",
+    "@zapo-js/store-sqlite": "^1.3.0",
+    "hono": "^4.13.9",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.35.4",
+    "zapo-js": "^1.9.0",
+    "zod": "^4.6.5"
+  }
+}
