@@ -564,22 +564,66 @@ async function sendUnrecognizedCommand(
     remoteJid: string,
     cmd: string,
     userLang: Language,
-    ctx: BotContext
+    ctx: BotContext,
+    mentionSender?: string
 ): Promise<void> {
+    const senderPhone = mentionSender ? extractPhoneNumber(mentionSender) : "";
+    const prefix = mentionSender ? `@${senderPhone}\n\n` : "";
+    const mentions = mentionSender ? [mentionSender] : undefined;
+
     if (userLang === "en") {
         await ctx.sendText(
             remoteJid,
-            `Oops, command *${cmd}* was not recognized 😊\nType */buy* to start shopping or */help* for assistance.`
+            `${prefix}Oops, command *${cmd}* was not recognized 😊\nType */buy* to start shopping or */help* for assistance.`,
+            mentions
         );
     } else {
         await ctx.sendText(
             remoteJid,
-            `Waduh, perintah *${cmd}* tidak dikenali nih kak 😊\nKetik */beli* untuk mulai belanja atau */bantuan* untuk melihat panduan ya.`
+            `${prefix}Waduh, perintah *${cmd}* tidak dikenali nih kak 😊\nKetik */beli* untuk mulai belanja atau */bantuan* untuk melihat panduan ya.`,
+            mentions
         );
     }
 }
 
+const userMessageQueues = new Map<string, Promise<void>>();
+
+export function executeUserSequential(userKey: string, task: () => Promise<void>): Promise<void> {
+    const lastTask = userMessageQueues.get(userKey) || Promise.resolve();
+    const currentTask = lastTask
+        .then(() => task())
+        .catch((err) => {
+            console.error(`[Message Queue Error for ${userKey}]:`, err);
+        })
+        .finally(() => {
+            if (userMessageQueues.get(userKey) === currentTask) {
+                userMessageQueues.delete(userKey);
+            }
+        });
+
+    userMessageQueues.set(userKey, currentTask);
+    return currentTask;
+}
+
 export async function handleIncomingMessage(
+    remoteJid: string,
+    fromMe: boolean,
+    bodyText: string,
+    ctx: BotContext,
+    participant?: string
+): Promise<void> {
+    const isGroup = remoteJid.endsWith("@g.us");
+    if (!isPrivateChat(remoteJid) && !isGroup) {
+        return;
+    }
+
+    const effectiveSender = isGroup ? (participant || remoteJid) : remoteJid;
+    return executeUserSequential(effectiveSender, async () => {
+        await handleIncomingMessageInternal(remoteJid, fromMe, bodyText, ctx, participant);
+    });
+}
+
+async function handleIncomingMessageInternal(
     remoteJid: string,
     fromMe: boolean,
     bodyText: string,
@@ -602,9 +646,13 @@ export async function handleIncomingMessage(
 
     // 1. Check if group message
     if (isGroup) {
+        const parts = trimmed.split(/\s+/);
+        const cmd = parts[0]?.toLowerCase() || "";
+
         if (lower === "/setgroup" || lower.startsWith("/setgroup ")) {
             const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
             if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd || "/setgroup", userLang, ctx, effectiveSender);
                 return;
             }
             if (ctx.adminLogger) {
@@ -622,9 +670,9 @@ export async function handleIncomingMessage(
         ) {
             const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
             if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd || "/reprocess", userLang, ctx, effectiveSender);
                 return;
             }
-            const parts = trimmed.split(/\s+/);
             await handleReprocessCommand(remoteJid, parts.slice(1), ctx);
             return;
         }
@@ -637,9 +685,9 @@ export async function handleIncomingMessage(
         ) {
             const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
             if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd || "/setdiskon", userLang, ctx, effectiveSender);
                 return;
             }
-            const parts = trimmed.split(/\s+/);
             await handleSetDiscountCommand(remoteJid, parts.slice(1), ctx, userLang);
             return;
         }
@@ -647,9 +695,9 @@ export async function handleIncomingMessage(
         if (lower === "/voucher" || lower.startsWith("/voucher ")) {
             const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
             if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd || "/voucher", userLang, ctx, effectiveSender);
                 return;
             }
-            const parts = trimmed.split(/\s+/);
             await handleVoucherCommand(remoteJid, parts.slice(1), ctx, userLang);
             return;
         }
@@ -657,6 +705,7 @@ export async function handleIncomingMessage(
         if (lower === "/admin" || lower.startsWith("/admin ")) {
             const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
             if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd || "/admin", userLang, ctx, effectiveSender);
                 return;
             }
             const groupJid = ctx.adminLogger?.getGroupJid();
@@ -730,6 +779,15 @@ export async function handleIncomingMessage(
             cmd === "/katalog" ||
             cmd === "/catalog"
         ) {
+            const currentSession = ctx.state.getSession(effectiveSender);
+            if (currentSession.step !== "IDLE") {
+                const alreadyActiveNotice = userLang === "en"
+                    ? `@${senderPhone}\n\n💡 Your shopping session is already active in private chat! Please continue your order there 😊 (or type *c* in private chat to cancel).`
+                    : `@${senderPhone}\n\n💡 Sesi belanja kakak sudah aktif di chat pribadi! Silakan lanjutkan pemesanan di chat pribadi ya kak 😊 (atau ketik *b* di chat pribadi untuk batal).`;
+                await ctx.sendText(remoteJid, alreadyActiveNotice, [effectiveSender]);
+                return;
+            }
+
             const groupNotice = t("groupCheckoutRedirection", userLang, { phone: senderPhone });
             await ctx.sendText(remoteJid, groupNotice, [effectiveSender]);
 
@@ -832,6 +890,8 @@ export async function handleIncomingMessage(
             return;
         }
 
+        // Unrecognized command in group
+        await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx, effectiveSender);
         return;
     }
 
@@ -896,9 +956,15 @@ export async function handleIncomingMessage(
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return;
-        } else if (trimmed.startsWith("/")) {
-            await ctx.sendText(remoteJid, t("noActiveOrderToCancel", userLang));
-            return;
+        } else {
+            const lastCancelled = ctx.state.getLastCancelledAt(remoteJid);
+            if (lastCancelled && Date.now() - lastCancelled < 6000) {
+                return;
+            }
+            if (trimmed.startsWith("/")) {
+                await ctx.sendText(remoteJid, t("noActiveOrderToCancel", userLang));
+                return;
+            }
         }
     }
 
@@ -1212,6 +1278,45 @@ export async function handleIncomingMessage(
         case "/buy": {
             const filterQuery = args.join(" ").trim();
 
+            if (session.step !== "IDLE" && !filterQuery) {
+                if (session.step === "AWAITING_CATEGORY") {
+                    await ctx.sendText(
+                        remoteJid,
+                        userLang === "en"
+                            ? `💡 Your shopping session is already active! Please select a category (*1 - 6*), or type *c* to cancel.`
+                            : `💡 Sesi belanja kakak sudah aktif! Silakan pilih nomor kategori (*1 - 6*) dari menu di atas ya kak 😊\n(Ketik *b* untuk membatalkan)`
+                    );
+                    return;
+                }
+                if (session.step === "AWAITING_ITEM") {
+                    await ctx.sendText(
+                        remoteJid,
+                        userLang === "en"
+                            ? `💡 You are already selecting an item! Please type the item number, or type *b* to go back, *c* to cancel.`
+                            : `💡 Sesi belanja kakak sedang berlangsung! Silakan ketik nomor item yang diinginkan, atau ketik *k* untuk kembali, *b* untuk membatalkan.`
+                    );
+                    return;
+                }
+                if (session.step === "AWAITING_GAMERTAG") {
+                    await ctx.sendText(
+                        remoteJid,
+                        userLang === "en"
+                            ? `💡 You are currently ordering *${session.selectedItem?.name || ""}*! Please enter your Minecraft Gamertag, or type *c* to cancel.`
+                            : `💡 Kakak sedang memesan *${session.selectedItem?.name || ""}*! Silakan masukkan Gamertag Minecraft kakak ya, atau ketik *b* untuk membatalkan.`
+                    );
+                    return;
+                }
+                if (session.step === "AWAITING_CONFIRMATION") {
+                    await ctx.sendText(
+                        remoteJid,
+                        userLang === "en"
+                            ? `💡 Your order for *${session.selectedItem?.name || ""}* is waiting for confirmation! Reply *YES* to proceed to payment, or type *c* to cancel.`
+                            : `💡 Pesanan *${session.selectedItem?.name || ""}* kakak sedang menunggu konfirmasi! Balas *YA* untuk lanjut ke QRIS, atau ketik *b* untuk membatalkan.`
+                    );
+                    return;
+                }
+            }
+
             if (filterQuery) {
                 const cat = resolveCategory(filterQuery, CATEGORIES);
                 if (cat) {
@@ -1418,7 +1523,15 @@ export async function handleIncomingMessage(
 
         case "/batal":
         case "/cancel": {
-            ctx.state.clear(remoteJid);
+            if (session.step !== "IDLE") {
+                ctx.state.clear(remoteJid);
+                await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+                break;
+            }
+            const lastCancelled = ctx.state.getLastCancelledAt(remoteJid);
+            if (lastCancelled && Date.now() - lastCancelled < 6000) {
+                break;
+            }
             await ctx.sendText(remoteJid, t("noActiveOrderToCancel", userLang));
             break;
         }

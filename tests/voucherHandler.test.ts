@@ -174,7 +174,7 @@ describe("Voucher & Store Discount Message Handlers", () => {
             expect(sentTexts[0].text).toContain("tidak dikenali");
         });
 
-        it("silently ignores non-admin in group chat", async () => {
+        it("responds with unknown command for non-admin in group chat", async () => {
             const { ctx, mockClient, sentTexts } = createMockContext();
             const groupJid = "120363000000000000@g.us";
             const nonAdminParticipant = "628999999999@s.whatsapp.net";
@@ -182,7 +182,8 @@ describe("Voucher & Store Discount Message Handlers", () => {
             await handleIncomingMessage(groupJid, false, "/setdiskon 40", ctx, nonAdminParticipant);
 
             expect(mockClient.setStoreDiscount).not.toHaveBeenCalled();
-            expect(sentTexts.length).toBe(0);
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0].text).toContain("tidak dikenali");
         });
     });
 
@@ -253,7 +254,7 @@ describe("Voucher & Store Discount Message Handlers", () => {
             expect(sentTexts[0].text).toContain("tidak dikenali");
         });
 
-        it("silently ignores non-admin /voucher in group chat", async () => {
+        it("responds with unknown command for non-admin /voucher in group chat", async () => {
             const { ctx, mockClient, sentTexts } = createMockContext();
             const groupJid = "120363000000000000@g.us";
             const nonAdminParticipant = "628999999999@s.whatsapp.net";
@@ -261,7 +262,8 @@ describe("Voucher & Store Discount Message Handlers", () => {
             await handleIncomingMessage(groupJid, false, "/voucher", ctx, nonAdminParticipant);
 
             expect(mockClient.getVoucherStatus).not.toHaveBeenCalled();
-            expect(sentTexts.length).toBe(0);
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0].text).toContain("tidak dikenali");
         });
     });
 

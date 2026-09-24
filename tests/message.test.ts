@@ -396,14 +396,58 @@ describe("Message Handler Router", () => {
         expect(sentTexts[1]).toContain("tidak dikenali");
     });
 
-    it("should silently ignore admin commands from non-admins in group chats", async () => {
+    it("should respond with unknown command for admin commands from non-admins in group chats", async () => {
         const { ctx, sentTexts } = createMockContext();
         await handleIncomingMessage("120363000@g.us", false, "/reprocess", ctx, "buyer@s.whatsapp.net");
-        expect(sentTexts.length).toBe(0);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("tidak dikenali");
         await handleIncomingMessage("120363000@g.us", false, "/admin", ctx, "buyer@s.whatsapp.net");
-        expect(sentTexts.length).toBe(0);
+        expect(sentTexts.length).toBe(2);
+        expect(sentTexts[1]).toContain("tidak dikenali");
         await handleIncomingMessage("120363000@g.us", false, "/setgroup", ctx, "buyer@s.whatsapp.net");
-        expect(sentTexts.length).toBe(0);
+        expect(sentTexts.length).toBe(3);
+        expect(sentTexts[2]).toContain("tidak dikenali");
+    });
+
+    it("should not recreate session when spamming /buy while already active", async () => {
+        const { ctx, sentTexts } = createMockContext();
+        const jid = "spamuser@s.whatsapp.net";
+
+        // First /buy starts the session
+        await handleIncomingMessage(jid, false, "/buy", ctx);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("KATALOG & PEMESANAN");
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
+
+        // Second /buy should warn instead of recreating
+        await handleIncomingMessage(jid, false, "/buy", ctx);
+        expect(sentTexts.length).toBe(2);
+        expect(sentTexts[1]).toContain("Sesi belanja kakak sudah aktif");
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
+    });
+
+    it("should only cancel once when spamming Batal", async () => {
+        const { ctx, sentTexts } = createMockContext();
+        const jid = "canceluser@s.whatsapp.net";
+
+        // Start order flow
+        await handleIncomingMessage(jid, false, "/buy", ctx);
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
+        sentTexts.length = 0;
+
+        // First batal cancels
+        await handleIncomingMessage(jid, false, "batal", ctx);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("pemesanan telah dibatalkan");
+        expect(ctx.state.getSession(jid).step).toBe("IDLE");
+
+        // Second batal immediately after should be ignored, not spam responses
+        await handleIncomingMessage(jid, false, "batal", ctx);
+        expect(sentTexts.length).toBe(1);
+
+        // Third /batal immediately after should also be throttled
+        await handleIncomingMessage(jid, false, "/batal", ctx);
+        expect(sentTexts.length).toBe(1);
     });
 
     it("should display admin only category in /bantuan when called by admin", async () => {

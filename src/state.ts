@@ -23,6 +23,7 @@ export interface UserSession {
     lastQrKey?: any;
     language?: Language;
     lastUpdated: number;
+    lastCancelledAt?: number;
 }
 
 export class StateManager {
@@ -172,10 +173,23 @@ export class StateManager {
     }
 
     /**
-     * Resets session to IDLE.
+     * Resets session to IDLE and tracks cancellation timestamp.
      */
     clear(jid: string): void {
-        this.sessions.delete(jid);
+        const lang = this.getLanguage(jid);
+        this.sessions.set(jid, {
+            step: "IDLE",
+            language: lang,
+            lastUpdated: Date.now(),
+            lastCancelledAt: Date.now()
+        });
+    }
+
+    /**
+     * Gets timestamp of when session was last cancelled.
+     */
+    getLastCancelledAt(jid: string): number | undefined {
+        return this.sessions.get(jid)?.lastCancelledAt;
     }
 
     /**
