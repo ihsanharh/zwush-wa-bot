@@ -626,4 +626,80 @@ describe("Message Handler Router", () => {
         expect(helpReply?.text).toContain("@62899912345");
         expect(helpReply?.text).toContain("BANTUAN");
     });
+
+    it("should inform user politely if typing 'kembali' or 'k' at AWAITING_CATEGORY", async () => {
+        const { ctx, sentTexts } = createMockContext();
+        const jid = "catbackuser@s.whatsapp.net";
+
+        // Start buying flow (step becomes AWAITING_CATEGORY)
+        await handleIncomingMessage(jid, false, "/buy", ctx);
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
+        sentTexts.length = 0;
+
+        // Type 'kembali' at category step
+        await handleIncomingMessage(jid, false, "kembali", ctx);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("Kakak sudah berada di pilihan kategori");
+        expect(sentTexts[0]).not.toContain("Format kategori tidak sesuai");
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
+    });
+
+    it("should throttle rapid spamming of 'kembali'", async () => {
+        const { ctx, sentTexts } = createMockContext();
+        const jid = "spamkembali@s.whatsapp.net";
+
+        // Start buying, select category 2 (step becomes AWAITING_ITEM)
+        await handleIncomingMessage(jid, false, "/beli 2", ctx);
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_ITEM");
+        sentTexts.length = 0;
+
+        // First kembali goes back to category
+        await handleIncomingMessage(jid, false, "k", ctx);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("Kembali ke pilihan kategori");
+
+        // Immediate second kembali should be throttled (<1500ms)
+        await handleIncomingMessage(jid, false, "k", ctx);
+        expect(sentTexts.length).toBe(1); // unchanged
+    });
+
+    it("should handle 'kembali' gracefully when IDLE and throttle spam", async () => {
+        const { ctx, sentTexts } = createMockContext();
+        const jid = "idleuser@s.whatsapp.net";
+
+        expect(ctx.state.getSession(jid).step).toBe("IDLE");
+
+        // Type kembali while IDLE
+        await handleIncomingMessage(jid, false, "kembali", ctx);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("tidak ada langkah pemesanan");
+
+        // Immediate second kembali while IDLE should be throttled
+        await handleIncomingMessage(jid, false, "kembali", ctx);
+        expect(sentTexts.length).toBe(1);
+
+        // Immediate /kembali command while IDLE should also be throttled
+        await handleIncomingMessage(jid, false, "/kembali", ctx);
+        expect(sentTexts.length).toBe(1);
+    });
+
+    it("should handle /batal and /kembali in group chat cleanly", async () => {
+        const { ctx, sentTextEvents } = createMockContext();
+        const groupJid = "120363000@g.us";
+        const participant = "62899912345@s.whatsapp.net";
+
+        // Group /batal when idle
+        await handleIncomingMessage(groupJid, false, "/batal", ctx, participant);
+        const cancelReply = sentTextEvents.find((e) => e.jid === groupJid);
+        expect(cancelReply).toBeDefined();
+        expect(cancelReply?.text).toContain("@62899912345");
+        expect(cancelReply?.text).toContain("tidak ada pesanan aktif");
+
+        // Group /kembali when idle
+        await handleIncomingMessage(groupJid, false, "/kembali", ctx, participant);
+        const backReply = sentTextEvents.filter((e) => e.jid === groupJid)[1];
+        expect(backReply).toBeDefined();
+        expect(backReply?.text).toContain("@62899912345");
+        expect(backReply?.text).toContain("tidak ada langkah pemesanan");
+    });
 });

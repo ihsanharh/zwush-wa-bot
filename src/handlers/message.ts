@@ -797,6 +797,50 @@ async function handleIncomingMessageInternal(
             return;
         }
 
+        // Cancel command in group
+        if (cmd === "/batal" || cmd === "/cancel") {
+            const userSession = ctx.state.getSession(effectiveSender);
+            if (userSession.step !== "IDLE") {
+                ctx.state.clear(effectiveSender);
+                const cancelNotice = `@${senderPhone}\n\n` + t("cancelSuccess", userLang);
+                await ctx.sendText(remoteJid, cancelNotice, [effectiveSender]);
+                return;
+            } else {
+                const lastCancelled = ctx.state.getLastCancelledAt(effectiveSender);
+                if (lastCancelled && Date.now() - lastCancelled < 6000) {
+                    return;
+                }
+                ctx.state.setLastCancelledAt(effectiveSender);
+                const noOrderNotice = `@${senderPhone}\n\n` + t("noActiveOrderToCancel", userLang);
+                await ctx.sendText(remoteJid, noOrderNotice, [effectiveSender]);
+                return;
+            }
+        }
+
+        // Back command in group
+        if (cmd === "/kembali" || cmd === "/back") {
+            const userSession = ctx.state.getSession(effectiveSender);
+            const lastBack = ctx.state.getLastBackAt(effectiveSender);
+            if (lastBack && Date.now() - lastBack < 6000) {
+                return;
+            }
+            ctx.state.setLastBackAt(effectiveSender);
+
+            if (userSession.step !== "IDLE") {
+                const groupBackNotice = userLang === "en"
+                    ? `@${senderPhone}\n\n💡 Please use *back* (*b*) inside your private chat with the bot to navigate order steps 😊`
+                    : `@${senderPhone}\n\n💡 Silakan gunakan navigasi *kembali* (*k*) di dalam chat pribadi dengan bot ya kak 😊`;
+                await ctx.sendText(remoteJid, groupBackNotice, [effectiveSender]);
+                return;
+            } else {
+                const groupIdleBackNotice = userLang === "en"
+                    ? `@${senderPhone}\n\n💡 There is no active order step to go back to 😊\nType */buy* to start shopping!`
+                    : `@${senderPhone}\n\n💡 Saat ini tidak ada langkah pemesanan yang sedang berjalan ya kak 😊\nKetik */beli* untuk mulai belanja!`;
+                await ctx.sendText(remoteJid, groupIdleBackNotice, [effectiveSender]);
+                return;
+            }
+        }
+
         // FAQ in group
         if (cmd === "/faq" || cmd === "/tanya") {
             const faqMsg = `@${senderPhone}\n\n` + t("faqMessage", userLang, { adminNumber: ctx.adminNumber });
@@ -902,14 +946,19 @@ async function handleIncomingMessageInternal(
 
     // Cancel / Back shortcuts by language
     const isCancel =
-        userLang === "en"
-            ? (lower === "c" || lower === "cancel" || lower === "/cancel")
-            : (lower === "b" || lower === "batal" || lower === "/batal");
+        lower === "cancel" ||
+        lower === "batal" ||
+        lower === "/cancel" ||
+        lower === "/batal" ||
+        (userLang === "en" ? lower === "c" : lower === "b");
 
     const isBack =
-        userLang === "en"
-            ? (lower === "b" || lower === "back" || lower === "0")
-            : (lower === "k" || lower === "kembali" || lower === "0");
+        lower === "back" ||
+        lower === "kembali" ||
+        lower === "/back" ||
+        lower === "/kembali" ||
+        lower === "0" ||
+        (userLang === "en" ? lower === "b" : lower === "k");
 
     const isExplicitCancelCommand = lower === "/batal" || lower === "/cancel";
 
@@ -961,7 +1010,8 @@ async function handleIncomingMessageInternal(
             if (lastCancelled && Date.now() - lastCancelled < 6000) {
                 return;
             }
-            if (trimmed.startsWith("/")) {
+            ctx.state.setLastCancelledAt(remoteJid);
+            if (trimmed.startsWith("/") || lower === "batal" || lower === "cancel" || lower === "b" || lower === "c") {
                 await ctx.sendText(remoteJid, t("noActiveOrderToCancel", userLang));
                 return;
             }
@@ -969,37 +1019,65 @@ async function handleIncomingMessageInternal(
     }
 
     // Back navigation shortcut
-    if (session.step !== "IDLE" && isBack) {
-        if (session.step === "AWAITING_ITEM") {
-            ctx.state.startBuyingFlow(remoteJid);
-            const backMsg = userLang === "en"
-                ? `Back to category selection! 😊\n\n` + renderOrderCategoryMenu(false, "en")
-                : `Kembali ke pilihan kategori ya kak! 😊\n\n` + renderOrderCategoryMenu(false, "id");
-            await ctx.sendText(remoteJid, backMsg);
-            return;
-        }
-
-        if (session.step === "AWAITING_GAMERTAG") {
-            const cat = CATEGORIES.find((c) => c.dbCategory === session.selectedCategory);
-            if (cat) {
-                ctx.state.setCategory(remoteJid, cat.dbCategory);
-                await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
-                return;
-            } else {
-                ctx.state.startBuyingFlow(remoteJid);
-                await ctx.sendText(remoteJid, renderOrderCategoryMenu(false, userLang));
+    if (isBack) {
+        if (session.step !== "IDLE") {
+            const lastBack = ctx.state.getLastBackAt(remoteJid);
+            if (lastBack && Date.now() - lastBack < 1500) {
                 return;
             }
-        }
+            ctx.state.setLastBackAt(remoteJid);
 
-        if (session.step === "AWAITING_CONFIRMATION") {
-            session.step = "AWAITING_GAMERTAG";
-            session.lastUpdated = Date.now();
-            ctx.state.clearAppliedVoucher(remoteJid);
-            const reEnterMsg = userLang === "en"
-                ? `Please re-enter your *Minecraft Bedrock Gamertag*:\n⚠️ *CRITICAL:* Double-check spelling and spaces! Once gifted, orders *CANNOT BE CANCELLED OR REFUNDED* by anyone (including The Hive)!\n\n_(Type *b* to change item, or *c* to cancel)_`
-                : `Silakan masukkan ulang *Gamertag Minecraft Bedrock* kakak ya:\n⚠️ *PENTING:* Perhatikan huruf & spasi! Jika item sudah terkirim ke gamertag tersebut, pesanan *TIDAK BISA DIBATALKAN / DI-REFUND* sama sekali oleh siapapun (termasuk The Hive sendiri)!\n\n_(Ketik *k* untuk ganti item, atau *b* untuk batalkan)_`;
-            await ctx.sendText(remoteJid, reEnterMsg);
+            if (session.step === "AWAITING_CATEGORY") {
+                const notice = userLang === "en"
+                    ? "💡 You are already at category selection! 😊\nPlease choose a category (*1 - 6*), or type *c* to cancel."
+                    : "💡 Kakak sudah berada di pilihan kategori ya kak! 😊\nSilakan pilih nomor kategori (*1 - 6*), atau ketik *b* untuk membatalkan.";
+                await ctx.sendText(remoteJid, notice);
+                return;
+            }
+
+            if (session.step === "AWAITING_ITEM") {
+                ctx.state.startBuyingFlow(remoteJid);
+                const backMsg = userLang === "en"
+                    ? `Back to category selection! 😊\n\n` + renderOrderCategoryMenu(false, "en")
+                    : `Kembali ke pilihan kategori ya kak! 😊\n\n` + renderOrderCategoryMenu(false, "id");
+                await ctx.sendText(remoteJid, backMsg);
+                return;
+            }
+
+            if (session.step === "AWAITING_GAMERTAG") {
+                const cat = CATEGORIES.find((c) => c.dbCategory === session.selectedCategory);
+                if (cat) {
+                    ctx.state.setCategory(remoteJid, cat.dbCategory);
+                    await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
+                    return;
+                } else {
+                    ctx.state.startBuyingFlow(remoteJid);
+                    await ctx.sendText(remoteJid, renderOrderCategoryMenu(false, userLang));
+                    return;
+                }
+            }
+
+            if (session.step === "AWAITING_CONFIRMATION") {
+                session.step = "AWAITING_GAMERTAG";
+                session.lastUpdated = Date.now();
+                ctx.state.clearAppliedVoucher(remoteJid);
+                const reEnterMsg = userLang === "en"
+                    ? `Please re-enter your *Minecraft Bedrock Gamertag*:\n⚠️ *CRITICAL:* Double-check spelling and spaces! Once gifted, orders *CANNOT BE CANCELLED OR REFUNDED* by anyone (including The Hive)!\n\n_(Type *b* to change item, or *c* to cancel)_`
+                    : `Silakan masukkan ulang *Gamertag Minecraft Bedrock* kakak ya:\n⚠️ *PENTING:* Perhatikan huruf & spasi! Jika item sudah terkirim ke gamertag tersebut, pesanan *TIDAK BISA DIBATALKAN / DI-REFUND* sama sekali oleh siapapun (termasuk The Hive sendiri)!\n\n_(Ketik *k* untuk ganti item, atau *b* untuk batalkan)_`;
+                await ctx.sendText(remoteJid, reEnterMsg);
+                return;
+            }
+        } else {
+            const lastBack = ctx.state.getLastBackAt(remoteJid);
+            if (lastBack && Date.now() - lastBack < 6000) {
+                return;
+            }
+            ctx.state.setLastBackAt(remoteJid);
+
+            const idleBackMsg = userLang === "en"
+                ? "💡 There is no active order step to go back to 😊\nType */buy* to start shopping!"
+                : "💡 Saat ini tidak ada langkah pemesanan yang sedang berjalan ya kak 😊\nKetik */beli* untuk mulai belanja!";
+            await ctx.sendText(remoteJid, idleBackMsg);
             return;
         }
     }
@@ -1532,7 +1610,22 @@ async function handleIncomingMessageInternal(
             if (lastCancelled && Date.now() - lastCancelled < 6000) {
                 break;
             }
+            ctx.state.setLastCancelledAt(remoteJid);
             await ctx.sendText(remoteJid, t("noActiveOrderToCancel", userLang));
+            break;
+        }
+
+        case "/kembali":
+        case "/back": {
+            const lastBack = ctx.state.getLastBackAt(remoteJid);
+            if (lastBack && Date.now() - lastBack < 6000) {
+                break;
+            }
+            ctx.state.setLastBackAt(remoteJid);
+            const idleBackMsg = userLang === "en"
+                ? "💡 There is no active order step to go back to 😊\nType */buy* to start shopping!"
+                : "💡 Saat ini tidak ada langkah pemesanan yang sedang berjalan ya kak 😊\nKetik */beli* untuk mulai belanja!";
+            await ctx.sendText(remoteJid, idleBackMsg);
             break;
         }
 

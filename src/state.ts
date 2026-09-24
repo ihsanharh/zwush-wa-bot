@@ -24,6 +24,7 @@ export interface UserSession {
     language?: Language;
     lastUpdated: number;
     lastCancelledAt?: number;
+    lastBackAt?: number;
 }
 
 export class StateManager {
@@ -88,6 +89,7 @@ export class StateManager {
     startBuyingFlow(jid: string): void {
         this.sessions.set(jid, {
             step: "AWAITING_CATEGORY",
+            language: this.getLanguage(jid),
             lastUpdated: Date.now()
         });
     }
@@ -190,6 +192,29 @@ export class StateManager {
      */
     getLastCancelledAt(jid: string): number | undefined {
         return this.sessions.get(jid)?.lastCancelledAt;
+    }
+
+    /**
+     * Sets timestamp of when user last cancelled or triggered cancel feedback.
+     */
+    setLastCancelledAt(jid: string): void {
+        const session = this.getSession(jid);
+        session.lastCancelledAt = Date.now();
+    }
+
+    /**
+     * Sets timestamp of when user last navigated back.
+     */
+    setLastBackAt(jid: string): void {
+        const session = this.getSession(jid);
+        session.lastBackAt = Date.now();
+    }
+
+    /**
+     * Gets timestamp of when user last navigated back.
+     */
+    getLastBackAt(jid: string): number | undefined {
+        return this.sessions.get(jid)?.lastBackAt;
     }
 
     /**
