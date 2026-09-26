@@ -79,13 +79,13 @@ const botContext: BotContext = {
             await client.message.send(jid, text);
         }
     },
-    async sendImage(jid: string, buffer: Buffer, caption: string) {
-        console.log(`[WhatsApp Sending Image to ${jid}]:\n${caption.slice(0, 100)}...`);
+    async sendImage(jid: string, buffer: Buffer, caption: string = "") {
+        console.log(`[WhatsApp Sending Image to ${jid}]:\n${caption ? caption.slice(0, 100) + "..." : "(no caption)"}`);
         return await client.message.send(jid, {
             type: "image",
             media: buffer,
             mimetype: "image/png",
-            caption
+            ...(caption ? { caption } : {})
         });
     },
     async sendPoll(jid: string, title: string, options: string[]) {

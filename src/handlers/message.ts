@@ -14,7 +14,7 @@ export interface BotContext {
     state: StateManager;
     adminLogger?: AdminGroupLogger;
     sendText(jid: string, text: string, mentions?: string[]): Promise<void>;
-    sendImage(jid: string, buffer: Buffer, caption: string): Promise<any>;
+    sendImage(jid: string, buffer: Buffer, caption?: string): Promise<any>;
     sendPoll?(jid: string, title: string, options: string[]): Promise<void>;
 }
 
@@ -707,11 +707,9 @@ export async function handleKatalogCommand(
         }
 
         for (const cat of activeCategories) {
-            const catItems = catalog.filter((i) => i.active && i.category === cat.dbCategory);
-            const caption = `📁 *${cat.displayName.toUpperCase()}* (${catItems.length} Item)`;
             try {
                 const poster = await generateCategoryPoster(cat, catalog);
-                await ctx.sendImage(remoteJid, poster, caption);
+                await ctx.sendImage(remoteJid, poster);
             } catch (err: unknown) {
                 console.error(`[Catalog Poster Error for ${cat.displayName}]:`, err);
                 const textList = renderCategoryItems(catalog, cat, userLang);
@@ -720,13 +718,22 @@ export async function handleKatalogCommand(
         }
 
         const totalItems = catalog.filter((i) => i.active).length;
+        const categoryLines = activeCategories
+            .map((c) => {
+                const count = catalog.filter((i) => i.active && i.category === c.dbCategory).length;
+                return `• *${c.displayName}* (${count} item)`;
+            })
+            .join("\n");
+
         const ctaMessage = userLang === "en"
             ? `━━━━━━━━━━━━━━━━━━━━━\n` +
-              `🛒 *ALL CATALOG CATEGORIES* (${totalItems} Items)\n` +
+              `🛒 *ALL CATALOG CATEGORIES* (${totalItems} Items)\n\n` +
+              `${categoryLines}\n\n` +
               `${currentStoreDiscount > 0 ? `⚡ Store discount up to *${currentStoreDiscount}%* is active!\n\n` : `⚡ Official store special prices!\n\n`}` +
               `👉 To start purchasing any item, type */buy* or */beli*! 🛍️`
             : `━━━━━━━━━━━━━━━━━━━━━\n` +
-              `🛒 *KATALOG LENGKAP ${config.STORE_NAME.toUpperCase()}* (${totalItems} Item)\n` +
+              `🛒 *KATALOG LENGKAP ${config.STORE_NAME.toUpperCase()}* (${totalItems} Item)\n\n` +
+              `${categoryLines}\n\n` +
               `${currentStoreDiscount > 0 ? `⚡ Promo diskon resmi s/d *${currentStoreDiscount}%* sedang berlangsung!\n\n` : `⚡ Harga promo resmi The Hive!\n\n`}` +
               `👉 Mau beli item di atas? Ketik */beli* untuk mulai memesan ya kak! 🛍️`;
 

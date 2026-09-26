@@ -113,7 +113,7 @@ describe("Voucher & Store Discount Message Handlers", () => {
             sendText: mock(async (jid: string, text: string, mentions?: string[]) => {
                 sentTexts.push({ jid, text, mentions });
             }),
-            sendImage: mock(async (jid: string, buffer: Buffer, caption: string) => {
+            sendImage: mock(async (jid: string, buffer: Buffer, caption?: string) => {
                 sentImages.push({ jid, buffer, caption });
                 return { key: { id: "msg_img_1" } };
             })

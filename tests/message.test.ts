@@ -52,7 +52,7 @@ describe("Message Handler Router", () => {
 
     function createMockContext() {
         const sentTexts: string[] = [];
-        const sentImages: Array<{ buffer: Buffer; caption: string }> = [];
+        const sentImages: Array<{ buffer: Buffer; caption?: string }> = [];
 
         const mockClient = {
             getCatalog: mock(async () => dummyItems),
@@ -152,7 +152,7 @@ describe("Message Handler Router", () => {
                 sentTexts.push(text);
                 sentTextEvents.push({ jid, text, mentions });
             }),
-            sendImage: mock(async (_jid: string, buffer: Buffer, caption: string) => {
+            sendImage: mock(async (_jid: string, buffer: Buffer, caption?: string) => {
                 sentImages.push({ buffer, caption });
                 return { key: { id: "qr_key_123", remoteJid: _jid } };
             })
@@ -180,7 +180,7 @@ describe("Message Handler Router", () => {
         expect(sentTexts[0]).toContain("Ketik nomor kategori (*1 - 6*)");
     });
 
-    it("should respond to /katalog by sending category posters and CTA to buy", async () => {
+    it("should respond to /katalog by sending category posters without individual captions and a single CTA text message", async () => {
         const { ctx, sentTexts, sentImages } = createMockContext();
         await handleIncomingMessage("user@s.whatsapp.net", false, "/katalog", ctx);
 
@@ -188,7 +188,13 @@ describe("Message Handler Router", () => {
         const hasPosters = sentImages.length > 0 || sentTexts.length > 1;
         expect(hasPosters).toBe(true);
 
-        // Expect final CTA message to prompt typing /beli
+        // Posters should NOT have individual captions (allowing WA to group them as an album)
+        for (const img of sentImages) {
+            expect(img.caption || "").toBe("");
+        }
+
+        // Exactly one text message should be sent with the catalog summary and CTA
+        expect(sentTexts.length).toBe(1);
         const lastText = sentTexts[sentTexts.length - 1];
         expect(lastText).toContain("KATALOG LENGKAP");
         expect(lastText).toContain("/beli");
