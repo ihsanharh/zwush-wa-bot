@@ -663,43 +663,37 @@ describe("Message Handler Router", () => {
         expect(sentTexts.length).toBe(1); // unchanged
     });
 
-    it("should handle 'kembali' gracefully when IDLE and throttle spam", async () => {
+    it("should remain silent when user triggers 'kembali' or 'batal' while IDLE", async () => {
         const { ctx, sentTexts } = createMockContext();
         const jid = "idleuser@s.whatsapp.net";
 
         expect(ctx.state.getSession(jid).step).toBe("IDLE");
 
-        // Type kembali while IDLE
+        // Type kembali while IDLE - should not reply
         await handleIncomingMessage(jid, false, "kembali", ctx);
-        expect(sentTexts.length).toBe(1);
-        expect(sentTexts[0]).toContain("tidak ada langkah pemesanan");
+        expect(sentTexts.length).toBe(0);
 
-        // Immediate second kembali while IDLE should be throttled
-        await handleIncomingMessage(jid, false, "kembali", ctx);
-        expect(sentTexts.length).toBe(1);
+        // Type batal while IDLE - should not reply
+        await handleIncomingMessage(jid, false, "batal", ctx);
+        expect(sentTexts.length).toBe(0);
 
-        // Immediate /kembali command while IDLE should also be throttled
+        // Type /kembali or /batal while IDLE - should not reply
         await handleIncomingMessage(jid, false, "/kembali", ctx);
-        expect(sentTexts.length).toBe(1);
+        await handleIncomingMessage(jid, false, "/batal", ctx);
+        expect(sentTexts.length).toBe(0);
     });
 
-    it("should handle /batal and /kembali in group chat cleanly", async () => {
+    it("should remain silent in group chat for /batal and /kembali when participant is IDLE", async () => {
         const { ctx, sentTextEvents } = createMockContext();
         const groupJid = "120363000@g.us";
         const participant = "62899912345@s.whatsapp.net";
 
-        // Group /batal when idle
+        // Group /batal when idle - should not reply
         await handleIncomingMessage(groupJid, false, "/batal", ctx, participant);
-        const cancelReply = sentTextEvents.find((e) => e.jid === groupJid);
-        expect(cancelReply).toBeDefined();
-        expect(cancelReply?.text).toContain("@62899912345");
-        expect(cancelReply?.text).toContain("tidak ada pesanan aktif");
+        expect(sentTextEvents.length).toBe(0);
 
-        // Group /kembali when idle
+        // Group /kembali when idle - should not reply
         await handleIncomingMessage(groupJid, false, "/kembali", ctx, participant);
-        const backReply = sentTextEvents.filter((e) => e.jid === groupJid)[1];
-        expect(backReply).toBeDefined();
-        expect(backReply?.text).toContain("@62899912345");
-        expect(backReply?.text).toContain("tidak ada langkah pemesanan");
+        expect(sentTextEvents.length).toBe(0);
     });
 });

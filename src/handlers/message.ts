@@ -802,41 +802,20 @@ async function handleIncomingMessageInternal(
                 ctx.state.clear(effectiveSender);
                 const cancelNotice = `@${senderPhone}\n\n` + t("cancelSuccess", userLang);
                 await ctx.sendText(remoteJid, cancelNotice, [effectiveSender]);
-                return;
-            } else {
-                const lastCancelled = ctx.state.getLastCancelledAt(effectiveSender);
-                if (lastCancelled && Date.now() - lastCancelled < 6000) {
-                    return;
-                }
-                ctx.state.setLastCancelledAt(effectiveSender);
-                const noOrderNotice = `@${senderPhone}\n\n` + t("noActiveOrderToCancel", userLang);
-                await ctx.sendText(remoteJid, noOrderNotice, [effectiveSender]);
-                return;
             }
+            return;
         }
 
         // Back command in group
         if (cmd === "/kembali" || cmd === "/back") {
             const userSession = ctx.state.getSession(effectiveSender);
-            const lastBack = ctx.state.getLastBackAt(effectiveSender);
-            if (lastBack && Date.now() - lastBack < 6000) {
-                return;
-            }
-            ctx.state.setLastBackAt(effectiveSender);
-
             if (userSession.step !== "IDLE") {
                 const groupBackNotice = userLang === "en"
                     ? `@${senderPhone}\n\n💡 Please use *back* (*b*) inside your private chat with the bot to navigate order steps 😊`
                     : `@${senderPhone}\n\n💡 Silakan gunakan navigasi *kembali* (*k*) di dalam chat pribadi dengan bot ya kak 😊`;
                 await ctx.sendText(remoteJid, groupBackNotice, [effectiveSender]);
-                return;
-            } else {
-                const groupIdleBackNotice = userLang === "en"
-                    ? `@${senderPhone}\n\n💡 There is no active order step to go back to 😊\nType */buy* to start shopping!`
-                    : `@${senderPhone}\n\n💡 Saat ini tidak ada langkah pemesanan yang sedang berjalan ya kak 😊\nKetik */beli* untuk mulai belanja!`;
-                await ctx.sendText(remoteJid, groupIdleBackNotice, [effectiveSender]);
-                return;
             }
+            return;
         }
 
         // FAQ in group
@@ -1002,18 +981,8 @@ async function handleIncomingMessageInternal(
         if (session.step !== "IDLE") {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
-            return;
-        } else {
-            const lastCancelled = ctx.state.getLastCancelledAt(remoteJid);
-            if (lastCancelled && Date.now() - lastCancelled < 6000) {
-                return;
-            }
-            ctx.state.setLastCancelledAt(remoteJid);
-            if (trimmed.startsWith("/") || lower === "batal" || lower === "cancel" || lower === "b" || lower === "c") {
-                await ctx.sendText(remoteJid, t("noActiveOrderToCancel", userLang));
-                return;
-            }
         }
+        return;
     }
 
     // Back navigation shortcut
@@ -1065,19 +1034,8 @@ async function handleIncomingMessageInternal(
                 await ctx.sendText(remoteJid, reEnterMsg);
                 return;
             }
-        } else {
-            const lastBack = ctx.state.getLastBackAt(remoteJid);
-            if (lastBack && Date.now() - lastBack < 6000) {
-                return;
-            }
-            ctx.state.setLastBackAt(remoteJid);
-
-            const idleBackMsg = userLang === "en"
-                ? "💡 There is no active order step to go back to 😊\nType */buy* to start shopping!"
-                : "💡 Saat ini tidak ada langkah pemesanan yang sedang berjalan ya kak 😊\nKetik */beli* untuk mulai belanja!";
-            await ctx.sendText(remoteJid, idleBackMsg);
-            return;
         }
+        return;
     }
 
     // Active buying flow steps
@@ -1602,28 +1560,12 @@ async function handleIncomingMessageInternal(
             if (session.step !== "IDLE") {
                 ctx.state.clear(remoteJid);
                 await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
-                break;
             }
-            const lastCancelled = ctx.state.getLastCancelledAt(remoteJid);
-            if (lastCancelled && Date.now() - lastCancelled < 6000) {
-                break;
-            }
-            ctx.state.setLastCancelledAt(remoteJid);
-            await ctx.sendText(remoteJid, t("noActiveOrderToCancel", userLang));
             break;
         }
 
         case "/kembali":
         case "/back": {
-            const lastBack = ctx.state.getLastBackAt(remoteJid);
-            if (lastBack && Date.now() - lastBack < 6000) {
-                break;
-            }
-            ctx.state.setLastBackAt(remoteJid);
-            const idleBackMsg = userLang === "en"
-                ? "💡 There is no active order step to go back to 😊\nType */buy* to start shopping!"
-                : "💡 Saat ini tidak ada langkah pemesanan yang sedang berjalan ya kak 😊\nKetik */beli* untuk mulai belanja!";
-            await ctx.sendText(remoteJid, idleBackMsg);
             break;
         }
 
