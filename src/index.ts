@@ -1,7 +1,6 @@
 import { ConsoleLogger, createStore, WaClient } from "zapo-js";
 import { createSqliteStore } from "@zapo-js/store-sqlite";
 import qrcodeTerminal from "qrcode-terminal";
-import { serve } from "@hono/node-server";
 import { config } from "./config";
 import { CoreClient } from "./coreClient";
 import { StateManager } from "./state";
@@ -189,12 +188,12 @@ const webhookApp = createWebhookApp({
     getBuyerLanguage: (jid: string) => stateManager.getLanguage(jid)
 });
 
-serve({
+Bun.serve({
     fetch: webhookApp.fetch,
-    port: config.PORT
-}, () => {
-    console.log(`🚀 Webhook server listening on http://localhost:${config.PORT}/webhook/order-update`);
+    port: config.PORT,
+    hostname: "0.0.0.0"
 });
+console.log(`🚀 Webhook server listening on http://0.0.0.0:${config.PORT}/webhook/order-update`);
 
 // 8. Connect to WhatsApp
 await client.connect();
