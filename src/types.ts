@@ -102,3 +102,22 @@ export interface VoucherValidationResponse {
     storePrice: number;
     finalPrice: number;
 }
+
+export interface BotBalanceResponse {
+    success: boolean;
+    bot: {
+        gamertag: string;
+        tokens: number;
+        status: string;
+    };
+    summary: {
+        todayOrders: number;
+        todayCompleted: number;
+        todayRevenue: number;
+        pendingPayment: number;
+        giftingQueue: number;
+        insufficientTokens: number;
+        discountPercent: number;
+        activeVouchers: number;
+    };
+}

@@ -217,4 +217,34 @@ describe("CoreClient", () => {
         expect(res.orderId).toBe("ord_voucher_1");
         expect(requestedBody.voucherCode).toBe("HEMAT");
     });
+
+    it("should fetch bot balance and sales summary", async () => {
+        global.fetch = mock(() =>
+            Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                bot: {
+                    gamertag: "hsuwz",
+                    tokens: 12,
+                    status: "ONLINE"
+                },
+                summary: {
+                    todayOrders: 10,
+                    todayCompleted: 8,
+                    todayRevenue: 240000,
+                    pendingPayment: 1,
+                    giftingQueue: 0,
+                    insufficientTokens: 0,
+                    discountPercent: 10,
+                    activeVouchers: 3
+                }
+            }), { status: 200 }))
+        ) as unknown as typeof fetch;
+
+        const res = await client.getBalance();
+        expect(res.success).toBe(true);
+        expect(res.bot.gamertag).toBe("hsuwz");
+        expect(res.bot.tokens).toBe(12);
+        expect(res.summary.todayRevenue).toBe(240000);
+        expect(res.summary.todayCompleted).toBe(8);
+    });
 });

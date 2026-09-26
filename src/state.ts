@@ -87,10 +87,13 @@ export class StateManager {
      * Initiates buying flow starting at category selection.
      */
     startBuyingFlow(jid: string): void {
+        const existing = this.sessions.get(jid);
         this.sessions.set(jid, {
             step: "AWAITING_CATEGORY",
             language: this.getLanguage(jid),
-            lastUpdated: Date.now()
+            lastUpdated: Date.now(),
+            lastBackAt: existing?.lastBackAt,
+            lastCancelledAt: existing?.lastCancelledAt
         });
     }
 

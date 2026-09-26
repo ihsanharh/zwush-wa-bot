@@ -8,7 +8,8 @@ import type {
     OrderRetryAllResponse,
     VoucherItem,
     VoucherStatusResponse,
-    VoucherValidationResponse
+    VoucherValidationResponse,
+    BotBalanceResponse
 } from "./types";
 import { config } from "./config";
 
@@ -209,6 +210,19 @@ export class CoreClient {
         const data = (await res.json()) as VoucherValidationResponse & { message?: string };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Voucher '${code}' tidak valid`);
+        }
+        return data;
+    }
+
+    /**
+     * Gets The Hive bot token balance and daily sales summary.
+     */
+    async getBalance(forceRefresh = false): Promise<BotBalanceResponse> {
+        const url = `${this.baseUrl}/api/bot/balance${forceRefresh ? "?refresh=true" : ""}`;
+        const res = await fetch(url);
+        const data = (await res.json()) as BotBalanceResponse & { message?: string };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to fetch bot balance (${res.status})`);
         }
         return data;
     }

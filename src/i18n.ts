@@ -209,9 +209,10 @@ export function t(key: string, lang: Language, params?: StringParams): string {
                     msg += (
                         `\n\n🛠️ *ADMIN ONLY COMMANDS:*\n` +
                         `• */admin* : Open admin status & control panel\n` +
+                        `• */balance* / */saldo* : Check The Hive bot token balance & today's sales summary\n` +
                         `• */reprocess* : Reprocess token-held / failed orders\n` +
                         `• */reprocess <ID>* : Reprocess a specific order\n` +
-                        `• */setgroup* : Register chat group as Admin Group\n` +
+                        `• */setgroup [admin|log]* : Register chat group as Admin or Log Group\n` +
                         `• */setdiscount <0-90>* : Set global store discount percentage\n` +
                         `• */voucher* : Manage promo voucher codes (list/create/delete)`
                     );
@@ -322,9 +323,10 @@ export function t(key: string, lang: Language, params?: StringParams): string {
                 msg += (
                     `\n\n🛠️ *PERINTAH KHUSUS ADMIN:*\n` +
                     `• */admin* : Buka panel status & kontrol admin\n` +
+                    `• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n` +
                     `• */reprocess* : Proses ulang semua order tertahan token\n` +
                     `• */reprocess <ID>* : Proses ulang order tertentu\n` +
-                    `• */setgroup* : Daftarkan grup obrolan sebagai Admin Group\n` +
+                    `• */setgroup [admin|log]* : Daftarkan grup obrolan sebagai Admin atau Log Group\n` +
                     `• */setdiskon <0-90>* : Ubah persentase diskon toko global\n` +
                     `• */voucher* : Kelola kode voucher promo (list/create/delete)`
                 );

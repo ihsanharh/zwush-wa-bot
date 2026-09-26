@@ -91,15 +91,43 @@ describe("Message Handler Router", () => {
                 success: true,
                 count: 2,
                 orderIds: ["ord_1", "ord_2"]
+            })),
+            getBalance: mock(async () => ({
+                success: true,
+                bot: {
+                    gamertag: "hsuwz",
+                    tokens: 5,
+                    status: "ONLINE"
+                },
+                summary: {
+                    todayOrders: 10,
+                    todayCompleted: 7,
+                    todayRevenue: 175000,
+                    pendingPayment: 2,
+                    giftingQueue: 1,
+                    insufficientTokens: 0,
+                    discountPercent: 10,
+                    activeVouchers: 2
+                }
             }))
         };
 
         const loggedOrders: Array<Record<string, unknown>> = [];
         const mockAdminLogger = {
+            logGroupJid: "120363@g.us",
+            adminGroupJid: "120363@g.us",
             groupJid: "120363@g.us",
-            getGroupJid: () => mockAdminLogger.groupJid,
+            getGroupJid: () => mockAdminLogger.logGroupJid,
             setGroupJid: (jid: string) => {
-                mockAdminLogger.groupJid = jid;
+                mockAdminLogger.logGroupJid = jid;
+            },
+            getLogGroupJid: () => mockAdminLogger.logGroupJid,
+            setLogGroupJid: (jid: string) => {
+                mockAdminLogger.logGroupJid = jid;
+            },
+            getAdminGroupJid: () => mockAdminLogger.adminGroupJid,
+            setAdminGroupJid: (jid: string) => {
+                mockAdminLogger.adminGroupJid = jid;
             },
             logNewOrder: mock(async (order: Record<string, unknown>) => {
                 loggedOrders.push(order);
@@ -413,14 +441,14 @@ describe("Message Handler Router", () => {
         const { ctx, sentTexts } = createMockContext();
         const jid = "spamuser@s.whatsapp.net";
 
-        // First /buy starts the session
-        await handleIncomingMessage(jid, false, "/buy", ctx);
+        // First /beli starts the session
+        await handleIncomingMessage(jid, false, "/beli", ctx);
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("KATALOG & PEMESANAN");
         expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
 
-        // Second /buy should warn instead of recreating
-        await handleIncomingMessage(jid, false, "/buy", ctx);
+        // Second /beli should warn instead of recreating
+        await handleIncomingMessage(jid, false, "/beli", ctx);
         expect(sentTexts.length).toBe(2);
         expect(sentTexts[1]).toContain("Sesi belanja kakak sudah aktif");
         expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
@@ -431,7 +459,7 @@ describe("Message Handler Router", () => {
         const jid = "canceluser@s.whatsapp.net";
 
         // Start order flow
-        await handleIncomingMessage(jid, false, "/buy", ctx);
+        await handleIncomingMessage(jid, false, "/beli", ctx);
         expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
         sentTexts.length = 0;
 
@@ -493,20 +521,91 @@ describe("Message Handler Router", () => {
         expect(sentTexts[0]).toContain("/beli");
     });
 
-    it("should allow admin to register group with /setgroup", async () => {
+    it("should allow admin to register groups with /setgroup admin and /setgroup log", async () => {
         const { ctx, sentTexts, mockAdminLogger } = createMockContext();
-        await handleIncomingMessage("98765-4321@g.us", false, "/setgroup", ctx, "628123456789@s.whatsapp.net");
-        expect(mockAdminLogger.groupJid).toBe("98765-4321@g.us");
-        expect(sentTexts.length).toBe(1);
-        expect(sentTexts[0]).toContain("berhasil didaftarkan sebagai Admin Group");
+
+        // 1. Register admin group
+        await handleIncomingMessage("admin-group@g.us", false, "/setgroup admin", ctx, "628123456789@s.whatsapp.net");
+        expect(mockAdminLogger.adminGroupJid).toBe("admin-group@g.us");
+        expect(sentTexts[0]).toContain("Admin Command Group");
+
+        // 2. Register log group
+        sentTexts.length = 0;
+        await handleIncomingMessage("log-group@g.us", false, "/setgroup log", ctx, "628123456789@s.whatsapp.net");
+        expect(mockAdminLogger.logGroupJid).toBe("log-group@g.us");
+        expect(sentTexts[0]).toContain("Transaction Log Group");
+
+        // 3. /setgroup without subcommand shows guidance
+        sentTexts.length = 0;
+        await handleIncomingMessage("any-group@g.us", false, "/setgroup", ctx, "628123456789@s.whatsapp.net");
+        expect(sentTexts[0]).toContain("PENGATURAN GRUP");
+        expect(sentTexts[0]).toContain("/setgroup admin");
+        expect(sentTexts[0]).toContain("/setgroup log");
     });
 
-    it("should allow reprocess inside registered admin group", async () => {
+    it("should allow anyone inside registered admin group to run admin commands", async () => {
         const { ctx, sentTexts, mockAdminLogger } = createMockContext();
-        mockAdminLogger.groupJid = "120363@g.us";
-        await handleIncomingMessage("120363@g.us", false, "/reprocess", ctx);
+        mockAdminLogger.adminGroupJid = "admin-chat@g.us";
+
+        // Random non-admin participant inside admin group runs /reprocess
+        await handleIncomingMessage("admin-chat@g.us", false, "/reprocess", ctx, "random_staff@s.whatsapp.net");
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("REPROCESS SELESAI");
+
+        // Random staff inside admin group runs /admin
+        sentTexts.length = 0;
+        await handleIncomingMessage("admin-chat@g.us", false, "/admin", ctx, "random_staff@s.whatsapp.net");
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("PANEL ADMIN");
+        expect(sentTexts[0]).toContain("Terverifikasi Admin");
+
+        // Random staff inside admin group runs /saldo
+        sentTexts.length = 0;
+        await handleIncomingMessage("admin-chat@g.us", false, "/saldo", ctx, "random_staff@s.whatsapp.net");
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("SALDO & STATUS BOT");
+        expect(sentTexts[0]).toContain("hsuwz");
+        expect(sentTexts[0]).toContain("5 Token");
+    });
+
+    it("should prevent arbitrary members inside log group from running admin commands", async () => {
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        mockAdminLogger.logGroupJid = "log-chat@g.us";
+        mockAdminLogger.adminGroupJid = "admin-chat@g.us";
+
+        // Non-admin participant inside log group tries to run /reprocess
+        await handleIncomingMessage("log-chat@g.us", false, "/reprocess", ctx, "ordinary_user@s.whatsapp.net");
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("tidak dikenali");
+
+        // Non-admin participant inside log group tries to run /saldo
+        sentTexts.length = 0;
+        await handleIncomingMessage("log-chat@g.us", false, "/saldo", ctx, "ordinary_user@s.whatsapp.net");
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("tidak dikenali");
+    });
+
+    it("should allow admin to check balance with /saldo (ID) and /balance (EN)", async () => {
+        const { ctx, sentTexts } = createMockContext();
+        const adminJid = "628123456789@s.whatsapp.net";
+
+        // Indonesian check
+        ctx.state.setLanguage(adminJid, "id");
+        await handleIncomingMessage(adminJid, false, "/saldo", ctx);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("SALDO & STATUS BOT");
+        expect(sentTexts[0]).toContain("hsuwz");
+        expect(sentTexts[0]).toContain("Sisa Token Gift: *5 Token*");
+        expect(sentTexts[0]).toContain("Ringkasan Penjualan Hari Ini");
+
+        // English check
+        sentTexts.length = 0;
+        ctx.state.setLanguage(adminJid, "en");
+        await handleIncomingMessage(adminJid, false, "/balance", ctx);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("BOT BALANCE & STORE STATUS");
+        expect(sentTexts[0]).toContain("Remaining Gift Tokens: *5 Token(s)*");
+        expect(sentTexts[0]).toContain("Today's Sales Summary");
     });
 
     it("should log new order to admin group and record QR message key on YA confirmation", async () => {
@@ -632,7 +731,7 @@ describe("Message Handler Router", () => {
         const jid = "catbackuser@s.whatsapp.net";
 
         // Start buying flow (step becomes AWAITING_CATEGORY)
-        await handleIncomingMessage(jid, false, "/buy", ctx);
+        await handleIncomingMessage(jid, false, "/beli", ctx);
         expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
         sentTexts.length = 0;
 

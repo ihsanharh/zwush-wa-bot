@@ -17,22 +17,54 @@ export interface OrderLogEntry {
     messageKey?: any;
 }
 
+export interface AdminGroupLoggerOptions {
+    logGroupJid?: string;
+    adminGroupJid?: string;
+}
+
 export class AdminGroupLogger {
-    private groupJid: string;
+    private logGroupJid: string;
+    private adminGroupJid: string;
     private readonly sender: GroupMessageSender;
     private readonly orders = new Map<string, OrderLogEntry>();
 
-    constructor(groupJid: string, sender: GroupMessageSender) {
-        this.groupJid = groupJid;
+    constructor(
+        logOrConfig: string | AdminGroupLoggerOptions,
+        sender: GroupMessageSender,
+        legacyAdminGroupJid?: string
+    ) {
+        if (typeof logOrConfig === "string") {
+            this.logGroupJid = logOrConfig;
+            this.adminGroupJid = legacyAdminGroupJid || "";
+        } else {
+            this.logGroupJid = logOrConfig.logGroupJid || "";
+            this.adminGroupJid = logOrConfig.adminGroupJid || "";
+        }
         this.sender = sender;
     }
 
+    setLogGroupJid(jid: string): void {
+        this.logGroupJid = jid;
+    }
+
+    getLogGroupJid(): string {
+        return this.logGroupJid;
+    }
+
+    setAdminGroupJid(jid: string): void {
+        this.adminGroupJid = jid;
+    }
+
+    getAdminGroupJid(): string {
+        return this.adminGroupJid;
+    }
+
     setGroupJid(jid: string): void {
-        this.groupJid = jid;
+        this.logGroupJid = jid;
     }
 
     getGroupJid(): string {
-        return this.groupJid;
+        return this.logGroupJid;
     }
 
     private formatStatusBadge(status: OrderStatus, failureReason?: string): string {
@@ -80,7 +112,7 @@ export class AdminGroupLogger {
         totalNominal: number;
         platformUserId: string;
     }): Promise<void> {
-        if (!this.groupJid) return;
+        if (!this.logGroupJid) return;
 
         const entry: OrderLogEntry = {
             ...order,
@@ -90,11 +122,11 @@ export class AdminGroupLogger {
         const messageText = this.formatLogMessage(entry);
 
         try {
-            const sent = await this.sender.sendMessage(this.groupJid, messageText);
+            const sent = await this.sender.sendMessage(this.logGroupJid, messageText);
             // zapo-js returns { id: string } or test returns { key: { id, remoteJid, fromMe } }
             const messageKey =
                 sent?.key ??
-                (sent?.id ? { id: sent.id, remoteJid: this.groupJid, fromMe: true } : undefined);
+                (sent?.id ? { id: sent.id, remoteJid: this.logGroupJid, fromMe: true } : undefined);
 
             if (messageKey) {
                 entry.messageKey = messageKey;
@@ -111,7 +143,7 @@ export class AdminGroupLogger {
         status: OrderStatus,
         extra?: { failureReason?: string; itemName?: string; gamertag?: string; platformUserId?: string }
     ): Promise<void> {
-        if (!this.groupJid) return;
+        if (!this.logGroupJid) return;
 
         const entry = this.orders.get(orderId);
 
@@ -129,7 +161,7 @@ export class AdminGroupLogger {
             updateMsg += `📊 Status: *${statusBadge}*`;
 
             try {
-                await this.sender.sendMessage(this.groupJid, updateMsg);
+                await this.sender.sendMessage(this.logGroupJid, updateMsg);
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : String(err);
                 console.error(`[AdminGroupLogger] Error sending fallback status update for order #${orderId}:`, msg);
@@ -146,7 +178,7 @@ export class AdminGroupLogger {
 
         if (entry.messageKey) {
             try {
-                await this.sender.editMessage(this.groupJid, entry.messageKey, updatedText);
+                await this.sender.editMessage(this.logGroupJid, entry.messageKey, updatedText);
                 return;
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : String(err);
@@ -156,7 +188,7 @@ export class AdminGroupLogger {
 
         // Fallback: send as new message if no messageKey or if editMessage failed
         try {
-            await this.sender.sendMessage(this.groupJid, updatedText);
+            await this.sender.sendMessage(this.logGroupJid, updatedText);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error(`[AdminGroupLogger] Error sending fallback log for order #${orderId}:`, msg);
@@ -169,7 +201,10 @@ export class AdminGroupLogger {
         gamertag: string;
         adminPhone: string;
     }): Promise<void> {
-        if (!this.groupJid) return;
+        const targetJids = new Set<string>();
+        if (this.adminGroupJid) targetJids.add(this.adminGroupJid);
+        if (this.logGroupJid) targetJids.add(this.logGroupJid);
+        if (targetJids.size === 0) return;
 
         const cleanPhone = order.adminPhone.replace(/[^0-9]/g, "");
         const adminJid = `${cleanPhone}@s.whatsapp.net`;
@@ -179,18 +214,20 @@ export class AdminGroupLogger {
             `👉 Silakan restock token The Hive, lalu ketik */reprocess* di grup ini ya kak! 😊`
         );
 
-        try {
-            await this.sender.sendMessage(this.groupJid, {
-                type: "text",
-                text: alertText,
-                contextInfo: {
-                    mentionedJids: [adminJid],
-                    mentionedJid: [adminJid]
-                }
-            });
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            console.error(`[AdminGroupLogger] Error sending token alert to group:`, msg);
+        for (const jid of targetJids) {
+            try {
+                await this.sender.sendMessage(jid, {
+                    type: "text",
+                    text: alertText,
+                    contextInfo: {
+                        mentionedJids: [adminJid],
+                        mentionedJid: [adminJid]
+                    }
+                });
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.error(`[AdminGroupLogger] Error sending token alert to group ${jid}:`, msg);
+            }
         }
     }
 }

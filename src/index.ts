@@ -34,16 +34,22 @@ const client = new WaClient({ store, sessionId: "default" }, new ConsoleLogger("
 const coreClient = new CoreClient(config.CORE_API_URL);
 const stateManager = new StateManager();
 
-const adminLogger = new AdminGroupLogger(config.ADMIN_GROUP_JID || "", {
-    async sendMessage(jid: string, text: string) {
-        return await client.message.send(jid, text);
+const adminLogger = new AdminGroupLogger(
+    {
+        logGroupJid: config.LOG_GROUP_JID || "",
+        adminGroupJid: config.ADMIN_GROUP_JID || ""
     },
-    async editMessage(jid: string, key: any, newText: string) {
-        const editKey = key?.id ? key : { id: key, remoteJid: jid, fromMe: true };
-        console.log(`[Admin Logger] Editing message in ${jid} (id: ${editKey.id})`);
-        return await client.message.send(jid, newText, { editKey });
+    {
+        async sendMessage(jid: string, text: string) {
+            return await client.message.send(jid, text);
+        },
+        async editMessage(jid: string, key: any, newText: string) {
+            const editKey = key?.id ? key : { id: key, remoteJid: jid, fromMe: true };
+            console.log(`[Admin Logger] Editing message in ${jid} (id: ${editKey.id})`);
+            return await client.message.send(jid, newText, { editKey });
+        }
     }
-});
+);
 
 // 2. Setup message context for handlers
 const botContext: BotContext = {
@@ -93,32 +99,47 @@ client.on("auth_qr", ({ qr }) => {
     qrcodeTerminal.generate(qr, { small: true });
 });
 
-async function discoverAdminGroup() {
-    if (adminLogger.getGroupJid()) {
-        console.log(`[Admin Logger] Admin Group already configured: ${adminLogger.getGroupJid()}`);
-        return;
-    }
+async function discoverGroups() {
     try {
-        console.log(`[Admin Logger] Searching for group with subject "${config.ADMIN_GROUP_NAME}"...`);
+        console.log(`[Groups] Searching for "${config.LOG_GROUP_NAME}" and "${config.ADMIN_GROUP_NAME}"...`);
         const groups = await client.group.queryAllGroups();
-        const targetGroup = groups.find(
-            (g) => g.subject.trim().toLowerCase() === config.ADMIN_GROUP_NAME.trim().toLowerCase()
-        );
-        if (targetGroup) {
-            adminLogger.setGroupJid(targetGroup.jid);
-            console.log(`[Admin Logger] Auto-discovered and registered admin group "${targetGroup.subject}" (${targetGroup.jid})`);
+
+        if (!adminLogger.getLogGroupJid()) {
+            const target = groups.find(
+                (g) => g.subject.trim().toLowerCase() === config.LOG_GROUP_NAME.trim().toLowerCase()
+            );
+            if (target) {
+                adminLogger.setLogGroupJid(target.jid);
+                console.log(`[Groups] Auto-discovered Transaction Log Group "${target.subject}" (${target.jid})`);
+            } else {
+                console.log(`[Groups] Log Group "${config.LOG_GROUP_NAME}" not found. Run /setgroup log in the group.`);
+            }
         } else {
-            console.log(`[Admin Logger] Group "${config.ADMIN_GROUP_NAME}" not found. Run /setgroup in the group to register.`);
+            console.log(`[Groups] Log Group already configured: ${adminLogger.getLogGroupJid()}`);
+        }
+
+        if (!adminLogger.getAdminGroupJid()) {
+            const target = groups.find(
+                (g) => g.subject.trim().toLowerCase() === config.ADMIN_GROUP_NAME.trim().toLowerCase()
+            );
+            if (target) {
+                adminLogger.setAdminGroupJid(target.jid);
+                console.log(`[Groups] Auto-discovered Admin Command Group "${target.subject}" (${target.jid})`);
+            } else {
+                console.log(`[Groups] Admin Group "${config.ADMIN_GROUP_NAME}" not found. Run /setgroup admin in the group.`);
+            }
+        } else {
+            console.log(`[Groups] Admin Group already configured: ${adminLogger.getAdminGroupJid()}`);
         }
     } catch (err: unknown) {
-        console.error("[Admin Logger] Failed to auto-discover admin group:", err);
+        console.error("[Groups] Failed to auto-discover groups:", err);
     }
 }
 
 // 4. Paired Authentication Event
 client.on("auth_paired", async ({ credentials }) => {
     console.log(`✅ Successfully paired as: ${credentials.meJid}`);
-    await discoverAdminGroup();
+    await discoverGroups();
 });
 
 // 5. Incoming Addon Dispatcher (Poll Votes, Reactions)
@@ -197,4 +218,4 @@ console.log(`🚀 Webhook server listening on http://0.0.0.0:${config.PORT}/webh
 
 // 8. Connect to WhatsApp
 await client.connect();
-await discoverAdminGroup();
+await discoverGroups();

@@ -499,6 +499,69 @@ export function isPrivateChat(remoteJid: string): boolean {
     return remoteJid.endsWith("@s.whatsapp.net") || remoteJid.endsWith("@lid");
 }
 
+async function handleBalanceCommand(
+    remoteJid: string,
+    args: string[],
+    ctx: BotContext,
+    userLang: Language,
+    mentionSender?: string
+): Promise<void> {
+    try {
+        const forceRefresh = args.includes("--refresh") || args.includes("-r");
+        const res = await ctx.client.getBalance(forceRefresh);
+
+        const gamertag = res.bot.gamertag;
+        const tokens = res.bot.tokens;
+        const botStatus = res.bot.status === "ONLINE"
+            ? (userLang === "en" ? "ONLINE / READY" : "ONLINE / SIAP")
+            : res.bot.status;
+        const s = res.summary;
+
+        const senderPhone = mentionSender ? extractPhoneNumber(mentionSender) : "";
+        const mentionPrefix = senderPhone ? `@${senderPhone}\n\n` : "";
+
+        if (userLang === "en") {
+            const out =
+                `${mentionPrefix}💰 *BOT BALANCE & STORE STATUS — ${config.STORE_NAME.toUpperCase()}*\n\n` +
+                `🤖 *The Hive Bot Status:*\n` +
+                `• Gamertag: *${gamertag}*\n` +
+                `• Status: *${botStatus}* ✅\n` +
+                `• Remaining Gift Tokens: *${tokens} Token(s)* 🎁\n\n` +
+                `📊 *Today's Sales Summary:*\n` +
+                `• Completed Orders: *${s.todayCompleted} Orders*\n` +
+                `• Total Revenue: *${formatRupiah(s.todayRevenue)}*\n` +
+                `• Pending Payment: *${s.pendingPayment} Orders*\n` +
+                `• Gifting Queue: *${s.giftingQueue} Orders*\n` +
+                `• Token Deficit (Stuck): *${s.insufficientTokens} Orders*\n` +
+                `• Active Store Discount: *${s.discountPercent}%*\n` +
+                `• Active Vouchers: *${s.activeVouchers} Codes*\n\n` +
+                `💡 _Use /reprocess if any orders are stuck due to token deficit._`;
+            await ctx.sendText(remoteJid, out, mentionSender ? [mentionSender] : undefined);
+            return;
+        }
+
+        const out =
+            `${mentionPrefix}💰 *SALDO & STATUS BOT — ${config.STORE_NAME.toUpperCase()}*\n\n` +
+            `🤖 *Status Bot The Hive:*\n` +
+            `• Gamertag: *${gamertag}*\n` +
+            `• Status: *${botStatus}* ✅\n` +
+            `• Sisa Token Gift: *${tokens} Token* 🎁\n\n` +
+            `📊 *Ringkasan Penjualan Hari Ini:*\n` +
+            `• Pesanan Selesai: *${s.todayCompleted} Pesanan*\n` +
+            `• Total Omset: *${formatRupiah(s.todayRevenue)}*\n` +
+            `• Menunggu Pembayaran: *${s.pendingPayment} Pesanan*\n` +
+            `• Antrean Gifting: *${s.giftingQueue} Pesanan*\n` +
+            `• Tertahan Stok Token: *${s.insufficientTokens} Pesanan*\n` +
+            `• Diskon Toko Aktif: *${s.discountPercent}%*\n` +
+            `• Voucher Aktif: *${s.activeVouchers} Kode*\n\n` +
+            `💡 _Gunakan /reprocess jika ada pesanan tertahan token._`;
+        await ctx.sendText(remoteJid, out, mentionSender ? [mentionSender] : undefined);
+    } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await ctx.sendText(remoteJid, `❌ Gagal mengambil data saldo & status bot: ${errMsg}`);
+    }
+}
+
 /**
  * Normalizes WhatsApp JIDs and phone numbers:
  * - Strips domain (@s.whatsapp.net, @lid, @g.us)
@@ -520,6 +583,9 @@ export function extractPhoneNumber(jidOrPhone: string): string {
 
 /**
  * Checks if the message sender is an authorized administrator.
+ * - fromMe: always authorized
+ * - inside Admin Group (remoteJid === adminLogger.getAdminGroupJid()): anyone in this group can run admin commands
+ * - configured admins (ADMIN_NUMBER): authorized anywhere
  */
 export function isUserAdmin(
     remoteJid: string,
@@ -529,6 +595,17 @@ export function isUserAdmin(
     adminLogger?: AdminGroupLogger
 ): boolean {
     if (fromMe) return true;
+
+    // Anyone inside the Admin Command Group is authorized
+    if (adminLogger) {
+        if (adminLogger.getAdminGroupJid && adminLogger.getAdminGroupJid() && remoteJid === adminLogger.getAdminGroupJid()) {
+            return true;
+        }
+        // Fallback for mocks where only getGroupJid is implemented
+        if (!adminLogger.getAdminGroupJid && adminLogger.getGroupJid && remoteJid === adminLogger.getGroupJid()) {
+            return true;
+        }
+    }
 
     const configuredAdmins = (adminNumber || "")
         .split(",")
@@ -545,10 +622,6 @@ export function isUserAdmin(
         ) {
             return true;
         }
-    }
-
-    if (adminLogger && remoteJid === adminLogger.getGroupJid()) {
-        return true;
     }
 
     return false;
@@ -655,10 +728,60 @@ async function handleIncomingMessageInternal(
                 await sendUnrecognizedCommand(remoteJid, cmd || "/setgroup", userLang, ctx, effectiveSender);
                 return;
             }
-            if (ctx.adminLogger) {
-                ctx.adminLogger.setGroupJid(remoteJid);
-                await ctx.sendText(remoteJid, `✅ Grup ini berhasil didaftarkan sebagai Admin Group ${config.STORE_NAME}!`);
+
+            const sub = parts[1]?.toLowerCase();
+            if (sub === "admin") {
+                if (ctx.adminLogger) {
+                    ctx.adminLogger.setAdminGroupJid(remoteJid);
+                    await ctx.sendText(
+                        remoteJid,
+                        `✅ Grup ini berhasil didaftarkan sebagai *Admin Command Group* ${config.STORE_NAME}!\nSemua anggota di grup ini dapat menjalankan perintah admin.`
+                    );
+                }
+                return;
             }
+
+            if (sub === "log" || sub === "logs") {
+                if (ctx.adminLogger) {
+                    ctx.adminLogger.setLogGroupJid(remoteJid);
+                    await ctx.sendText(
+                        remoteJid,
+                        `✅ Grup ini berhasil didaftarkan sebagai *Transaction Log Group* ${config.STORE_NAME}!\nSemua notifikasi pesanan baru & update transaksi akan dikirim ke sini.`
+                    );
+                }
+                return;
+            }
+
+            const adminGid = ctx.adminLogger?.getAdminGroupJid ? ctx.adminLogger.getAdminGroupJid() : ctx.adminLogger?.getGroupJid();
+            const logGid = ctx.adminLogger?.getLogGroupJid ? ctx.adminLogger.getLogGroupJid() : ctx.adminLogger?.getGroupJid();
+            const statusAdmin = adminGid === remoteJid ? "✅ Terdaftar (Grup Ini)" : (adminGid ? `✅ Terdaftar (${adminGid})` : "⚠️ Belum terdaftar");
+            const statusLog = logGid === remoteJid ? "✅ Terdaftar (Grup Ini)" : (logGid ? `✅ Terdaftar (${logGid})` : "⚠️ Belum terdaftar");
+
+            await ctx.sendText(
+                remoteJid,
+                `⚙️ *PENGATURAN GRUP ${config.STORE_NAME.toUpperCase()}*\n\n` +
+                `Silakan tentukan peran grup ini:\n` +
+                `• */setgroup admin* : Daftarkan grup ini sebagai *Admin Command Group* (semua anggota dapat menjalankan command admin)\n` +
+                `• */setgroup log* : Daftarkan grup ini sebagai *Transaction Log Group* (khusus log transaksi & notifikasi)\n\n` +
+                `_Status saat ini:_\n` +
+                `• Admin Command Group: *${statusAdmin}*\n` +
+                `• Transaction Log Group: *${statusLog}*`
+            );
+            return;
+        }
+
+        if (
+            lower === "/saldo" ||
+            lower.startsWith("/saldo ") ||
+            lower === "/balance" ||
+            lower.startsWith("/balance ")
+        ) {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd || "/saldo", userLang, ctx, effectiveSender);
+                return;
+            }
+            await handleBalanceCommand(remoteJid, parts.slice(1), ctx, userLang, effectiveSender);
             return;
         }
 
@@ -708,16 +831,22 @@ async function handleIncomingMessageInternal(
                 await sendUnrecognizedCommand(remoteJid, cmd || "/admin", userLang, ctx, effectiveSender);
                 return;
             }
-            const groupJid = ctx.adminLogger?.getGroupJid();
-            const groupStatus = groupJid === remoteJid ? "✅ Grup ini terdaftar sebagai Admin Group" : `Grup terdaftar: ${groupJid || "Belum ada"}`;
+            const adminGid = ctx.adminLogger?.getAdminGroupJid ? ctx.adminLogger.getAdminGroupJid() : ctx.adminLogger?.getGroupJid();
+            const logGid = ctx.adminLogger?.getLogGroupJid ? ctx.adminLogger.getLogGroupJid() : ctx.adminLogger?.getGroupJid();
+            const adminStatus = adminGid === remoteJid ? "✅ Terdaftar (Grup Ini)" : (adminGid ? `✅ Terdaftar (${adminGid})` : "⚠️ Belum terdaftar");
+            const logStatus = logGid === remoteJid ? "✅ Terdaftar (Grup Ini)" : (logGid ? `✅ Terdaftar (${logGid})` : "⚠️ Belum terdaftar");
+
             let out = `@${senderPhone}\n\n🛠️ *PANEL ADMIN ${config.STORE_NAME.toUpperCase()}*\n\n`;
             out += `👤 Status: *Terverifikasi Admin ✅*\n`;
             out += `📱 Nomor: *+${senderPhone}*\n`;
-            out += `👥 Grup: *${groupStatus}*\n\n`;
+            out += `👥 Admin Group: *${adminStatus}*\n`;
+            out += `📋 Log Group: *${logStatus}*\n\n`;
             out += `*Daftar Perintah Admin:*\n`;
+            out += `• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n`;
             out += `• */reprocess* : Proses ulang semua order tertahan\n`;
             out += `• */reprocess <ID>* : Proses ulang order tertentu\n`;
-            out += `• */setgroup* : Daftarkan grup ini sebagai Admin Group\n`;
+            out += `• */setgroup admin* : Daftarkan grup ini sebagai Admin Command Group\n`;
+            out += `• */setgroup log* : Daftarkan grup ini sebagai Transaction Log Group\n`;
             out += `• */setdiskon <0-90>* : Ubah persentase diskon toko global\n`;
             out += `• */voucher* : Kelola kode voucher promo (list/create/delete)\n`;
             out += `• */status <ID>* : Cek detail status order manapun\n`;
@@ -1036,6 +1165,51 @@ async function handleIncomingMessageInternal(
             }
         }
         return;
+    }
+
+    // Check if user runs /beli or /buy while already inside an active session
+    const activeCmd = trimmed.split(/\s+/)[0]?.toLowerCase() || "";
+    if (session.step !== "IDLE" && (activeCmd === "/beli" || activeCmd === "/buy" || activeCmd === "/menu" || activeCmd === "/katalog" || activeCmd === "/catalog")) {
+        const parts = trimmed.split(/\s+/);
+        const filterQuery = parts.slice(1).join(" ").trim();
+        if (!filterQuery) {
+            if (session.step === "AWAITING_CATEGORY") {
+                await ctx.sendText(
+                    remoteJid,
+                    userLang === "en"
+                        ? `💡 Your shopping session is already active! Please select a category (*1 - 6*), or type *c* to cancel.`
+                        : `💡 Sesi belanja kakak sudah aktif! Silakan pilih nomor kategori (*1 - 6*) dari menu di atas ya kak 😊\n(Ketik *b* untuk membatalkan)`
+                );
+                return;
+            }
+            if (session.step === "AWAITING_ITEM") {
+                await ctx.sendText(
+                    remoteJid,
+                    userLang === "en"
+                        ? `💡 You are already selecting an item! Please type the item number, or type *b* to go back, *c* to cancel.`
+                        : `💡 Sesi belanja kakak sedang berlangsung! Silakan ketik nomor item yang diinginkan, atau ketik *k* untuk kembali, *b* untuk membatalkan.`
+                );
+                return;
+            }
+            if (session.step === "AWAITING_GAMERTAG") {
+                await ctx.sendText(
+                    remoteJid,
+                    userLang === "en"
+                        ? `💡 You are currently ordering *${session.selectedItem?.name || ""}*! Please enter your Minecraft Gamertag, or type *c* to cancel.`
+                        : `💡 Kakak sedang memesan *${session.selectedItem?.name || ""}*! Silakan masukkan Gamertag Minecraft kakak ya, atau ketik *b* untuk membatalkan.`
+                );
+                return;
+            }
+            if (session.step === "AWAITING_CONFIRMATION") {
+                await ctx.sendText(
+                    remoteJid,
+                    userLang === "en"
+                        ? `💡 Your order for *${session.selectedItem?.name || ""}* is waiting for confirmation! Reply *YES* to proceed to payment, or type *c* to cancel.`
+                        : `💡 Pesanan *${session.selectedItem?.name || ""}* kakak sedang menunggu konfirmasi! Balas *YA* untuk lanjut ke QRIS, atau ketik *b* untuk membatalkan.`
+                );
+                return;
+            }
+        }
     }
 
     // Active buying flow steps
@@ -1470,6 +1644,17 @@ async function handleIncomingMessageInternal(
             break;
         }
 
+        case "/saldo":
+        case "/balance": {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
+                return;
+            }
+            await handleBalanceCommand(remoteJid, args, ctx, userLang);
+            break;
+        }
+
         case "/admin": {
             const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
             if (!isAdmin) {
@@ -1478,17 +1663,22 @@ async function handleIncomingMessageInternal(
             }
 
             const cleanPhone = extractPhoneNumber(effectiveSender);
-            const groupJid = ctx.adminLogger?.getGroupJid();
-            const groupStatus = groupJid ? `✅ Terdaftar (${groupJid})` : `⚠️ Belum terdaftar (Ketik /setgroup di grup log)`;
+            const adminGid = ctx.adminLogger?.getAdminGroupJid ? ctx.adminLogger.getAdminGroupJid() : ctx.adminLogger?.getGroupJid();
+            const logGid = ctx.adminLogger?.getLogGroupJid ? ctx.adminLogger.getLogGroupJid() : ctx.adminLogger?.getGroupJid();
+            const adminStatus = adminGid ? `✅ Terdaftar (${adminGid})` : `⚠️ Belum terdaftar (Ketik /setgroup admin di grup admin)`;
+            const logStatus = logGid ? `✅ Terdaftar (${logGid})` : `⚠️ Belum terdaftar (Ketik /setgroup log di grup log)`;
 
             let out = `🛠️ *PANEL ADMIN ${config.STORE_NAME.toUpperCase()}*\n\n`;
             out += `👤 Status: *Terverifikasi Admin ✅*\n`;
             if (cleanPhone) out += `📱 Nomor: *+${cleanPhone}*\n`;
-            out += `👥 Admin Group: *${groupStatus}*\n\n`;
+            out += `👥 Admin Group: *${adminStatus}*\n`;
+            out += `📋 Log Group: *${logStatus}*\n\n`;
             out += `*Daftar Perintah Admin:*\n`;
-            out += `• */reprocess* : Proses ulang semua order tertahan\n`;
+            out += `• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n`;
+            out += `• */reprocess* : Proses ulang semua order tertahan token\n`;
             out += `• */reprocess <ID>* : Proses ulang order tertentu\n`;
-            out += `• */setgroup* : Daftarkan grup obrolan sebagai Admin Group\n`;
+            out += `• */setgroup admin* : Daftarkan grup obrolan sebagai Admin Command Group\n`;
+            out += `• */setgroup log* : Daftarkan grup obrolan sebagai Transaction Log Group\n`;
             out += `• */setdiskon <0-90>* : Ubah persentase diskon toko global\n`;
             out += `• */voucher* : Kelola kode voucher promo (list/create/delete)\n`;
             out += `• */status <ID>* : Cek detail status order manapun\n`;
@@ -1524,19 +1714,37 @@ async function handleIncomingMessageInternal(
                 await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
                 return;
             }
-            const targetJid = args[0]?.trim();
-            if (targetJid && targetJid.endsWith("@g.us")) {
+            const targetRole = args[0]?.toLowerCase();
+            const targetJid = args[1]?.trim();
+
+            if (targetRole === "admin" && targetJid && targetJid.endsWith("@g.us")) {
                 if (ctx.adminLogger) {
-                    ctx.adminLogger.setGroupJid(targetJid);
-                    await ctx.sendText(remoteJid, `✅ Berhasil mendaftarkan Admin Group: ${targetJid}`);
+                    ctx.adminLogger.setAdminGroupJid(targetJid);
+                    await ctx.sendText(remoteJid, `✅ Berhasil mendaftarkan Admin Command Group: ${targetJid}`);
+                }
+            } else if ((targetRole === "log" || targetRole === "logs") && targetJid && targetJid.endsWith("@g.us")) {
+                if (ctx.adminLogger) {
+                    ctx.adminLogger.setLogGroupJid(targetJid);
+                    await ctx.sendText(remoteJid, `✅ Berhasil mendaftarkan Transaction Log Group: ${targetJid}`);
+                }
+            } else if (targetRole && targetRole.endsWith("@g.us")) {
+                // Legacy: /setgroup <JID>
+                if (ctx.adminLogger) {
+                    ctx.adminLogger.setAdminGroupJid(targetRole);
+                    ctx.adminLogger.setGroupJid(targetRole);
+                    await ctx.sendText(remoteJid, `✅ Berhasil mendaftarkan Admin Group: ${targetRole}`);
                 }
             } else {
                 await ctx.sendText(
                     remoteJid,
-                    `💡 *CARA MENDAFTARKAN ADMIN GROUP*\n\n` +
-                    `1. Masuk ke grup WhatsApp yang ingin dijadikan Admin Group\n` +
-                    `2. Ketik */setgroup* langsung di dalam grup tersebut\n\n` +
-                    `Atau ketik */setgroup <JID_GRUP>* (contoh: */setgroup 120363xxx@g.us*)`
+                    `💡 *CARA MENDAFTARKAN ADMIN GROUP / LOG GROUP*\n\n` +
+                    `1. Masuk ke grup WhatsApp yang ingin didaftarkan\n` +
+                    `2. Ketik salah satu perintah langsung di dalam grup tersebut:\n` +
+                    `   • */setgroup admin* : Daftarkan sebagai *Admin Command Group*\n` +
+                    `   • */setgroup log* : Daftarkan sebagai *Transaction Log Group*\n\n` +
+                    `Atau via chat pribadi:\n` +
+                    `• */setgroup admin <JID_GRUP>*\n` +
+                    `• */setgroup log <JID_GRUP>*`
                 );
             }
             break;

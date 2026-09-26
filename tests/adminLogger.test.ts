@@ -194,5 +194,45 @@ describe("AdminGroupLogger", () => {
         expect(sentMessage).toContain("Steve123");
         expect(sentMessage).toContain("Selesai Dikirim (COMPLETED)");
     });
+
+    it("should manage separate logGroupJid and adminGroupJid correctly", async () => {
+        const sentJids: string[] = [];
+        const mockSender: GroupMessageSender = {
+            sendMessage: mock(async (jid: string) => {
+                sentJids.push(jid);
+                return { id: "msg_test" };
+            }),
+            editMessage: mock(async () => {})
+        };
+
+        const logger = new AdminGroupLogger(
+            { logGroupJid: "logs@g.us", adminGroupJid: "admins@g.us" },
+            mockSender
+        );
+
+        expect(logger.getLogGroupJid()).toBe("logs@g.us");
+        expect(logger.getAdminGroupJid()).toBe("admins@g.us");
+
+        // Order logs go to log group only
+        await logger.logNewOrder({
+            orderId: "ORD-SPLIT-1",
+            itemName: "Dragon Pet",
+            gamertag: "Steve123",
+            totalNominal: 25012,
+            platformUserId: "628999@s.whatsapp.net"
+        });
+        expect(sentJids).toEqual(["logs@g.us"]);
+
+        // Insufficient tokens alert broadcasts to both admin and log groups
+        sentJids.length = 0;
+        await logger.notifyInsufficientTokens({
+            orderId: "ORD-SPLIT-1",
+            itemName: "Dragon Pet",
+            gamertag: "Steve123",
+            adminPhone: "628123456789"
+        });
+        expect(sentJids).toContain("admins@g.us");
+        expect(sentJids).toContain("logs@g.us");
+    });
 });
 
