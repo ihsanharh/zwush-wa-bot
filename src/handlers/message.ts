@@ -1405,9 +1405,28 @@ async function handleIncomingMessageInternal(
 
     const isExplicitCancelCommand = lower === "/batal" || lower === "/cancel";
 
-    // Prevent loops: ignore self messages UNLESS user is testing command, in active session, picking category, or greeting
-    if (fromMe && !trimmed.startsWith("/") && session.step === "IDLE" && !isCategoryInput && !isGreeting && !isCancel && !isBack && !isExplicitCancelCommand) {
-        return;
+    // Prevent loops: ignore self messages if it is a bot prompt, or not an intentional action
+    if (fromMe) {
+        if (
+            trimmed.startsWith("Waduh,") ||
+            trimmed.startsWith("Halo kak!") ||
+            trimmed.startsWith("🛒") ||
+            trimmed.startsWith("🧾") ||
+            trimmed.startsWith("💡") ||
+            trimmed.startsWith("❌") ||
+            trimmed.startsWith("✅") ||
+            trimmed.startsWith("⚠️") ||
+            trimmed.startsWith("ℹ️") ||
+            trimmed.startsWith("⏱️") ||
+            trimmed.startsWith("🏷️") ||
+            trimmed.startsWith("🎉") ||
+            trimmed.startsWith("✨") ||
+            trimmed.startsWith("Silakan balas") ||
+            trimmed.includes("Waduh, pilihan itemnya belum sesuai") ||
+            (!trimmed.startsWith("/") && session.step === "IDLE" && !isCategoryInput && !isGreeting && !isCancel && !isBack && !isExplicitCancelCommand)
+        ) {
+            return;
+        }
     }
 
     // Language switch & cross-language hints in private chat
@@ -1576,6 +1595,7 @@ async function handleIncomingMessageInternal(
     if (session.step === "AWAITING_CATEGORY") {
         const cat = resolveCategory(trimmed, CATEGORIES);
         if (!cat) {
+            if (fromMe) return;
             await ctx.sendText(remoteJid, t("invalidCategory", userLang));
             return;
         }
@@ -1603,6 +1623,7 @@ async function handleIncomingMessageInternal(
         }
 
         if (!selected) {
+            if (fromMe) return;
             await ctx.sendText(remoteJid, t("invalidItem", userLang));
             return;
         }
@@ -1843,6 +1864,7 @@ async function handleIncomingMessageInternal(
         const gamertag = trimmed;
         const isValidGamertag = /^[a-zA-Z0-9 _]{3,16}$/.test(gamertag);
         if (!isValidGamertag) {
+            if (fromMe) return;
             await ctx.sendText(remoteJid, t("invalidGamertag", userLang));
             return;
         }
@@ -2005,6 +2027,7 @@ async function handleIncomingMessageInternal(
             return;
         }
 
+        if (fromMe) return;
         await ctx.sendText(remoteJid, t("confirmPrompt", userLang));
         return;
     }
