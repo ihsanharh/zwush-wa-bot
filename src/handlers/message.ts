@@ -13,6 +13,7 @@ export interface BotContext {
     client: CoreClient;
     state: StateManager;
     adminLogger?: AdminGroupLogger;
+    qrDeleter?: (jid: string, key?: any) => Promise<void>;
     sendText(jid: string, text: string, mentions?: string[]): Promise<void>;
     sendImage(jid: string, buffer: Buffer, caption?: string): Promise<any>;
     sendPoll?(jid: string, title: string, options: string[]): Promise<void>;
@@ -173,6 +174,109 @@ async function handlePaidCommand(
         const errMsg = err instanceof Error ? err.message : String(err);
         await ctx.sendText(remoteJid, `❌ Gagal menandai pesanan #${targetId} sebagai lunas:\n${errMsg}`);
     }
+}
+
+async function handleCancelCommand(
+    remoteJid: string,
+    args: string[],
+    ctx: BotContext,
+    userLang: Language,
+    isAdminUser: boolean
+): Promise<void> {
+    const session = ctx.state.getSession(remoteJid);
+
+    // Case 1: An order ID is explicitly provided (e.g. /cancel ORD-123456)
+    if (args.length > 0) {
+        if (!isAdminUser) {
+            await ctx.sendText(remoteJid, t("adminOnly", userLang));
+            return;
+        }
+
+        let targetId = args[0].trim().toUpperCase().replace(/^#/, "");
+        if (!targetId.startsWith("ORD-")) {
+            targetId = "ORD-" + targetId;
+        }
+
+        try {
+            const res = await ctx.client.cancelOrder(targetId, "Cancelled by admin via command");
+            await ctx.sendText(
+                remoteJid,
+                `✅ *PESANAN DIBATALKAN OLEH ADMIN*\n\n` +
+                `🆔 Order ID: *#${res.orderId}*\n` +
+                `👤 Gamertag: *${res.gamertag || "-"}*\n` +
+                `📦 Item: *${res.itemName || "-"}*\n` +
+                `💰 Total: *${formatRupiah(res.totalNominal || 0)}*\n` +
+                `📊 Status: *CANCELLED* ❌\n\n` +
+                `Pesanan berhasil dibatalkan. Kode unik & kuota voucher (jika ada) telah dikembalikan.`
+            );
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            await ctx.sendText(remoteJid, `❌ Gagal membatalkan pesanan #${targetId}:\n${errMsg}`);
+        }
+        return;
+    }
+
+    // Case 2: No order ID provided
+    // 2a. If in the middle of active ordering wizard (step !== IDLE)
+    if (session.step !== "IDLE" && session.step !== "LIVE_CHAT" && session.step !== "AWAITING_SUPPORT_CONFIRMATION") {
+        ctx.state.clear(remoteJid);
+        await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+        return;
+    }
+
+    // 2b. Check if user has an active pending payment order (QR displayed, waiting for payment)
+    let pendingOrderId = ctx.state.getActiveOrderId(remoteJid);
+    let pendingItemName: string | undefined;
+
+    if (!pendingOrderId) {
+        try {
+            const userOrders = await ctx.client.getUserOrders(remoteJid);
+            const found = userOrders?.find((o) => o.status === "PENDING_PAYMENT");
+            if (found) {
+                pendingOrderId = found.id;
+                pendingItemName = found.itemName;
+            }
+        } catch {}
+    }
+
+    if (pendingOrderId) {
+        try {
+            const res = await ctx.client.cancelOrder(pendingOrderId, "Cancelled by buyer");
+            if (ctx.qrDeleter) {
+                try {
+                    await ctx.qrDeleter(remoteJid);
+                } catch {}
+            }
+            ctx.state.clearActiveOrderId(remoteJid);
+            ctx.state.clearQrMessageKey(remoteJid);
+            ctx.state.clear(remoteJid);
+
+            const msg = userLang === "en" ? (
+                `✅ *ORDER CANCELLED*\n\n` +
+                `Your order *#${res.orderId}* (*${res.itemName || pendingItemName || "Item"}*) has been successfully cancelled.\n\n` +
+                `Unique payment code & voucher quota have been returned. Type */buy* or */katalog* whenever you want to create a new order! 😊`
+            ) : (
+                `✅ *PESANAN BERHASIL DIBATALKAN*\n\n` +
+                `Pesanan kakak *#${res.orderId}* (*${res.itemName || pendingItemName || "Item"}*) telah berhasil dibatalkan.\n\n` +
+                `Kode unik & kuota voucher kakak sudah dikembalikan. Silakan ketik */beli* atau */katalog* jika ingin membuat pesanan baru ya kak! 😊`
+            );
+            await ctx.sendText(remoteJid, msg);
+            return;
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            const failMsg = userLang === "en"
+                ? `❌ Failed to cancel order #${pendingOrderId}: ${errMsg}`
+                : `❌ Gagal membatalkan pesanan #${pendingOrderId}: ${errMsg}`;
+            await ctx.sendText(remoteJid, failMsg);
+            return;
+        }
+    }
+
+    // 2c. No active wizard and no pending order
+    const noOrderMsg = userLang === "en"
+        ? `💡 You don't have any active order waiting for payment.\nType */buy* or */catalog* to start shopping! 😊`
+        : `💡 Kakak sedang tidak memiliki pesanan yang menunggu pembayaran.\nKetik */beli* atau */katalog* untuk mulai berbelanja ya kak! 😊`;
+    await ctx.sendText(remoteJid, noOrderMsg);
 }
 
 async function handleSupportCommand(
@@ -1366,12 +1470,19 @@ async function handleIncomingMessageInternal(
 
         // Cancel command in group
         if (cmd === "/batal" || cmd === "/cancel") {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            if (args.length > 0) {
+                await handleCancelCommand(remoteJid, args, ctx, userLang, isAdmin);
+                return;
+            }
             const userSession = ctx.state.getSession(effectiveSender);
             if (userSession.step !== "IDLE") {
                 ctx.state.clear(effectiveSender);
                 const cancelNotice = `@${senderPhone}\n\n` + t("cancelSuccess", userLang);
                 await ctx.sendText(remoteJid, cancelNotice, [effectiveSender]);
+                return;
             }
+            await handleCancelCommand(effectiveSender, [], ctx, userLang, isAdmin);
             return;
         }
 
@@ -1579,6 +1690,14 @@ async function handleIncomingMessageInternal(
     }
 
     // Cancellation shortcut
+    const isFullWordCancel =
+        lower === "batal" ||
+        lower === "cancel" ||
+        lower === "/batal" ||
+        lower === "/cancel" ||
+        lower.startsWith("/batal ") ||
+        lower.startsWith("/cancel ");
+
     if (isCancel || isExplicitCancelCommand) {
         if (session.step === "AWAITING_SUPPORT_CONFIRMATION") {
             // Handled specifically in support flow below
@@ -1586,7 +1705,9 @@ async function handleIncomingMessageInternal(
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return;
-        } else {
+        } else if (isFullWordCancel) {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            await handleCancelCommand(remoteJid, [], ctx, userLang, isAdmin);
             return;
         }
     }
@@ -2102,7 +2223,8 @@ async function handleIncomingMessageInternal(
                     `💰 Total Payment: *${formatRupiah(order.totalNominal)}*\n\n` +
                     `⚠️ *IMPORTANT:* Please transfer the exact amount *${formatRupiah(order.totalNominal)}* (including the last 3-digit unique code) so our system can verify your payment automatically!\n\n` +
                     `⏱️ *Time Limit: 15 Minutes!*\n` +
-                    `Please complete the payment within 15 minutes to avoid QRIS expiration. Thank you for shopping with ${config.STORE_NAME}! 🥰`
+                    `Please complete the payment within 15 minutes to avoid QRIS expiration. Thank you for shopping with ${config.STORE_NAME}! 🥰\n\n` +
+                    `💡 _Forgot voucher or want to cancel? Type */cancel* or *cancel*._`
                 ) : (
                     `🧾 *INVOICE PEMBAYARAN ${config.STORE_NAME.toUpperCase()}*\n\n` +
                     `Halo kak! Pesanan kakak sudah berhasil dibuat nih 🎉\n\n` +
@@ -2113,7 +2235,8 @@ async function handleIncomingMessageInternal(
                     `💰 Total Bayar: *${formatRupiah(order.totalNominal)}*\n\n` +
                     `⚠️ *PENTING YA KAK:* Mohon transfer tepat *${formatRupiah(order.totalNominal)}* (termasuk 3 digit kode unik) agar pembayaran otomatis terverifikasi sistem!\n\n` +
                     `⏱️ *Batas Waktu: 15 Menit!*\n` +
-                    `Jangan transfer lewat dari 15 menit ya kak agar QRIS tidak kedaluwarsa. Terima kasih banyak sudah berbelanja di ${config.STORE_NAME}! 🥰`
+                    `Jangan transfer lewat dari 15 menit ya kak agar QRIS tidak kedaluwarsa. Terima kasih banyak sudah berbelanja di ${config.STORE_NAME}! 🥰\n\n` +
+                    `💡 _Lupa voucher atau ingin batalkan? Ketik */batal* atau *batal*._`
                 );
 
                 const sent = await ctx.sendImage(remoteJid, qrisBuffer, invoice);
@@ -2123,6 +2246,7 @@ async function handleIncomingMessageInternal(
                 if (qrKey) {
                     ctx.state.setQrMessageKey(remoteJid, qrKey);
                 }
+                ctx.state.setActiveOrderId(remoteJid, order.orderId);
 
                 if (ctx.adminLogger) {
                     await ctx.adminLogger.logNewOrder({
@@ -2509,10 +2633,8 @@ async function handleIncomingMessageInternal(
 
         case "/batal":
         case "/cancel": {
-            if (session.step !== "IDLE") {
-                ctx.state.clear(remoteJid);
-                await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
-            }
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            await handleCancelCommand(remoteJid, args, ctx, userLang, isAdmin);
             break;
         }
 

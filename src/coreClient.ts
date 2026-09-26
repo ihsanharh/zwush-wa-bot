@@ -149,6 +149,39 @@ export class CoreClient {
     }
 
     /**
+     * Cancels a pending order, releasing unique code and reverting voucher quota.
+     */
+    async cancelOrder(orderId: string, reason = "Cancelled by user"): Promise<{
+        success: boolean;
+        orderId: string;
+        status: string;
+        gamertag?: string;
+        itemName?: string;
+        totalNominal?: number;
+        message?: string;
+    }> {
+        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/cancel`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason }),
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as {
+            success: boolean;
+            orderId: string;
+            status: string;
+            gamertag?: string;
+            itemName?: string;
+            totalNominal?: number;
+            message?: string;
+        };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to cancel order #${orderId} (${res.status})`);
+        }
+        return data;
+    }
+
+    /**
      * Updates an order's gamertag and re-enqueues it for gifting.
      */
     async updateOrderGamertag(orderId: string, gamertag: string): Promise<OrderRetryResponse> {

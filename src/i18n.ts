@@ -22,6 +22,8 @@ export function formatStatusBadge(status: string, lang: Language = "id", failure
                 return "⚠️ Awaiting Restock";
             case "EXPIRED":
                 return "⏱️ Expired (Cancelled)";
+            case "CANCELLED":
+                return "❌ Cancelled";
             case "FAILED":
                 return `❌ Failed: ${failureReason || "Unknown"}`;
             default:
@@ -42,6 +44,8 @@ export function formatStatusBadge(status: string, lang: Language = "id", failure
             return "⚠️ Token Kurang / Menunggu Restock";
         case "EXPIRED":
             return "⏱️ Kedaluwarsa (Batal)";
+        case "CANCELLED":
+            return "❌ Dibatalkan";
         case "FAILED":
             return `❌ Gagal: ${failureReason || "Tidak Diketahui"}`;
         default:

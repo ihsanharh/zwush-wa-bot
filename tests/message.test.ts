@@ -126,6 +126,15 @@ describe("Message Handler Router", () => {
                 itemName: "Dragon Pet",
                 totalNominal: 25012,
                 message: `Order #${id} marked as paid and enqueued for gifting`
+            })),
+            cancelOrder: mock(async (id: string, reason?: string) => ({
+                success: true,
+                orderId: id,
+                status: "CANCELLED",
+                gamertag: "Viosca",
+                itemName: "Dragon Pet",
+                totalNominal: 25012,
+                message: `Order #${id} cancelled (${reason})`
             }))
         };
 
@@ -166,7 +175,8 @@ describe("Message Handler Router", () => {
             sendImage: mock(async (_jid: string, buffer: Buffer, caption?: string) => {
                 sentImages.push({ buffer, caption });
                 return { key: { id: "qr_key_123", remoteJid: _jid } };
-            })
+            }),
+            qrDeleter: mock(async (_jid: string, _key?: any) => {})
         };
 
         return { ctx, sentTexts, sentTextEvents, sentImages, loggedOrders, mockClient, mockAdminLogger };
@@ -1067,6 +1077,66 @@ describe("Message Handler Router", () => {
             await handleIncomingMessage(userJid, false, "/paid ORD-I82AME", ctx);
             expect(mockClient.markOrderAsPaid).not.toHaveBeenCalled();
             expect(sentTexts[0]).toContain("Perintah tidak dikenali");
+        });
+    });
+
+    describe("Order Cancellation (/cancel, /batal)", () => {
+        it("should allow buyer to cancel active pending order with /batal", async () => {
+            const { ctx, sentTexts, mockClient } = createMockContext();
+            const buyerJid = "buyer123@s.whatsapp.net";
+
+            // Track active order in session
+            ctx.state.setActiveOrderId(buyerJid, "ORD-ACTIVE1");
+
+            await handleIncomingMessage(buyerJid, false, "/batal", ctx);
+            expect(mockClient.cancelOrder).toHaveBeenCalledWith("ORD-ACTIVE1", "Cancelled by buyer");
+            expect(ctx.state.getActiveOrderId(buyerJid)).toBeUndefined();
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0]).toContain("PESANAN BERHASIL DIBATALKAN");
+            expect(sentTexts[0]).toContain("#ORD-ACTIVE1");
+        });
+
+        it("should allow buyer to cancel active pending order by typing 'batal'", async () => {
+            const { ctx, sentTexts, mockClient } = createMockContext();
+            const buyerJid = "buyer456@s.whatsapp.net";
+
+            ctx.state.setActiveOrderId(buyerJid, "ORD-ACTIVE2");
+
+            await handleIncomingMessage(buyerJid, false, "batal", ctx);
+            expect(mockClient.cancelOrder).toHaveBeenCalledWith("ORD-ACTIVE2", "Cancelled by buyer");
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0]).toContain("PESANAN BERHASIL DIBATALKAN");
+        });
+
+        it("should inform buyer if they try /batal with no pending order", async () => {
+            const { ctx, sentTexts, mockClient } = createMockContext();
+            mockClient.getUserOrders = mock(async () => []);
+            const buyerJid = "buyer_idle@s.whatsapp.net";
+
+            await handleIncomingMessage(buyerJid, false, "/batal", ctx);
+            expect(mockClient.cancelOrder).not.toHaveBeenCalled();
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0]).toContain("tidak memiliki pesanan yang menunggu pembayaran");
+        });
+
+        it("should allow admin to cancel any order with /cancel <order_id> in admin group", async () => {
+            const { ctx, sentTexts, mockClient } = createMockContext();
+            const adminGroup = "120363@g.us";
+
+            await handleIncomingMessage(adminGroup, false, "/cancel ORD-TO-CANCEL", ctx, "admin@s.whatsapp.net");
+            expect(mockClient.cancelOrder).toHaveBeenCalledWith("ORD-TO-CANCEL", "Cancelled by admin via command");
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0]).toContain("PESANAN DIBATALKAN OLEH ADMIN");
+            expect(sentTexts[0]).toContain("#ORD-TO-CANCEL");
+        });
+
+        it("should reject non-admin from cancelling arbitrary order ID with /cancel", async () => {
+            const { ctx, sentTexts, mockClient } = createMockContext();
+            const userJid = "buyer_random@s.whatsapp.net";
+
+            await handleIncomingMessage(userJid, false, "/cancel ORD-NOT-YOURS", ctx);
+            expect(mockClient.cancelOrder).not.toHaveBeenCalled();
+            expect(sentTexts[0]).toContain("Perintah ini hanya dapat digunakan oleh Admin Toko");
         });
     });
 });

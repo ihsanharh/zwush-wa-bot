@@ -71,6 +71,7 @@ const botContext: BotContext = {
     client: coreClient,
     state: stateManager,
     adminLogger,
+    qrDeleter,
     async sendText(jid: string, text: string, mentions?: string[]) {
         console.log(`[WhatsApp Sending Text to ${jid}]:\n${text.slice(0, 100)}...`);
         if (mentions && mentions.length > 0) {

@@ -33,6 +33,7 @@ export interface UserSession {
     gamertag?: string;
     appliedVoucher?: AppliedVoucherInfo;
     lastQrKey?: any;
+    activeOrderId?: string;
     language?: Language;
     lastUpdated: number;
     lastCancelledAt?: number;
@@ -196,6 +197,33 @@ export class StateManager {
         const current = this.sessions.get(jid);
         if (current) {
             current.lastQrKey = undefined;
+        }
+    }
+
+    /**
+     * Sets the active pending order ID for a JID.
+     */
+    setActiveOrderId(jid: string, orderId: string): void {
+        const current = this.getSession(jid);
+        current.activeOrderId = orderId;
+        current.lastUpdated = Date.now();
+        this.sessions.set(jid, current);
+    }
+
+    /**
+     * Gets the active pending order ID for a JID.
+     */
+    getActiveOrderId(jid: string): string | undefined {
+        return this.sessions.get(jid)?.activeOrderId;
+    }
+
+    /**
+     * Clears active pending order ID for a JID.
+     */
+    clearActiveOrderId(jid: string): void {
+        const current = this.sessions.get(jid);
+        if (current) {
+            current.activeOrderId = undefined;
         }
     }
 
