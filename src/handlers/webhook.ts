@@ -53,6 +53,12 @@ export function createWebhookApp(
                 return c.json({ success: false, message: "Missing required fields" }, 400);
             }
 
+            // Ignore stale notifications older than 5 minutes (300 seconds)
+            if (body.timestamp && (Date.now() - body.timestamp > 300000)) {
+                console.log(`[Webhook Ignored] Stale notification for order ${body.orderId} (${Math.round((Date.now() - body.timestamp) / 1000)}s old > 300s limit)`);
+                return c.json({ success: true, ignored: true, reason: "Stale notification" });
+            }
+
             // 1. Update Admin Group Logger if configured
             if (adminLogger) {
                 await adminLogger.updateOrderStatus(body.orderId, body.status, {

@@ -255,4 +255,39 @@ describe("Webhook Server", () => {
         expect(sentMessages[0]?.text).toContain("/support");
         expect(state.getSession("628111@s.whatsapp.net").step).toBe("IDLE");
     });
+
+    it("should ignore stale notifications with timestamp older than 5 minutes (300s)", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            })
+        };
+
+        const app = createWebhookApp(mockSender);
+
+        // Stale timestamp (10 minutes ago)
+        const staleTimestamp = Date.now() - 600000;
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ord_stale_123",
+                platform: "whatsapp",
+                platformUserId: "628111111111@s.whatsapp.net",
+                gamertag: "Notch",
+                itemName: "Ultimate Rank",
+                status: "EXPIRED",
+                message: "Payment window expired",
+                timestamp: staleTimestamp
+            })
+        });
+
+        expect(res.status).toBe(200);
+        const json = (await res.json()) as { success: boolean; ignored?: boolean };
+        expect(json.success).toBe(true);
+        expect(json.ignored).toBe(true);
+        // Sender should NOT have sent any message to customer
+        expect(sentMessages.length).toBe(0);
+    });
 });

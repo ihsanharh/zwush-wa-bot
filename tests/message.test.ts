@@ -2,6 +2,8 @@ import { describe, expect, it, mock } from "bun:test";
 import {
     handleIncomingMessage,
     extractMessageText,
+    extractEventTimestampSeconds,
+    isEventStale,
     resolveCategory,
     CATEGORIES,
     type BotContext
@@ -942,5 +944,79 @@ describe("Message Handler Router", () => {
         expect(sentTexts[1]).toContain("*/katalog*");
         expect(ctx.state.getSession(jid).step).toBe("IDLE");
         expect(mockAdminLogger.notifySupportRequest).not.toHaveBeenCalled();
+    });
+
+    describe("Stale Message Guarding & Timestamps", () => {
+        it("should correctly extract timestamp in seconds from various event formats", () => {
+            // zapo-js timestampSeconds
+            expect(extractEventTimestampSeconds({ timestampSeconds: 1727360000 })).toBe(1727360000);
+
+            // rawNode.attrs.t
+            expect(extractEventTimestampSeconds({ rawNode: { attrs: { t: "1727360000" } } })).toBe(1727360000);
+
+            // protobuf Long object
+            expect(extractEventTimestampSeconds({ messageTimestamp: { low: 1727360000, high: 0 } })).toBe(1727360000);
+
+            // protobuf message nested
+            expect(extractEventTimestampSeconds({ message: { messageTimestamp: 1727360000 } })).toBe(1727360000);
+
+            // raw message nested
+            expect(extractEventTimestampSeconds({ raw: { messageTimestamp: 1727360000 } })).toBe(1727360000);
+
+            // millisecond timestamp (> 1e11)
+            expect(extractEventTimestampSeconds({ timestamp: 1727360000000 })).toBe(1727360000);
+
+            // invalid or null
+            expect(extractEventTimestampSeconds(null)).toBeNull();
+            expect(extractEventTimestampSeconds({})).toBeNull();
+            expect(extractEventTimestampSeconds({ timestamp: -1 })).toBeNull();
+        });
+
+        it("should detect whether an event is fresh or stale (> 300s limit)", () => {
+            const nowSec = Math.floor(Date.now() / 1000);
+
+            // Fresh message (10 seconds ago)
+            const freshEvent = { timestampSeconds: nowSec - 10 };
+            const freshRes = isEventStale(freshEvent, 300);
+            expect(freshRes.stale).toBe(false);
+
+            // Boundary message (299 seconds ago)
+            const boundaryEvent = { timestampSeconds: nowSec - 299 };
+            expect(isEventStale(boundaryEvent, 300).stale).toBe(false);
+
+            // Stale message (301 seconds ago)
+            const staleEvent = { timestampSeconds: nowSec - 301 };
+            const staleRes = isEventStale(staleEvent, 300);
+            expect(staleRes.stale).toBe(true);
+            expect(staleRes.ageSec).toBeGreaterThanOrEqual(301);
+
+            // Offline catch-up stanza with missing timestamp -> considered stale
+            const offlineCatchupEvent = { offline: true };
+            expect(isEventStale(offlineCatchupEvent, 300).stale).toBe(true);
+
+            // Normal live message with missing timestamp -> not flagged as stale unless offline
+            expect(isEventStale({}, 300).stale).toBe(false);
+        });
+
+        it("should drop incoming message if timestampSeconds is older than 5 minutes (300s)", async () => {
+            const { ctx, sentTexts } = createMockContext();
+            const jid = "buyer_stale@s.whatsapp.net";
+            const nowSec = Math.floor(Date.now() / 1000);
+
+            // Send stale message from 10 minutes ago (600s)
+            const staleTs = nowSec - 600;
+            await handleIncomingMessage(jid, false, "/beli", ctx, undefined, staleTs);
+
+            // No replies should have been sent to the buyer
+            expect(sentTexts.length).toBe(0);
+            expect(ctx.state.getSession(jid).step).toBe("IDLE");
+
+            // Fresh message from 30 seconds ago should be processed normally
+            const freshTs = nowSec - 30;
+            await handleIncomingMessage(jid, false, "/beli", ctx, undefined, freshTs);
+
+            expect(sentTexts.length).toBeGreaterThan(0);
+            expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
+        });
     });
 });

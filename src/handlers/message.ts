@@ -808,6 +808,50 @@ export function isPrivateChat(remoteJid: string): boolean {
     return remoteJid.endsWith("@s.whatsapp.net") || remoteJid.endsWith("@lid");
 }
 
+/**
+ * Safely extracts timestamp in seconds from a WhatsApp incoming message/addon event.
+ */
+export function extractEventTimestampSeconds(event: unknown): number | null {
+    if (!event || typeof event !== "object") return null;
+    const ev = event as Record<string, any>;
+
+    const raw =
+        ev.timestampSeconds ??
+        ev.rawNode?.attrs?.t ??
+        ev.messageTimestamp ??
+        ev.timestamp ??
+        ev.message?.messageTimestamp ??
+        ev.raw?.messageTimestamp;
+
+    if (raw == null) return null;
+    let ts = typeof raw === "object" && raw?.low != null ? raw.low : Number(raw);
+    if (isNaN(ts) || ts <= 0) return null;
+    if (ts > 1e11) ts = Math.floor(ts / 1000);
+    return ts;
+}
+
+/**
+ * Checks whether an incoming message/addon event is stale (> maxAgeSec old, default 300s = 5 minutes).
+ * Also flags un-timestamped offline catch-up stanzas as stale to prevent launch spam.
+ */
+export function isEventStale(event: unknown, maxAgeSec: number = 300): { stale: boolean; ageSec?: number; reason?: string } {
+    const tsSec = extractEventTimestampSeconds(event);
+    if (tsSec !== null) {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const ageSec = nowSec - tsSec;
+        if (ageSec > maxAgeSec) {
+            return { stale: true, ageSec, reason: `Timestamp is ${ageSec}s old (limit: ${maxAgeSec}s)` };
+        }
+        return { stale: false, ageSec };
+    }
+
+    if (Boolean((event as any)?.offline)) {
+        return { stale: true, reason: "Offline catch-up stanza with missing timestamp" };
+    }
+
+    return { stale: false };
+}
+
 async function handleBalanceCommand(
     remoteJid: string,
     args: string[],
@@ -977,11 +1021,22 @@ export async function handleIncomingMessage(
     fromMe: boolean,
     bodyText: string,
     ctx: BotContext,
-    participant?: string
+    participant?: string,
+    timestampSeconds?: number
 ): Promise<void> {
     const isGroup = remoteJid.endsWith("@g.us");
     if (!isPrivateChat(remoteJid) && !isGroup) {
         return;
+    }
+
+    // Ignore stale messages older than 5 minutes (300 seconds)
+    if (typeof timestampSeconds === "number" && timestampSeconds > 0) {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const ageSec = nowSec - timestampSeconds;
+        if (ageSec > 300) {
+            console.log(`[Message Ignored] Stale message (${ageSec}s old > 300s limit) from ${remoteJid}`);
+            return;
+        }
     }
 
     const effectiveSender = isGroup ? (participant || remoteJid) : remoteJid;

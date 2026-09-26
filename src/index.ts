@@ -5,7 +5,13 @@ import { config } from "./config";
 import { CoreClient } from "./coreClient";
 import { StateManager } from "./state";
 import { createWebhookApp, type BotMessageSender } from "./handlers/webhook";
-import { handleIncomingMessage, extractMessageText, type BotContext } from "./handlers/message";
+import {
+    handleIncomingMessage,
+    extractMessageText,
+    extractEventTimestampSeconds,
+    isEventStale,
+    type BotContext
+} from "./handlers/message";
 import { AdminGroupLogger } from "./handlers/adminLogger";
 
 console.log(`⚡ Starting ${config.STORE_NAME} WhatsApp Bot...`);
@@ -153,16 +159,23 @@ client.on("auth_paired", async ({ credentials }) => {
 // 5. Incoming Addon Dispatcher (Poll Votes, Reactions)
 client.on("message_addon", async (event) => {
     try {
+        const staleCheck = isEventStale(event, 300);
+        if (staleCheck.stale) {
+            console.log(`[Addon Ignored] Stale addon (${staleCheck.reason}) from ${event.key?.remoteJid}`);
+            return;
+        }
+
         if (event.kind === "poll_vote" && event.decrypted) {
             const pollData = event.decrypted as { selectedOptionNames?: readonly string[] | null };
             const selected = pollData.selectedOptionNames?.[0];
             const remoteJid = event.key?.remoteJid || "";
             const fromMe = Boolean(event.key?.fromMe);
             const participant = event.key?.participant ?? undefined;
+            const tsSec = extractEventTimestampSeconds(event) ?? undefined;
 
             if (selected) {
                 console.log(`[Poll Vote Event] from: ${remoteJid}, selected: "${selected}"`);
-                await handleIncomingMessage(remoteJid, fromMe, selected, botContext, participant);
+                await handleIncomingMessage(remoteJid, fromMe, selected, botContext, participant, tsSec);
             }
         }
     } catch (err: unknown) {
@@ -179,9 +192,16 @@ client.on("message", async (event) => {
         const participant = event.key?.participant ?? undefined;
         const text = extractMessageText(event.message);
 
+        const staleCheck = isEventStale(event, 300);
+        if (staleCheck.stale) {
+            console.log(`[Message Ignored] Stale message (${staleCheck.reason}) from ${remoteJid}: "${text.slice(0, 30)}"`);
+            return;
+        }
+
+        const tsSec = extractEventTimestampSeconds(event) ?? undefined;
         console.log(`[WhatsApp Message Event] from: ${remoteJid}, participant: ${participant}, fromMe: ${fromMe}, text: "${text}"`);
 
-        await handleIncomingMessage(remoteJid, fromMe, text, botContext, participant);
+        await handleIncomingMessage(remoteJid, fromMe, text, botContext, participant, tsSec);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[Message Event Error]:", msg);
