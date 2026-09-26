@@ -26,7 +26,9 @@ export class CoreClient {
     async getCatalog(retries = 3): Promise<CatalogItem[]> {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                const res = await fetch(`${this.baseUrl}/api/catalog`);
+                const res = await fetch(`${this.baseUrl}/api/catalog`, {
+                    signal: AbortSignal.timeout(10000)
+                });
                 if (!res.ok) {
                     const errBody = await res.text();
                     throw new Error(`Failed to fetch catalog: ${res.status} ${errBody}`);
@@ -60,7 +62,8 @@ export class CoreClient {
                 gamertag,
                 itemName,
                 voucherCode: voucherCode || undefined
-            })
+            }),
+            signal: AbortSignal.timeout(15000)
         });
 
         const data = (await res.json()) as { success: boolean; message?: string } & OrderCreateResponse;
@@ -75,7 +78,9 @@ export class CoreClient {
      * Checks order status by ID.
      */
     async getOrderStatus(orderId: string): Promise<OrderStatusResponse["order"]> {
-        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}`);
+        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}`, {
+            signal: AbortSignal.timeout(10000)
+        });
         const data = (await res.json()) as OrderStatusResponse & { message?: string };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Order #${orderId} not found`);
@@ -87,7 +92,9 @@ export class CoreClient {
      * Fetches recent orders for a platform user.
      */
     async getUserOrders(platformUserId: string): Promise<OrderStatusResponse["order"][]> {
-        const res = await fetch(`${this.baseUrl}/api/orders/user/${encodeURIComponent(platformUserId)}`);
+        const res = await fetch(`${this.baseUrl}/api/orders/user/${encodeURIComponent(platformUserId)}`, {
+            signal: AbortSignal.timeout(10000)
+        });
         const data = (await res.json()) as UserOrdersResponse & { message?: string };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Failed to fetch orders for user (${res.status})`);
@@ -100,7 +107,8 @@ export class CoreClient {
      */
     async retryOrder(orderId: string): Promise<OrderRetryResponse> {
         const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/retry`, {
-            method: "POST"
+            method: "POST",
+            signal: AbortSignal.timeout(15000)
         });
         const data = (await res.json()) as OrderRetryResponse & { message?: string };
         if (!res.ok || !data.success) {
@@ -116,7 +124,8 @@ export class CoreClient {
         const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/update-gamertag`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ gamertag })
+            body: JSON.stringify({ gamertag }),
+            signal: AbortSignal.timeout(15000)
         });
         const data = (await res.json()) as OrderRetryResponse & { message?: string };
         if (!res.ok || !data.success) {
@@ -130,7 +139,8 @@ export class CoreClient {
      */
     async retryAllOrders(): Promise<OrderRetryAllResponse> {
         const res = await fetch(`${this.baseUrl}/api/orders/retry-all`, {
-            method: "POST"
+            method: "POST",
+            signal: AbortSignal.timeout(15000)
         });
         const data = (await res.json()) as OrderRetryAllResponse & { message?: string };
         if (!res.ok || !data.success) {
@@ -143,7 +153,9 @@ export class CoreClient {
      * Fetches the dynamic QRIS PNG buffer directly from core service.
      */
     async getOrderQrPng(orderId: string): Promise<Buffer> {
-        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/qr.png`);
+        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/qr.png`, {
+            signal: AbortSignal.timeout(10000)
+        });
         if (!res.ok) {
             throw new Error(`Failed to fetch QRIS PNG for order #${orderId} (${res.status})`);
         }
@@ -155,7 +167,9 @@ export class CoreClient {
      * Gets store discount status and active vouchers.
      */
     async getVoucherStatus(): Promise<VoucherStatusResponse> {
-        const res = await fetch(`${this.baseUrl}/api/vouchers/status`);
+        const res = await fetch(`${this.baseUrl}/api/vouchers/status`, {
+            signal: AbortSignal.timeout(10000)
+        });
         const data = (await res.json()) as VoucherStatusResponse & { message?: string };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Failed to fetch voucher status (${res.status})`);
@@ -173,7 +187,8 @@ export class CoreClient {
                 "Content-Type": "application/json",
                 "X-Webhook-Secret": config.WEBHOOK_SECRET
             },
-            body: JSON.stringify({ percent })
+            body: JSON.stringify({ percent }),
+            signal: AbortSignal.timeout(10000)
         });
         const data = (await res.json()) as { success: boolean; discountPercent: number; message?: string };
         if (!res.ok || !data.success) {
@@ -198,7 +213,8 @@ export class CoreClient {
                 "Content-Type": "application/json",
                 "X-Webhook-Secret": config.WEBHOOK_SECRET
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(10000)
         });
         const data = (await res.json()) as { success: boolean; voucher: VoucherItem; message?: string };
         if (!res.ok || !data.success) {
@@ -215,7 +231,8 @@ export class CoreClient {
             method: "DELETE",
             headers: {
                 "X-Webhook-Secret": config.WEBHOOK_SECRET
-            }
+            },
+            signal: AbortSignal.timeout(10000)
         });
         const data = (await res.json()) as { success: boolean; message?: string };
         if (!res.ok || !data.success) {
@@ -230,7 +247,8 @@ export class CoreClient {
         const res = await fetch(`${this.baseUrl}/api/vouchers/validate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code, itemName })
+            body: JSON.stringify({ code, itemName }),
+            signal: AbortSignal.timeout(10000)
         });
         const data = (await res.json()) as VoucherValidationResponse & { message?: string };
         if (!res.ok || !data.success) {
@@ -244,7 +262,9 @@ export class CoreClient {
      */
     async getBalance(forceRefresh = false): Promise<BotBalanceResponse> {
         const url = `${this.baseUrl}/api/bot/balance${forceRefresh ? "?refresh=true" : ""}`;
-        const res = await fetch(url);
+        const res = await fetch(url, {
+            signal: AbortSignal.timeout(15000)
+        });
         const data = (await res.json()) as BotBalanceResponse & { message?: string };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Failed to fetch bot balance (${res.status})`);

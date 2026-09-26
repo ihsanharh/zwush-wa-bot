@@ -100,7 +100,7 @@ export function createWebhookApp(
 
                 if (isPlayerNotFound && stateManager) {
                     const attempts = stateManager.incrementOrderRetryAttempts(body.orderId);
-                    if (attempts <= 3) {
+                    if (attempts < 3) {
                         stateManager.setRetryOrder(body.platformUserId, {
                             orderId: body.orderId,
                             itemName: body.itemName,

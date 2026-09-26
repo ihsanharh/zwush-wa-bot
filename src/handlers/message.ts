@@ -953,8 +953,12 @@ const userMessageQueues = new Map<string, Promise<void>>();
 
 export function executeUserSequential(userKey: string, task: () => Promise<void>): Promise<void> {
     const lastTask = userMessageQueues.get(userKey) || Promise.resolve();
+    const timeoutPromise = new Promise<void>((_, reject) => {
+        setTimeout(() => reject(new Error("User queue task timed out (30s)")), 30000);
+    });
+
     const currentTask = lastTask
-        .then(() => task())
+        .then(() => Promise.race([task(), timeoutPromise]))
         .catch((err) => {
             console.error(`[Message Queue Error for ${userKey}]:`, err);
         })
@@ -1440,11 +1444,15 @@ async function handleIncomingMessageInternal(
 
     // Cancellation shortcut
     if (isCancel || isExplicitCancelCommand) {
-        if (session.step !== "IDLE") {
+        if (session.step === "AWAITING_SUPPORT_CONFIRMATION") {
+            // Handled specifically in support flow below
+        } else if (session.step !== "IDLE") {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            return;
+        } else {
+            return;
         }
-        return;
     }
 
     // Back navigation shortcut

@@ -149,7 +149,7 @@ describe("Webhook Server", () => {
         expect(sentMessages.length).toBe(1);
         expect(sentMessages[0]?.jid).toBe("628999@s.whatsapp.net");
         expect(sentMessages[0]?.text).toContain("antre restock");
-        expect(sentMessages[0]?.text).toContain("/bantuan");
+        expect(sentMessages[0]?.text).toContain("/support");
     });
 
     it("should send buyer notification in English when getBuyerLanguage returns en", async () => {
