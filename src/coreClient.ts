@@ -118,6 +118,37 @@ export class CoreClient {
     }
 
     /**
+     * Manually marks an order as paid, bypassing the GoPay webhook.
+     */
+    async markOrderAsPaid(orderId: string): Promise<{
+        success: boolean;
+        orderId: string;
+        status: string;
+        gamertag: string;
+        itemName: string;
+        totalNominal: number;
+        message?: string;
+    }> {
+        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/paid`, {
+            method: "POST",
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as {
+            success: boolean;
+            orderId: string;
+            status: string;
+            gamertag: string;
+            itemName: string;
+            totalNominal: number;
+            message?: string;
+        };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to mark order #${orderId} as paid (${res.status})`);
+        }
+        return data;
+    }
+
+    /**
      * Updates an order's gamertag and re-enqueues it for gifting.
      */
     async updateOrderGamertag(orderId: string, gamertag: string): Promise<OrderRetryResponse> {

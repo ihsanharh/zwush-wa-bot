@@ -117,6 +117,15 @@ describe("Message Handler Router", () => {
                 orderId: id,
                 gamertag,
                 status: "QUEUED" as const
+            })),
+            markOrderAsPaid: mock(async (id: string) => ({
+                success: true,
+                orderId: id,
+                status: "QUEUED",
+                gamertag: "Viosca",
+                itemName: "Dragon Pet",
+                totalNominal: 25012,
+                message: `Order #${id} marked as paid and enqueued for gifting`
             }))
         };
 
@@ -1017,6 +1026,47 @@ describe("Message Handler Router", () => {
 
             expect(sentTexts.length).toBeGreaterThan(0);
             expect(ctx.state.getSession(jid).step).toBe("AWAITING_CATEGORY");
+        });
+    });
+
+    describe("Admin Manual Payment Verification (/paid, /acc)", () => {
+        it("should show help when /paid is called without arguments", async () => {
+            const { ctx, sentTexts } = createMockContext();
+            const adminGroup = "120363@g.us";
+
+            await handleIncomingMessage(adminGroup, false, "/paid", ctx, "admin@s.whatsapp.net");
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0]).toContain("FORMAT PERINTAH BYPASS PEMBAYARAN");
+            expect(sentTexts[0]).toContain("*/paid <order_id>*");
+        });
+
+        it("should successfully mark order as paid via /paid in admin group", async () => {
+            const { ctx, sentTexts, mockClient } = createMockContext();
+            const adminGroup = "120363@g.us";
+
+            await handleIncomingMessage(adminGroup, false, "/paid ORD-I82AME", ctx, "admin@s.whatsapp.net");
+            expect(mockClient.markOrderAsPaid).toHaveBeenCalledWith("ORD-I82AME");
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0]).toContain("PEMBAYARAN DIVERIFIKASI MANUAL");
+            expect(sentTexts[0]).toContain("#ORD-I82AME");
+            expect(sentTexts[0]).toContain("QUEUED");
+        });
+
+        it("should normalize order ID (auto prefix ORD- and strip #)", async () => {
+            const { ctx, mockClient } = createMockContext();
+            const adminGroup = "120363@g.us";
+
+            await handleIncomingMessage(adminGroup, false, "/acc #I82AME", ctx, "admin@s.whatsapp.net");
+            expect(mockClient.markOrderAsPaid).toHaveBeenCalledWith("ORD-I82AME");
+        });
+
+        it("should reject non-admin from using /paid", async () => {
+            const { ctx, sentTexts, mockClient } = createMockContext();
+            const userJid = "normal_user@s.whatsapp.net";
+
+            await handleIncomingMessage(userJid, false, "/paid ORD-I82AME", ctx);
+            expect(mockClient.markOrderAsPaid).not.toHaveBeenCalled();
+            expect(sentTexts[0]).toContain("Perintah tidak dikenali");
         });
     });
 });

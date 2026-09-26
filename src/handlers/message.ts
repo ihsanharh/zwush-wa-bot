@@ -132,6 +132,49 @@ async function handleReprocessCommand(
     }
 }
 
+async function handlePaidCommand(
+    remoteJid: string,
+    args: string[],
+    ctx: BotContext
+): Promise<void> {
+    if (args.length === 0) {
+        await ctx.sendText(
+            remoteJid,
+            `ℹ️ *FORMAT PERINTAH BYPASS PEMBAYARAN:*\n\n` +
+            `Gunakan: */paid <order_id>*\n` +
+            `Contoh:\n` +
+            `• */paid ORD-I82AME*\n` +
+            `• */paid I82AME*\n` +
+            `• */acc ORD-I82AME*\n\n` +
+            `_Perintah ini digunakan oleh admin jika HP MacroDroid mati atau webhook tidak tertrigger, untuk memvalidasi pembayaran secara manual dan langsung memproses gifting._`
+        );
+        return;
+    }
+
+    let targetId = (args[0] || "").trim().toUpperCase().replace(/^#/, "");
+    if (!targetId.startsWith("ORD-")) {
+        targetId = "ORD-" + targetId;
+    }
+
+    try {
+        const res = await ctx.client.markOrderAsPaid(targetId);
+        await ctx.sendText(
+            remoteJid,
+            `✅ *PEMBAYARAN DIVERIFIKASI MANUAL (BYPASS)*\n\n` +
+            `🆔 Order ID: *#${res.orderId}*\n` +
+            `👤 Gamertag: *${res.gamertag}*\n` +
+            `🎁 Item: *${res.itemName}*\n` +
+            `💰 Total: *${formatRupiah(res.totalNominal)}*\n` +
+            `📊 Status: *QUEUED* ⏳\n\n` +
+            `Pesanan berhasil ditandai LUNAS dan telah dimasukkan ke antrean gifting bot! 🚀\n` +
+            `_Pembeli juga otomatis menerima notifikasi WhatsApp dan QRIS-nya telah dihapus._`
+        );
+    } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await ctx.sendText(remoteJid, `❌ Gagal menandai pesanan #${targetId} sebagai lunas:\n${errMsg}`);
+    }
+}
+
 async function handleSupportCommand(
     remoteJid: string,
     ctx: BotContext,
@@ -1146,6 +1189,25 @@ async function handleIncomingMessageInternal(
                 return;
             }
             await handleReprocessCommand(remoteJid, parts.slice(1), ctx);
+            return;
+        }
+
+        if (
+            lower === "/paid" ||
+            lower.startsWith("/paid ") ||
+            lower === "/acc" ||
+            lower.startsWith("/acc ") ||
+            lower === "/approve" ||
+            lower.startsWith("/approve ") ||
+            lower === "/bayar" ||
+            lower.startsWith("/bayar ")
+        ) {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd || "/paid", userLang, ctx, effectiveSender);
+                return;
+            }
+            await handlePaidCommand(remoteJid, parts.slice(1), ctx);
             return;
         }
 
@@ -2340,6 +2402,7 @@ async function handleIncomingMessageInternal(
             out += `📋 Log Group: *${logStatus}*\n\n`;
             out += `*Daftar Perintah Admin:*\n`;
             out += `• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n`;
+            out += `• */paid <ID>* / */acc <ID>* : Verifikasi manual pembayaran order (bypass GoPay) & proses gift\n`;
             out += `• */reprocess* : Proses ulang semua order tertahan token\n`;
             out += `• */reprocess <ID>* : Proses ulang order tertentu\n`;
             out += `• */solved <ID/No>* : Selesaikan sesi live chat support & aktifkan bot kembali\n`;
@@ -2426,6 +2489,21 @@ async function handleIncomingMessageInternal(
             }
 
             await handleReprocessCommand(remoteJid, args, ctx);
+            break;
+        }
+
+        case "/paid":
+        case "/acc":
+        case "/approve":
+        case "/bayar": {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+
+            if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
+                return;
+            }
+
+            await handlePaidCommand(remoteJid, args, ctx);
             break;
         }
 
