@@ -55,7 +55,6 @@ const adminLogger = new AdminGroupLogger(
 const botContext: BotContext = {
     client: coreClient,
     state: stateManager,
-    adminNumber: config.ADMIN_NUMBER,
     adminLogger,
     async sendText(jid: string, text: string, mentions?: string[]) {
         console.log(`[WhatsApp Sending Text to ${jid}]:\n${text.slice(0, 100)}...`);
@@ -203,7 +202,6 @@ async function qrDeleter(jid: string, key?: any) {
 
 const webhookApp = createWebhookApp({
     sender: webhookSender,
-    adminPhone: config.ADMIN_NUMBER,
     adminLogger,
     qrDeleter,
     getBuyerLanguage: (jid: string) => stateManager.getLanguage(jid)

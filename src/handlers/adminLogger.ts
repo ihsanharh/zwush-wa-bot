@@ -199,17 +199,14 @@ export class AdminGroupLogger {
         orderId: string;
         itemName: string;
         gamertag: string;
-        adminPhone: string;
     }): Promise<void> {
         const targetJids = new Set<string>();
         if (this.adminGroupJid) targetJids.add(this.adminGroupJid);
         if (this.logGroupJid) targetJids.add(this.logGroupJid);
         if (targetJids.size === 0) return;
 
-        const cleanPhone = order.adminPhone.replace(/[^0-9]/g, "");
-        const adminJid = `${cleanPhone}@s.whatsapp.net`;
         const alertText = (
-            `@${cleanPhone} ⚠️ *PERHATIAN ADMIN — RESTOCK TOKEN DIBUTUHKAN!*\n\n` +
+            `⚠️ *PERHATIAN ADMIN — RESTOCK TOKEN DIBUTUHKAN!*\n\n` +
             `Pesanan *#${order.orderId}* (*${order.itemName}* untuk Gamertag *${order.gamertag}*) tertahan karena stok token Gibot kurang.\n\n` +
             `👉 Silakan restock token The Hive, lalu ketik */reprocess* di grup ini ya kak! 😊`
         );
@@ -218,11 +215,7 @@ export class AdminGroupLogger {
             try {
                 await this.sender.sendMessage(jid, {
                     type: "text",
-                    text: alertText,
-                    contextInfo: {
-                        mentionedJids: [adminJid],
-                        mentionedJid: [adminJid]
-                    }
+                    text: alertText
                 });
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : String(err);

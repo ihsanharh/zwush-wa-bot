@@ -100,12 +100,16 @@ describe("Voucher & Store Discount Message Handlers", () => {
         };
 
         const state = new StateManager();
-        const adminNumber = "628111111111";
+        const adminGroupJid = "120363admin@g.us";
+        const mockAdminLogger = {
+            adminGroupJid,
+            getAdminGroupJid: () => adminGroupJid
+        };
 
         const ctx: BotContext = {
             client: mockClient as any,
             state,
-            adminNumber,
+            adminLogger: mockAdminLogger as any,
             sendText: mock(async (jid: string, text: string, mentions?: string[]) => {
                 sentTexts.push({ jid, text, mentions });
             }),
@@ -115,15 +119,14 @@ describe("Voucher & Store Discount Message Handlers", () => {
             })
         };
 
-        return { ctx, mockClient, state, sentTexts, sentImages, adminNumber };
+        return { ctx, mockClient, state, sentTexts, sentImages, adminGroupJid };
     }
 
     describe("Admin /setdiskon & /setdiscount commands", () => {
         it("allows admin to set store discount via /setdiskon", async () => {
-            const { ctx, mockClient, sentTexts, adminNumber } = createMockContext();
-            const adminJid = `${adminNumber}@s.whatsapp.net`;
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
-            await handleIncomingMessage(adminJid, false, "/setdiskon 40", ctx);
+            await handleIncomingMessage(adminGroupJid, false, "/setdiskon 40", ctx, "admin_user@s.whatsapp.net");
 
             expect(mockClient.setStoreDiscount).toHaveBeenCalledWith(40);
             expect(sentTexts.length).toBe(1);
@@ -131,10 +134,9 @@ describe("Voucher & Store Discount Message Handlers", () => {
         });
 
         it("allows admin to set store discount via /setdiscount (English alias)", async () => {
-            const { ctx, mockClient, sentTexts, adminNumber } = createMockContext();
-            const adminJid = `${adminNumber}@s.whatsapp.net`;
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
-            await handleIncomingMessage(adminJid, false, "/setdiscount 20", ctx);
+            await handleIncomingMessage(adminGroupJid, false, "/setdiscount 20", ctx, "admin_user@s.whatsapp.net");
 
             expect(mockClient.setStoreDiscount).toHaveBeenCalledWith(20);
             expect(sentTexts.length).toBe(1);
@@ -142,10 +144,9 @@ describe("Voucher & Store Discount Message Handlers", () => {
         });
 
         it("validates percentage range (0-90)", async () => {
-            const { ctx, mockClient, sentTexts, adminNumber } = createMockContext();
-            const adminJid = `${adminNumber}@s.whatsapp.net`;
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
-            await handleIncomingMessage(adminJid, false, "/setdiskon 95", ctx);
+            await handleIncomingMessage(adminGroupJid, false, "/setdiskon 95", ctx, "admin_user@s.whatsapp.net");
 
             expect(mockClient.setStoreDiscount).not.toHaveBeenCalled();
             expect(sentTexts.length).toBe(1);
@@ -153,10 +154,9 @@ describe("Voucher & Store Discount Message Handlers", () => {
         });
 
         it("shows usage if /setdiskon has no arguments", async () => {
-            const { ctx, mockClient, sentTexts, adminNumber } = createMockContext();
-            const adminJid = `${adminNumber}@s.whatsapp.net`;
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
-            await handleIncomingMessage(adminJid, false, "/setdiskon", ctx);
+            await handleIncomingMessage(adminGroupJid, false, "/setdiskon", ctx, "admin_user@s.whatsapp.net");
 
             expect(mockClient.setStoreDiscount).not.toHaveBeenCalled();
             expect(sentTexts.length).toBe(1);
@@ -189,10 +189,9 @@ describe("Voucher & Store Discount Message Handlers", () => {
 
     describe("Admin /voucher commands", () => {
         it("allows admin to view voucher status via /voucher or /voucher list", async () => {
-            const { ctx, mockClient, sentTexts, adminNumber } = createMockContext();
-            const adminJid = `${adminNumber}@s.whatsapp.net`;
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
-            await handleIncomingMessage(adminJid, false, "/voucher", ctx);
+            await handleIncomingMessage(adminGroupJid, false, "/voucher", ctx, "admin_user@s.whatsapp.net");
 
             expect(mockClient.getVoucherStatus).toHaveBeenCalled();
             expect(sentTexts.length).toBe(1);
@@ -201,10 +200,9 @@ describe("Voucher & Store Discount Message Handlers", () => {
         });
 
         it("allows admin to create percentage voucher via /voucher create", async () => {
-            const { ctx, mockClient, sentTexts, adminNumber } = createMockContext();
-            const adminJid = `${adminNumber}@s.whatsapp.net`;
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
-            await handleIncomingMessage(adminJid, false, "/voucher create MERDEKA 10% 50", ctx);
+            await handleIncomingMessage(adminGroupJid, false, "/voucher create MERDEKA 10% 50", ctx, "admin_user@s.whatsapp.net");
 
             expect(mockClient.createVoucher).toHaveBeenCalledWith({
                 code: "MERDEKA",
@@ -217,10 +215,9 @@ describe("Voucher & Store Discount Message Handlers", () => {
         });
 
         it("allows admin to create flat IDR voucher via /voucher buat (Indonesian alias)", async () => {
-            const { ctx, mockClient, sentTexts, adminNumber } = createMockContext();
-            const adminJid = `${adminNumber}@s.whatsapp.net`;
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
-            await handleIncomingMessage(adminJid, false, "/voucher buat POTONGAN 5000", ctx);
+            await handleIncomingMessage(adminGroupJid, false, "/voucher buat POTONGAN 5000", ctx, "admin_user@s.whatsapp.net");
 
             expect(mockClient.createVoucher).toHaveBeenCalledWith({
                 code: "POTONGAN",
@@ -233,10 +230,9 @@ describe("Voucher & Store Discount Message Handlers", () => {
         });
 
         it("allows admin to delete voucher via /voucher delete", async () => {
-            const { ctx, mockClient, sentTexts, adminNumber } = createMockContext();
-            const adminJid = `${adminNumber}@s.whatsapp.net`;
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
-            await handleIncomingMessage(adminJid, false, "/voucher delete HEMAT5K", ctx);
+            await handleIncomingMessage(adminGroupJid, false, "/voucher delete HEMAT5K", ctx, "admin_user@s.whatsapp.net");
 
             expect(mockClient.deleteVoucher).toHaveBeenCalledWith("HEMAT5K");
             expect(sentTexts.length).toBe(1);

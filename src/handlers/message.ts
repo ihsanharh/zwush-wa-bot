@@ -12,7 +12,6 @@ export { formatStatusBadge, formatRupiah };
 export interface BotContext {
     client: CoreClient;
     state: StateManager;
-    adminNumber: string;
     adminLogger?: AdminGroupLogger;
     sendText(jid: string, text: string, mentions?: string[]): Promise<void>;
     sendImage(jid: string, buffer: Buffer, caption: string): Promise<any>;
@@ -66,7 +65,6 @@ export function formatStatusText(
         totalNominal: number;
         failureReason?: string | null;
     },
-    adminNumber: string,
     lang: Language = "id"
 ): string {
     const badge = formatStatusBadge(order.status, lang, order.failureReason);
@@ -77,7 +75,7 @@ export function formatStatusText(
             `👤 Gamertag: *${order.gamertag}*\n` +
             `📊 Status: *${badge}*\n` +
             `💰 Total: *${formatRupiah(order.totalNominal)}*\n\n` +
-            `Any questions? Contact our admin at: wa.me/${adminNumber}`
+            `Any questions? Please contact our store admin team.`
         );
     }
     return (
@@ -86,7 +84,7 @@ export function formatStatusText(
         `👤 Gamertag: *${order.gamertag}*\n` +
         `📊 Status: *${badge}*\n` +
         `💰 Total: *${formatRupiah(order.totalNominal)}*\n\n` +
-        `Ada pertanyaan kak? Hubungi admin kami di: wa.me/${adminNumber}`
+        `Ada pertanyaan kak? Silakan hubungi tim admin kami di grup toko.`
     );
 }
 
@@ -583,43 +581,24 @@ export function extractPhoneNumber(jidOrPhone: string): string {
 
 /**
  * Checks if the message sender is an authorized administrator.
- * - fromMe: always authorized
- * - inside Admin Group (remoteJid === adminLogger.getAdminGroupJid()): anyone in this group can run admin commands
- * - configured admins (ADMIN_NUMBER): authorized anywhere
+ * - fromMe: always authorized (bot self / operator)
+ * - inside Admin Group (remoteJid === adminLogger.getAdminGroupJid()): anyone in this group can run admin commands ("superpower")
  */
 export function isUserAdmin(
     remoteJid: string,
     fromMe: boolean,
-    effectiveSender: string,
-    adminNumber: string,
+    effectiveSender?: string,
     adminLogger?: AdminGroupLogger
 ): boolean {
     if (fromMe) return true;
 
-    // Anyone inside the Admin Command Group is authorized
+    // Anyone inside the Admin Command Group is authorized ("superpower")
     if (adminLogger) {
         if (adminLogger.getAdminGroupJid && adminLogger.getAdminGroupJid() && remoteJid === adminLogger.getAdminGroupJid()) {
             return true;
         }
         // Fallback for mocks where only getGroupJid is implemented
         if (!adminLogger.getAdminGroupJid && adminLogger.getGroupJid && remoteJid === adminLogger.getGroupJid()) {
-            return true;
-        }
-    }
-
-    const configuredAdmins = (adminNumber || "")
-        .split(",")
-        .map((num) => extractPhoneNumber(num.trim()))
-        .filter(Boolean);
-
-    const cleanSender = extractPhoneNumber(effectiveSender);
-    const cleanRemote = extractPhoneNumber(remoteJid);
-
-    if (configuredAdmins.length > 0) {
-        if (
-            (cleanSender && configuredAdmins.includes(cleanSender)) ||
-            (cleanRemote && configuredAdmins.includes(cleanRemote))
-        ) {
             return true;
         }
     }
@@ -723,7 +702,7 @@ async function handleIncomingMessageInternal(
         const cmd = parts[0]?.toLowerCase() || "";
 
         if (lower === "/setgroup" || lower.startsWith("/setgroup ")) {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd || "/setgroup", userLang, ctx, effectiveSender);
                 return;
@@ -776,7 +755,7 @@ async function handleIncomingMessageInternal(
             lower === "/balance" ||
             lower.startsWith("/balance ")
         ) {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd || "/saldo", userLang, ctx, effectiveSender);
                 return;
@@ -791,7 +770,7 @@ async function handleIncomingMessageInternal(
             lower === "/retry" ||
             lower.startsWith("/retry ")
         ) {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd || "/reprocess", userLang, ctx, effectiveSender);
                 return;
@@ -806,7 +785,7 @@ async function handleIncomingMessageInternal(
             lower === "/setdiscount" ||
             lower.startsWith("/setdiscount ")
         ) {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd || "/setdiskon", userLang, ctx, effectiveSender);
                 return;
@@ -816,7 +795,7 @@ async function handleIncomingMessageInternal(
         }
 
         if (lower === "/voucher" || lower.startsWith("/voucher ")) {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd || "/voucher", userLang, ctx, effectiveSender);
                 return;
@@ -826,7 +805,7 @@ async function handleIncomingMessageInternal(
         }
 
         if (lower === "/admin" || lower.startsWith("/admin ")) {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd || "/admin", userLang, ctx, effectiveSender);
                 return;
@@ -949,15 +928,15 @@ async function handleIncomingMessageInternal(
 
         // FAQ in group
         if (cmd === "/faq" || cmd === "/tanya") {
-            const faqMsg = `@${senderPhone}\n\n` + t("faqMessage", userLang, { adminNumber: ctx.adminNumber });
+            const faqMsg = `@${senderPhone}\n\n` + t("faqMessage", userLang);
             await ctx.sendText(remoteJid, faqMsg, [effectiveSender]);
             return;
         }
 
         // Help in group
         if (cmd === "/bantuan" || cmd === "/help") {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
-            const helpMsg = `@${senderPhone}\n\n` + t("helpMessage", userLang, { adminNumber: ctx.adminNumber, isAdmin });
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            const helpMsg = `@${senderPhone}\n\n` + t("helpMessage", userLang, { isAdmin });
             await ctx.sendText(remoteJid, helpMsg, [effectiveSender]);
             return;
         }
@@ -982,7 +961,7 @@ async function handleIncomingMessageInternal(
                     ) ?? orders[0];
 
                     if (activeOrder) {
-                        const statusMsg = `@${senderPhone}\n\n` + formatStatusText(activeOrder, ctx.adminNumber, userLang);
+                        const statusMsg = `@${senderPhone}\n\n` + formatStatusText(activeOrder, userLang);
                         await ctx.sendText(remoteJid, statusMsg, [effectiveSender]);
                     }
                 } catch (err: unknown) {
@@ -995,7 +974,7 @@ async function handleIncomingMessageInternal(
             try {
                 const cleanId = orderId.replace(/^#/, "");
                 const order = await ctx.client.getOrderStatus(cleanId);
-                const statusMsg = `@${senderPhone}\n\n` + formatStatusText(order, ctx.adminNumber, userLang);
+                const statusMsg = `@${senderPhone}\n\n` + formatStatusText(order, userLang);
                 await ctx.sendText(remoteJid, statusMsg, [effectiveSender]);
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
@@ -1583,7 +1562,7 @@ async function handleIncomingMessageInternal(
                         return;
                     }
 
-                    await ctx.sendText(remoteJid, formatStatusText(activeOrder, ctx.adminNumber, userLang));
+                    await ctx.sendText(remoteJid, formatStatusText(activeOrder, userLang));
                 } catch (err: unknown) {
                     const errMsg = err instanceof Error ? err.message : String(err);
                     await ctx.sendText(remoteJid, `❌ Gagal mengambil status pesanan kak: ${errMsg}`);
@@ -1594,7 +1573,7 @@ async function handleIncomingMessageInternal(
             try {
                 const cleanId = orderId.replace(/^#/, "");
                 const order = await ctx.client.getOrderStatus(cleanId);
-                await ctx.sendText(remoteJid, formatStatusText(order, ctx.adminNumber, userLang));
+                await ctx.sendText(remoteJid, formatStatusText(order, userLang));
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
                 await ctx.sendText(remoteJid, `❌ Tidak dapat menemukan pesanan #${orderId} nih kak: ${errMsg}`);
@@ -1640,13 +1619,13 @@ async function handleIncomingMessageInternal(
 
         case "/faq":
         case "/tanya": {
-            await ctx.sendText(remoteJid, t("faqMessage", userLang, { adminNumber: ctx.adminNumber }));
+            await ctx.sendText(remoteJid, t("faqMessage", userLang));
             break;
         }
 
         case "/saldo":
         case "/balance": {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
                 return;
@@ -1656,7 +1635,7 @@ async function handleIncomingMessageInternal(
         }
 
         case "/admin": {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
                 return;
@@ -1689,7 +1668,7 @@ async function handleIncomingMessageInternal(
 
         case "/setdiskon":
         case "/setdiscount": {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
                 return;
@@ -1699,7 +1678,7 @@ async function handleIncomingMessageInternal(
         }
 
         case "/voucher": {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
                 return;
@@ -1709,7 +1688,7 @@ async function handleIncomingMessageInternal(
         }
 
         case "/setgroup": {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
                 return;
@@ -1752,7 +1731,7 @@ async function handleIncomingMessageInternal(
 
         case "/reprocess":
         case "/retry": {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
 
             if (!isAdmin) {
                 await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
@@ -1779,8 +1758,8 @@ async function handleIncomingMessageInternal(
 
         case "/bantuan":
         case "/help": {
-            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminNumber, ctx.adminLogger);
-            await ctx.sendText(remoteJid, t("helpMessage", userLang, { adminNumber: ctx.adminNumber, isAdmin }));
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            await ctx.sendText(remoteJid, t("helpMessage", userLang, { isAdmin }));
             break;
         }
 

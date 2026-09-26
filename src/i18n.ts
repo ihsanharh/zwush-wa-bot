@@ -51,7 +51,6 @@ export function formatStatusBadge(status: string, lang: Language = "id", failure
 
 export function formatStatusNotification(
     payload: OrderNotificationPayload,
-    adminPhone: string,
     lang: Language = "id",
     storeName?: string
 ): string {
@@ -93,14 +92,14 @@ export function formatStatusNotification(
                     `The 15-minute payment window for order *#${orderId}* has expired.\n` +
                     `This QRIS is no longer valid. Please do not make payment.\n\n` +
                     `Type */buy* if you wish to place a new order.\n` +
-                    `_(If you already transferred after expiry, contact admin at wa.me/${adminPhone})_`
+                    `_(If you already transferred after expiry, please contact our store admin team)_`
                 );
             case "FAILED":
                 return (
                     `❌ *DELIVERY FAILED*\n\n` +
                     `Order *#${orderId}* could not be delivered.\n` +
                     `Reason: ${message || "Unknown"}\n\n` +
-                    `Don't worry, please contact our admin at wa.me/${adminPhone} with your order ID.`
+                    `Don't worry, please contact our store admin team with your order ID.`
                 );
             default:
                 return `ℹ️ Order #${orderId} status: ${status}`;
@@ -142,14 +141,14 @@ export function formatStatusNotification(
                 `Batas waktu pembayaran 15 menit untuk pesanan *#${orderId}* telah habis.\n` +
                 `QRIS tersebut sudah tidak berlaku. Jangan melakukan pembayaran lagi.\n\n` +
                 `Ketik */beli* jika kamu ingin membuat pesanan baru.\n` +
-                `_(Jika kamu terlanjur transfer setelah kedaluwarsa, hubungi admin di wa.me/${adminPhone})_`
+                `_(Jika kamu terlanjur transfer setelah kedaluwarsa, hubungi tim admin kami)_`
             );
         case "FAILED":
             return (
                 `❌ *PENGIRIMAN GAGAL*\n\n` +
                 `Pesanan *#${orderId}* gagal dikirim.\n` +
                 `Alasan: ${message || "Tidak diketahui"}\n\n` +
-                `Jangan khawatir, silakan hubungi admin kami di wa.me/${adminPhone} dengan menyertakan ID pesanan kamu.`
+                `Jangan khawatir, silakan hubungi tim admin kami dengan menyertakan ID pesanan kamu.`
             );
         default:
             return `ℹ️ Pesanan #${orderId} status: ${status}`;
@@ -157,7 +156,6 @@ export function formatStatusNotification(
 }
 
 export interface StringParams {
-    adminNumber?: string;
     phone?: string;
     orderId?: string;
     itemName?: string;
@@ -177,7 +175,6 @@ export interface StringParams {
 }
 
 export function t(key: string, lang: Language, params?: StringParams): string {
-    const admin = params?.adminNumber || "admin";
     const phone = params?.phone || "";
     const store = params?.storeName || config.STORE_NAME || "Store";
     const storeUpper = store.toUpperCase();
@@ -203,7 +200,7 @@ export function t(key: string, lang: Language, params?: StringParams): string {
                     `• */language <id|en>* : Switch language preference\n` +
                     `• *c* / *cancel* : Cancel ongoing order flow\n` +
                     `• *b* / *back* : Go back 1 step during ordering\n\n` +
-                    `👤 Need direct support from admin? Chat us at: *wa.me/${admin}*`
+                    `👤 Need direct support from admin? Ask our admin team in the store group!`
                 );
                 if (params?.isAdmin) {
                     msg += (
@@ -231,7 +228,7 @@ export function t(key: string, lang: Language, params?: StringParams): string {
                     `Items are gifted 100% officially via *The Hive In-Game Gift* feature directly to your Minecraft Bedrock Gamertag 🎁\n\n` +
                     `*4. How long does delivery take?*\n` +
                     `Once payment is detected, our bot delivers your gift within *1 - 3 minutes* ⚡\n\n` +
-                    `Any questions? Contact our admin at: *wa.me/${admin}* 😊`
+                    `Any questions? Contact our store admin team 😊`
                 );
 
             case "crossLanguageHint":
@@ -317,7 +314,7 @@ export function t(key: string, lang: Language, params?: StringParams): string {
                 `• */bahasa <id|en>* : Ganti pilihan bahasa bot\n` +
                 `• *b* / *batal* : Batalkan pesanan yang sedang berjalan\n` +
                 `• *k* / *kembali* : Kembali ke langkah sebelumnya saat belanja\n\n` +
-                `👤 Butuh bantuan langsung dari admin? Chat kami di: *wa.me/${admin}*`
+                `👤 Butuh bantuan langsung dari admin? Tanyakan di grup toko atau ketik */bantuan* ya!`
             );
             if (params?.isAdmin) {
                 msg += (
@@ -345,7 +342,7 @@ export function t(key: string, lang: Language, params?: StringParams): string {
                 `Item dikirimkan 100% resmi via fitur *In-Game Gift The Hive* langsung ke Gamertag Minecraft Bedrock kakak 🎁\n\n` +
                 `*4. Berapa lama proses pengiriman?*\n` +
                 `Setelah pembayaran masuk, bot langsung memproses gift dalam waktu *1 - 3 menit* ⚡\n\n` +
-                `Ada pertanyaan lain kak? Hubungi admin kami di: *wa.me/${admin}* 😊`
+                `Ada pertanyaan lain kak? Hubungi tim admin kami di grup toko ya 😊`
             );
 
         case "crossLanguageHint":

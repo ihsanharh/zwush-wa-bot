@@ -107,15 +107,12 @@ describe("AdminGroupLogger", () => {
         await logger.notifyInsufficientTokens({
             orderId: "ORD-INSUFF-99",
             itemName: "Dragon Pet",
-            gamertag: "Steve123",
-            adminPhone: "628123456789"
+            gamertag: "Steve123"
         });
 
         expect(mockSender.sendMessage).toHaveBeenCalled();
         expect(sentContent).toBeDefined();
-        expect(sentContent.text).toContain("@628123456789");
         expect(sentContent.text).toContain("RESTOCK TOKEN DIBUTUHKAN");
-        expect(sentContent.contextInfo?.mentionedJid).toContain("628123456789@s.whatsapp.net");
     });
 
     it("should handle zapo-js publish result with id instead of key and edit message on status update", async () => {
@@ -228,8 +225,7 @@ describe("AdminGroupLogger", () => {
         await logger.notifyInsufficientTokens({
             orderId: "ORD-SPLIT-1",
             itemName: "Dragon Pet",
-            gamertag: "Steve123",
-            adminPhone: "628123456789"
+            gamertag: "Steve123"
         });
         expect(sentJids).toContain("admins@g.us");
         expect(sentJids).toContain("logs@g.us");

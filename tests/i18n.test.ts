@@ -14,26 +14,26 @@ describe("i18n Module", () => {
     });
 
     it("should provide Indonesian texts by default", () => {
-        const text = t("helpMessage", "id", { adminNumber: "628123456789" });
+        const text = t("helpMessage", "id");
         expect(text).toContain("BANTUAN ZWUSH STORE");
         expect(text).toContain("/beli");
-        expect(text).toContain("wa.me/628123456789");
+        expect(text).toContain("admin");
     });
 
     it("should provide English texts when lang is en", () => {
-        const text = t("helpMessage", "en", { adminNumber: "628123456789" });
+        const text = t("helpMessage", "en");
         expect(text).toContain("ZWUSH STORE HELP");
         expect(text).toContain("/buy");
-        expect(text).toContain("wa.me/628123456789");
+        expect(text).toContain("admin team");
     });
 
     it("should append admin commands to helpMessage when isAdmin is true", () => {
-        const idText = t("helpMessage", "id", { adminNumber: "628123456789", isAdmin: true });
+        const idText = t("helpMessage", "id", { isAdmin: true });
         expect(idText).toContain("PERINTAH KHUSUS ADMIN");
         expect(idText).toContain("/admin");
         expect(idText).toContain("/reprocess");
 
-        const enText = t("helpMessage", "en", { adminNumber: "628123456789", isAdmin: true });
+        const enText = t("helpMessage", "en", { isAdmin: true });
         expect(enText).toContain("ADMIN ONLY COMMANDS");
         expect(enText).toContain("/admin");
         expect(enText).toContain("/reprocess");
@@ -69,11 +69,11 @@ describe("i18n Module", () => {
             status: "SUCCESS"
         };
 
-        const idMsg = formatStatusNotification(payload, "628123456789", "id");
+        const idMsg = formatStatusNotification(payload, "id");
         expect(idMsg).toContain("PESANAN BERHASIL DIKIRIM");
         expect(idMsg).toContain("Steve123");
 
-        const enMsg = formatStatusNotification(payload, "628123456789", "en");
+        const enMsg = formatStatusNotification(payload, "en");
         expect(enMsg).toContain("ORDER DELIVERED SUCCESSFULLY");
         expect(enMsg).toContain("Steve123");
     });

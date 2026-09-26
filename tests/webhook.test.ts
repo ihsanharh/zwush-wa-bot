@@ -81,7 +81,6 @@ describe("Webhook Server", () => {
 
         const app = createWebhookApp({
             sender: mockSender,
-            adminPhone: "628123456789",
             qrDeleter: mockQrDeleter
         });
 
@@ -105,7 +104,7 @@ describe("Webhook Server", () => {
         expect(mockQrDeleter).toHaveBeenCalled();
     });
 
-    it("should notify admin in group with mention and send delay reassurance to buyer when status is INSUFFICIENT_TOKENS", async () => {
+    it("should notify admin group and send delay reassurance to buyer when status is INSUFFICIENT_TOKENS", async () => {
         const sentMessages: Array<{ jid: string; text: string }> = [];
         let notifiedTokenOrder: any = null;
 
@@ -124,7 +123,6 @@ describe("Webhook Server", () => {
 
         const app = createWebhookApp({
             sender: mockSender,
-            adminPhone: "628123456789",
             adminLogger: mockAdminLogger as any
         });
 
@@ -145,7 +143,6 @@ describe("Webhook Server", () => {
         expect(res.status).toBe(200);
         expect(mockAdminLogger.notifyInsufficientTokens).toHaveBeenCalled();
         expect(notifiedTokenOrder?.orderId).toBe("ord_tok_low");
-        expect(notifiedTokenOrder?.adminPhone).toBe("628123456789");
 
         // 1 message sent to buyer (delay reassurance)
         expect(sentMessages.length).toBe(1);
@@ -165,7 +162,6 @@ describe("Webhook Server", () => {
 
         const app = createWebhookApp({
             sender: mockSender,
-            adminPhone: "628123456789",
             getBuyerLanguage: (_jid) => "en"
         });
 

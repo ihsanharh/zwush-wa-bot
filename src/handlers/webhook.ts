@@ -11,33 +11,28 @@ export interface BotMessageSender {
 
 export interface WebhookAppOptions {
     sender: BotMessageSender;
-    adminPhone: string;
     adminLogger?: AdminGroupLogger;
     qrDeleter?: (jid: string, key?: any) => Promise<void>;
     getBuyerLanguage?: (jid: string) => Language;
 }
 
 export function createWebhookApp(
-    senderOrOptions: BotMessageSender | WebhookAppOptions,
-    maybeAdminPhone?: string
+    senderOrOptions: BotMessageSender | WebhookAppOptions
 ): Hono {
     const app = new Hono();
 
     let sender: BotMessageSender;
-    let adminPhone: string;
     let adminLogger: AdminGroupLogger | undefined;
     let qrDeleter: ((jid: string, key?: any) => Promise<void>) | undefined;
     let getBuyerLanguage: ((jid: string) => Language) | undefined;
 
     if ("sender" in senderOrOptions) {
         sender = senderOrOptions.sender;
-        adminPhone = senderOrOptions.adminPhone;
         adminLogger = senderOrOptions.adminLogger;
         qrDeleter = senderOrOptions.qrDeleter;
         getBuyerLanguage = senderOrOptions.getBuyerLanguage;
     } else {
         sender = senderOrOptions;
-        adminPhone = maybeAdminPhone || "";
     }
 
     app.post("/webhook/order-update", async (c) => {
@@ -69,14 +64,13 @@ export function createWebhookApp(
                 }
             }
 
-            // 3. Dispatch alert to admin group (with mention tag) if insufficient tokens
+            // 3. Dispatch alert to admin group if insufficient tokens
             if (body.status === "INSUFFICIENT_TOKENS" && adminLogger) {
                 try {
                     await adminLogger.notifyInsufficientTokens({
                         orderId: body.orderId,
                         itemName: body.itemName,
-                        gamertag: body.gamertag,
-                        adminPhone
+                        gamertag: body.gamertag
                     });
                 } catch (err: unknown) {
                     console.error("[Admin Group Token Alert Error]:", err);
@@ -85,7 +79,7 @@ export function createWebhookApp(
 
             // 4. Send notification to buyer in their chosen language
             const buyerLang = getBuyerLanguage ? getBuyerLanguage(body.platformUserId) : "id";
-            const formattedText = formatStatusNotification(body, adminPhone, buyerLang);
+            const formattedText = formatStatusNotification(body, buyerLang);
             await sender.sendMessage(body.platformUserId, formattedText);
 
             return c.json({ success: true });

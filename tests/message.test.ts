@@ -139,7 +139,6 @@ describe("Message Handler Router", () => {
 
         const ctx: BotContext = {
             client: mockClient as unknown as CoreClient,
-            adminNumber: "628123456789",
             adminLogger: mockAdminLogger as any,
             state: new StateManager(),
             sendText: mock(async (jid: string, text: string, mentions?: string[]) => {
@@ -344,20 +343,13 @@ describe("Message Handler Router", () => {
         expect(sentTexts[0]).toContain("QRIS");
     });
 
-    it("should allow admin to reprocess all failing orders with /reprocess", async () => {
-        const { ctx, sentTexts } = createMockContext();
-        // admin number
-        await handleIncomingMessage("628123456789@s.whatsapp.net", false, "/reprocess", ctx);
+    it("should allow any participant in admin group to reprocess all failing orders with /reprocess", async () => {
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        mockAdminLogger.adminGroupJid = "admin-group@g.us";
+        await handleIncomingMessage("admin-group@g.us", false, "/reprocess", ctx, "any_member@s.whatsapp.net");
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("REPROCESS SELESAI");
         expect(sentTexts[0]).toContain("2 pesanan");
-    });
-
-    it("should allow admin to reprocess with multi-device suffix JID (:1, :0)", async () => {
-        const { ctx, sentTexts } = createMockContext();
-        await handleIncomingMessage("628123456789:2@s.whatsapp.net", false, "/reprocess", ctx);
-        expect(sentTexts.length).toBe(1);
-        expect(sentTexts[0]).toContain("REPROCESS SELESAI");
     });
 
     it("should allow admin to run commands when fromMe is true", async () => {
@@ -367,48 +359,48 @@ describe("Message Handler Router", () => {
         expect(sentTexts[0]).toContain("REPROCESS SELESAI");
     });
 
-    it("should match admin number across 08 and 628 prefixes", async () => {
-        const { ctx, sentTexts } = createMockContext();
-        ctx.adminNumber = "08123456789";
-        await handleIncomingMessage("628123456789:0@s.whatsapp.net", false, "/reprocess", ctx);
+    it("should allow any participant inside admin group to run /admin and /reprocess", async () => {
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        mockAdminLogger.adminGroupJid = "admin-group@g.us";
+
+        await handleIncomingMessage("admin-group@g.us", false, "/admin", ctx, "any_member@s.whatsapp.net");
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("PANEL ADMIN");
+        expect(sentTexts[0]).toContain("Terverifikasi Admin");
+
+        sentTexts.length = 0;
+        await handleIncomingMessage("admin-group@g.us", false, "/reprocess", ctx, "any_member@s.whatsapp.net");
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("REPROCESS SELESAI");
     });
 
-    it("should match admin number when configured with 8... prefix without leading zero or 62", async () => {
+    it("should allow bot operator (fromMe: true) to run /admin in private chat", async () => {
         const { ctx, sentTexts } = createMockContext();
-        ctx.adminNumber = "8123456789";
-        await handleIncomingMessage("628123456789:1@s.whatsapp.net", false, "/admin", ctx);
-        expect(sentTexts.length).toBe(1);
-        expect(sentTexts[0]).toContain("PANEL ADMIN");
-    });
-
-    it("should show admin panel on /admin for admin users", async () => {
-        const { ctx, sentTexts } = createMockContext();
-        await handleIncomingMessage("628123456789@s.whatsapp.net", false, "/admin", ctx);
+        await handleIncomingMessage("operator@s.whatsapp.net", true, "/admin", ctx);
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("PANEL ADMIN");
         expect(sentTexts[0]).toContain("Terverifikasi Admin");
     });
 
-    it("should allow admin to register group from private chat with /setgroup <jid>", async () => {
+    it("should allow bot operator (fromMe: true) to register group from private chat with /setgroup <jid>", async () => {
         const { ctx, sentTexts } = createMockContext();
-        await handleIncomingMessage("628123456789@s.whatsapp.net", false, "/setgroup 120363000000000000@g.us", ctx);
+        await handleIncomingMessage("operator@s.whatsapp.net", true, "/setgroup 120363000000000000@g.us", ctx);
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("Berhasil mendaftarkan Admin Group");
         expect(ctx.adminLogger?.getGroupJid()).toBe("120363000000000000@g.us");
     });
 
-    it("should show helpful guide when /setgroup is run in private chat without arguments", async () => {
+    it("should show helpful guide when /setgroup is run by bot operator in private chat without arguments", async () => {
         const { ctx, sentTexts } = createMockContext();
-        await handleIncomingMessage("628123456789@s.whatsapp.net", false, "/setgroup", ctx);
+        await handleIncomingMessage("operator@s.whatsapp.net", true, "/setgroup", ctx);
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("CARA MENDAFTARKAN ADMIN GROUP");
     });
 
-    it("should allow admin to reprocess specific order with /reprocess <ID>", async () => {
-        const { ctx, sentTexts } = createMockContext();
-        await handleIncomingMessage("628123456789@s.whatsapp.net", false, "/reprocess ord_user_1", ctx);
+    it("should allow any participant in admin group to reprocess specific order with /reprocess <ID>", async () => {
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        mockAdminLogger.adminGroupJid = "admin-group@g.us";
+        await handleIncomingMessage("admin-group@g.us", false, "/reprocess ord_user_1", ctx, "any_member@s.whatsapp.net");
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("PESANAN #ord_user_1 DIPROSES ULANG");
     });
@@ -425,7 +417,8 @@ describe("Message Handler Router", () => {
     });
 
     it("should respond with unknown command for admin commands from non-admins in group chats", async () => {
-        const { ctx, sentTexts } = createMockContext();
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        mockAdminLogger.adminGroupJid = "admin-group@g.us";
         await handleIncomingMessage("120363000@g.us", false, "/reprocess", ctx, "buyer@s.whatsapp.net");
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("tidak dikenali");
@@ -478,9 +471,10 @@ describe("Message Handler Router", () => {
         expect(sentTexts.length).toBe(1);
     });
 
-    it("should display admin only category in /bantuan when called by admin", async () => {
-        const { ctx, sentTexts } = createMockContext();
-        await handleIncomingMessage("628123456789@s.whatsapp.net", false, "/bantuan", ctx);
+    it("should display admin only category in /bantuan when called inside admin group", async () => {
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        mockAdminLogger.adminGroupJid = "admin-group@g.us";
+        await handleIncomingMessage("admin-group@g.us", false, "/bantuan", ctx, "any_member@s.whatsapp.net");
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("PERINTAH KHUSUS ADMIN");
         expect(sentTexts[0]).toContain("/admin");
@@ -523,21 +517,22 @@ describe("Message Handler Router", () => {
 
     it("should allow admin to register groups with /setgroup admin and /setgroup log", async () => {
         const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        mockAdminLogger.adminGroupJid = "admin-group@g.us";
 
-        // 1. Register admin group
-        await handleIncomingMessage("admin-group@g.us", false, "/setgroup admin", ctx, "628123456789@s.whatsapp.net");
+        // 1. Register admin group from existing admin group
+        await handleIncomingMessage("admin-group@g.us", false, "/setgroup admin", ctx, "any_member@s.whatsapp.net");
         expect(mockAdminLogger.adminGroupJid).toBe("admin-group@g.us");
         expect(sentTexts[0]).toContain("Admin Command Group");
 
-        // 2. Register log group
+        // 2. Register log group from existing admin group
         sentTexts.length = 0;
-        await handleIncomingMessage("log-group@g.us", false, "/setgroup log", ctx, "628123456789@s.whatsapp.net");
-        expect(mockAdminLogger.logGroupJid).toBe("log-group@g.us");
+        await handleIncomingMessage("admin-group@g.us", false, "/setgroup log", ctx, "any_member@s.whatsapp.net");
+        expect(mockAdminLogger.logGroupJid).toBe("admin-group@g.us");
         expect(sentTexts[0]).toContain("Transaction Log Group");
 
         // 3. /setgroup without subcommand shows guidance
         sentTexts.length = 0;
-        await handleIncomingMessage("any-group@g.us", false, "/setgroup", ctx, "628123456789@s.whatsapp.net");
+        await handleIncomingMessage("admin-group@g.us", false, "/setgroup", ctx, "any_member@s.whatsapp.net");
         expect(sentTexts[0]).toContain("PENGATURAN GRUP");
         expect(sentTexts[0]).toContain("/setgroup admin");
         expect(sentTexts[0]).toContain("/setgroup log");
@@ -586,12 +581,12 @@ describe("Message Handler Router", () => {
     });
 
     it("should allow admin to check balance with /saldo (ID) and /balance (EN)", async () => {
-        const { ctx, sentTexts } = createMockContext();
-        const adminJid = "628123456789@s.whatsapp.net";
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        mockAdminLogger.adminGroupJid = "admin-group@g.us";
 
         // Indonesian check
-        ctx.state.setLanguage(adminJid, "id");
-        await handleIncomingMessage(adminJid, false, "/saldo", ctx);
+        ctx.state.setLanguage("any_member@s.whatsapp.net", "id");
+        await handleIncomingMessage("admin-group@g.us", false, "/saldo", ctx, "any_member@s.whatsapp.net");
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("SALDO & STATUS BOT");
         expect(sentTexts[0]).toContain("hsuwz");
@@ -600,8 +595,8 @@ describe("Message Handler Router", () => {
 
         // English check
         sentTexts.length = 0;
-        ctx.state.setLanguage(adminJid, "en");
-        await handleIncomingMessage(adminJid, false, "/balance", ctx);
+        ctx.state.setLanguage("any_member@s.whatsapp.net", "en");
+        await handleIncomingMessage("admin-group@g.us", false, "/balance", ctx, "any_member@s.whatsapp.net");
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("BOT BALANCE & STORE STATUS");
         expect(sentTexts[0]).toContain("Remaining Gift Tokens: *5 Token(s)*");
