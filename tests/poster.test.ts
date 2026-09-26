@@ -113,4 +113,14 @@ describe("Category Poster Generator", () => {
             expect(buffer[1]).toBe(0x50);
         });
     });
+
+    describe("stripEmojis", () => {
+        it("should strip emojis from titles and item names to prevent broken rendering", () => {
+            const { stripEmojis } = require("../src/poster");
+            expect(stripEmojis("👑 Main Store & Ranks")).toBe("Main Store & Ranks");
+            expect(stripEmojis("🛒 Zwush Store")).toBe("Zwush Store");
+            expect(stripEmojis("⚡ Diskon 50%")).toBe("Diskon 50%");
+            expect(stripEmojis("Normal Item")).toBe("Normal Item");
+        });
+    });
 });

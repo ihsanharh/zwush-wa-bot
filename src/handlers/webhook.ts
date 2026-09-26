@@ -1,9 +1,15 @@
 import { Hono } from "hono";
 import type { OrderNotificationPayload } from "../types";
 import type { AdminGroupLogger } from "./adminLogger";
-import { formatStatusNotification, type Language } from "../i18n";
+import type { StateManager } from "../state";
+import {
+    formatStatusNotification,
+    formatPlayerNotFoundRetry,
+    formatPlayerNotFoundMaxExceeded,
+    type Language
+} from "../i18n";
 
-export { formatStatusNotification };
+export { formatStatusNotification, formatPlayerNotFoundRetry, formatPlayerNotFoundMaxExceeded };
 
 export interface BotMessageSender {
     sendMessage(jid: string, text: string): Promise<void>;
@@ -14,10 +20,12 @@ export interface WebhookAppOptions {
     adminLogger?: AdminGroupLogger;
     qrDeleter?: (jid: string, key?: any) => Promise<void>;
     getBuyerLanguage?: (jid: string) => Language;
+    stateManager?: StateManager;
 }
 
 export function createWebhookApp(
-    senderOrOptions: BotMessageSender | WebhookAppOptions
+    senderOrOptions: BotMessageSender | WebhookAppOptions,
+    legacyAdminGroupJid?: string
 ): Hono {
     const app = new Hono();
 
@@ -25,12 +33,14 @@ export function createWebhookApp(
     let adminLogger: AdminGroupLogger | undefined;
     let qrDeleter: ((jid: string, key?: any) => Promise<void>) | undefined;
     let getBuyerLanguage: ((jid: string) => Language) | undefined;
+    let stateManager: StateManager | undefined;
 
     if ("sender" in senderOrOptions) {
         sender = senderOrOptions.sender;
         adminLogger = senderOrOptions.adminLogger;
         qrDeleter = senderOrOptions.qrDeleter;
         getBuyerLanguage = senderOrOptions.getBuyerLanguage;
+        stateManager = senderOrOptions.stateManager;
     } else {
         sender = senderOrOptions;
     }
@@ -79,6 +89,54 @@ export function createWebhookApp(
 
             // 4. Send notification to buyer in their chosen language
             const buyerLang = getBuyerLanguage ? getBuyerLanguage(body.platformUserId) : "id";
+
+            if (body.status === "FAILED") {
+                const msgLower = (body.message || "").toLowerCase();
+                const isPlayerNotFound =
+                    msgLower.includes("can't find a player named") ||
+                    msgLower.includes("cant find a player named") ||
+                    msgLower.includes("player named") ||
+                    msgLower.includes("player not found");
+
+                if (isPlayerNotFound && stateManager) {
+                    const attempts = stateManager.incrementOrderRetryAttempts(body.orderId);
+                    if (attempts <= 3) {
+                        stateManager.setRetryOrder(body.platformUserId, {
+                            orderId: body.orderId,
+                            itemName: body.itemName,
+                            oldGamertag: body.gamertag,
+                            attempts
+                        });
+                        const retryText = formatPlayerNotFoundRetry(
+                            body.orderId,
+                            body.itemName,
+                            body.gamertag,
+                            attempts,
+                            3,
+                            buyerLang
+                        );
+                        await sender.sendMessage(body.platformUserId, retryText);
+                        return c.json({ success: true, retry: true, attempt: attempts });
+                    } else {
+                        stateManager.clearRetryOrder(body.platformUserId);
+                        stateManager.setLastFailedOrder(body.platformUserId, {
+                            orderId: body.orderId,
+                            itemName: body.itemName,
+                            gamertag: body.gamertag,
+                            attempts
+                        });
+                        const maxText = formatPlayerNotFoundMaxExceeded(
+                            body.orderId,
+                            body.itemName,
+                            body.gamertag,
+                            buyerLang
+                        );
+                        await sender.sendMessage(body.platformUserId, maxText);
+                        return c.json({ success: true, retry: false, maxAttemptsReached: true });
+                    }
+                }
+            }
+
             const formattedText = formatStatusNotification(body, buyerLang);
             await sender.sendMessage(body.platformUserId, formattedText);
 

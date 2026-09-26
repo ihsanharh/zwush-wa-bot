@@ -4,6 +4,7 @@ import { config } from "../config";
 export interface GroupMessageSender {
     sendMessage(jid: string, content: string | { type: string; text: string; contextInfo?: any }): Promise<any>;
     editMessage(jid: string, key: any, newText: string): Promise<any>;
+    getGroupParticipants?: (jid: string) => Promise<string[]>;
 }
 
 export interface OrderLogEntry {
@@ -88,17 +89,33 @@ export class AdminGroupLogger {
         }
     }
 
+    private formatBuyerContact(platformUserId: string): string {
+        if (!platformUserId) return "";
+        if (platformUserId.endsWith("@g.us")) {
+            return `👥 Chat Grup: ${platformUserId.split("@")[0]}`;
+        }
+        if (platformUserId.endsWith("@lid")) {
+            const lidNum = platformUserId.split("@")[0]?.replace(/[^0-9]/g, "");
+            return `📱 Akun: WhatsApp User (ID Privasi: ${lidNum})\n💡 _(Nomor disembunyikan oleh WhatsApp Privacy / Multi-Device. Buka chat langsung di HP bot)_`;
+        }
+        const cleanDigits = platformUserId.replace(/[^0-9]/g, "");
+        if (cleanDigits.length >= 10 && cleanDigits.length <= 14) {
+            return `📱 Pembeli: wa.me/${cleanDigits} (+${cleanDigits})`;
+        }
+        return `📱 Pembeli: wa.me/${cleanDigits}`;
+    }
+
     private formatLogMessage(entry: OrderLogEntry): string {
-        const cleanPhone = entry.platformUserId.replace(/[^0-9]/g, "");
         const statusBadge = this.formatStatusBadge(entry.status, entry.failureReason);
+        const buyerContact = this.formatBuyerContact(entry.platformUserId);
 
         let out = `📦 *ORDER BARU — ${config.STORE_NAME.toUpperCase()}*\n\n`;
         out += `🆔 ID: *#${entry.orderId}*\n`;
         out += `🛍️ Item: *${entry.itemName}*\n`;
         out += `👤 Gamertag: *${entry.gamertag}*\n`;
         out += `💰 Total: *Rp ${entry.totalNominal.toLocaleString("id-ID")}*\n`;
-        if (cleanPhone) {
-            out += `📱 Pembeli: wa.me/${cleanPhone}\n`;
+        if (buyerContact) {
+            out += `${buyerContact}\n`;
         }
         out += `📊 Status: *${statusBadge}*`;
 
@@ -221,6 +238,61 @@ export class AdminGroupLogger {
                 const msg = err instanceof Error ? err.message : String(err);
                 console.error(`[AdminGroupLogger] Error sending token alert to group ${jid}:`, msg);
             }
+        }
+    }
+
+    async notifySupportRequest(info: {
+        orderId?: string;
+        itemName?: string;
+        gamertag?: string;
+        platformUserId: string;
+        reason?: string;
+        attempts?: number;
+    }): Promise<void> {
+        const targetJid = this.adminGroupJid || this.logGroupJid;
+        if (!targetJid) return;
+
+        const cleanPhone = info.platformUserId.replace(/[^0-9]/g, "");
+        const reasonText = info.reason || (info.attempts ? `Gamertag tidak ditemukan di The Hive setelah ${info.attempts}x percobaan` : "Pembeli meminta bantuan manual admin");
+
+        let alertText = `🚨 *PERMINTAAN BANTUAN PELANGGAN — SUPPORT TICKET* 🚨\n`;
+        alertText += `@everyone\n\n`;
+        alertText += `Ada pembeli yang memerlukan bantuan manual admin:\n`;
+        if (cleanPhone) alertText += `📱 WhatsApp: wa.me/${cleanPhone} (+${cleanPhone})\n`;
+        if (info.orderId) alertText += `🆔 Order ID: *#${info.orderId}*\n`;
+        if (info.itemName) alertText += `🛍️ Item: *${info.itemName}*\n`;
+        if (info.gamertag) alertText += `🎮 Gamertag: *${info.gamertag}*\n`;
+        alertText += `⚠️ Kendala: *${reasonText}*\n\n`;
+        alertText += `👉 *INSTRUKSI ADMIN:*\n`;
+        alertText += `• Mode *Live Chat* saat ini AKTIF untuk pelanggan ini (perintah otomatis bot dinonaktifkan).\n`;
+        alertText += `• Silakan buka WhatsApp di HP Anda dan balas chat pelanggan secara langsung.\n\n`;
+        alertText += `💡 *Setelah selesai membantu pelanggan, ketik perintah berikut di grup ini:*\n`;
+        alertText += `👉 */solved ${info.orderId || cleanPhone}* (untuk mengaktifkan bot kembali)`;
+
+        try {
+            let participantJids: string[] = [];
+            if (this.sender.getGroupParticipants) {
+                try {
+                    participantJids = await this.sender.getGroupParticipants(targetJid);
+                } catch (err: unknown) {
+                    console.warn(`[AdminGroupLogger] Could not fetch group participants for mentions:`, err);
+                }
+            }
+
+            if (participantJids.length > 0) {
+                await this.sender.sendMessage(targetJid, {
+                    type: "text",
+                    text: alertText,
+                    contextInfo: {
+                        mentionedJids: participantJids
+                    }
+                });
+            } else {
+                await this.sender.sendMessage(targetJid, alertText);
+            }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(`[AdminGroupLogger] Error sending support alert to ${targetJid}:`, msg);
         }
     }
 }

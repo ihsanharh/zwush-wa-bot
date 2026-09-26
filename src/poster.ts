@@ -24,7 +24,10 @@ function escapeXml(unsafe: string): string {
 }
 
 export function getCachedPoster(categoryDbName: string): Buffer | undefined {
-    return posterCache.get(categoryDbName);
+    for (const [key, val] of posterCache.entries()) {
+        if (key === categoryDbName || key.startsWith(`${categoryDbName}_`)) return val;
+    }
+    return undefined;
 }
 
 export function clearPosterCache(): void {
@@ -112,18 +115,34 @@ export async function getItemImageBuffer(imageUrl: string | null | undefined): P
     }
 }
 
+/**
+ * Strips emoji characters from text to prevent broken font/glyph rendering in SVG/Sharp.
+ */
+export function stripEmojis(str: string): string {
+    return str
+        .replace(
+            /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g,
+            ""
+        )
+        .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{200D}\u{FE0F}]/gu, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
 export async function generateCategoryPoster(
     category: CategoryDefinition,
     items: CatalogItem[]
 ): Promise<Buffer> {
-    const cached = posterCache.get(category.dbCategory);
-    if (cached) {
-        return cached;
-    }
-
     const activeItems = items.filter((i) => i.active && i.category === category.dbCategory);
     if (activeItems.length === 0) {
         throw new Error(`No active items for category: ${category.dbCategory}`);
+    }
+
+    const discountPercent = activeItems[0]?.discountPercent ?? 0;
+    const cacheKey = `${category.dbCategory}_d${discountPercent}`;
+    const cached = posterCache.get(cacheKey);
+    if (cached) {
+        return cached;
     }
 
     const cols = 3;
@@ -181,7 +200,8 @@ export async function generateCategoryPoster(
         }
 
         const maxChars = isCompact ? 15 : 16;
-        const nameLines = wrapItemName(item.name, maxChars);
+        const rawCleanName = stripEmojis(item.name);
+        const nameLines = wrapItemName(rawCleanName || item.name, maxChars);
 
         let nameSvg = "";
         if (nameLines.length === 1) {
@@ -201,12 +221,39 @@ export async function generateCategoryPoster(
             `;
         }
 
+        // Voucher style % discount badge
+        const itemDiscount = item.discountPercent > 0
+            ? item.discountPercent
+            : (item.originalPrice > item.rupiahPrice
+                ? Math.round((1 - item.rupiahPrice / item.originalPrice) * 100)
+                : 0);
+
+        let voucherBadgeSvg = "";
+        if (itemDiscount > 0) {
+            const voucherW = 70;
+            const voucherH = 20;
+            const voucherX = x + cardWidth - voucherW - 10;
+            const voucherY = y + 10;
+
+            voucherBadgeSvg = `
+            <!-- Voucher Style % Badge -->
+            <g>
+                <rect x="${voucherX}" y="${voucherY}" width="${voucherW}" height="${voucherH}" rx="4" fill="#dc2626" />
+                <line x1="${voucherX + 18}" y1="${voucherY}" x2="${voucherX + 18}" y2="${voucherY + voucherH}" stroke="#991b1b" stroke-width="1.5" stroke-dasharray="2,2" />
+                <text x="${voucherX + 9}" y="${voucherY + 14}" fill="#fecdd3" font-size="9" font-weight="bold" font-family="sans-serif" text-anchor="middle">%</text>
+                <text x="${voucherX + 18 + (voucherW - 18) / 2}" y="${voucherY + 14}" fill="#ffffff" font-size="10.5" font-weight="bold" font-family="sans-serif" text-anchor="middle">-${itemDiscount}%</text>
+            </g>
+            `;
+        }
+
         cardsSvg += `
         <g>
             <rect x="${x}" y="${y}" width="${cardWidth}" height="${cardHeight}" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
             <!-- Badge with item number -->
             <rect x="${x + 10}" y="${y + 10}" width="${globalIdx >= 10 ? 44 : 36}" height="20" rx="5" fill="#0284c7" />
             <text x="${x + 10 + (globalIdx >= 10 ? 22 : 18)}" y="${y + 24}" fill="#ffffff" font-size="11" font-weight="bold" font-family="sans-serif" text-anchor="middle">#${globalIdx}</text>
+
+            ${voucherBadgeSvg}
 
             <!-- Icon Box Container (consistent across all items) -->
             <rect x="${boxX}" y="${boxY}" width="${boxSize}" height="${boxSize}" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1.2" />
@@ -234,7 +281,10 @@ export async function generateCategoryPoster(
         `;
     });
 
-    const categoryTitle = escapeXml(category.displayName.toUpperCase());
+    const rawCategoryName = category.displayName.replace(/^\d+\.\s*/, "");
+    const cleanCategoryName = stripEmojis(rawCategoryName).toUpperCase();
+    const categoryTitle = escapeXml(cleanCategoryName || category.dbCategory.toUpperCase());
+    const storeCleanName = escapeXml(stripEmojis(config.STORE_NAME).toUpperCase() || config.STORE_NAME.toUpperCase());
 
     const svg = `
     <svg width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -260,8 +310,8 @@ export async function generateCategoryPoster(
             <rect x="0" y="0" width="180" height="22" rx="11" fill="#0369a1" />
             <text x="90" y="15" fill="#e0f2fe" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">THE HIVE BEDROCK STORE</text>
             
-            <text x="0" y="48" fill="#f8fafc" font-size="22" font-weight="bold" font-family="sans-serif">🛒 ${escapeXml(config.STORE_NAME.toUpperCase())} — ${categoryTitle}</text>
-            <text x="0" y="70" fill="#94a3b8" font-size="13" font-family="sans-serif">⚡ Diskon s/d 50% • Pengiriman Cepat • QRIS Otomatis (${activeItems.length} Item)</text>
+            <text x="0" y="48" fill="#f8fafc" font-size="22" font-weight="bold" font-family="sans-serif">${storeCleanName} — ${categoryTitle}</text>
+            <text x="0" y="70" fill="#94a3b8" font-size="13" font-family="sans-serif">${discountPercent > 0 ? `Diskon s/d ${discountPercent}% • Pengiriman Cepat • QRIS Otomatis (${activeItems.length} Item)` : `Harga Spesial • Pengiriman Cepat • QRIS Otomatis (${activeItems.length} Item)`}</text>
         </g>
 
         <!-- Divider -->
@@ -275,10 +325,10 @@ export async function generateCategoryPoster(
             <rect width="${totalWidth}" height="${footerHeight}" fill="#030712" />
             <line x1="0" y1="0" x2="${totalWidth}" y2="0" stroke="#1e293b" stroke-width="1" />
             <text x="${totalWidth / 2}" y="28" fill="#38bdf8" font-size="14" font-weight="bold" font-family="sans-serif" text-anchor="middle">
-                💬 Ketik nomor item (contoh: 1) atau ketik /beli untuk memesan via WhatsApp
+                Ketik nomor item (contoh: 1) atau ketik /beli untuk memesan via WhatsApp
             </text>
             <text x="${totalWidth / 2}" y="47" fill="#64748b" font-size="11" font-family="sans-serif" text-anchor="middle">
-                ${escapeXml(config.STORE_NAME)} • Layanan Resmi &amp; Terpercaya
+                ${escapeXml(stripEmojis(config.STORE_NAME) || config.STORE_NAME)} • Layanan Resmi &amp; Terpercaya
             </text>
         </g>
     </svg>
@@ -303,7 +353,7 @@ export async function generateCategoryPoster(
         ? await sharp(basePng).composite(resizedComposites).png().toBuffer()
         : basePng;
 
-    posterCache.set(category.dbCategory, finalBuffer);
+    posterCache.set(cacheKey, finalBuffer);
     return finalBuffer;
 }
 

@@ -33,6 +33,16 @@ export const CATEGORIES: CategoryDefinition[] = [
     { id: "6", displayName: "6. 🔪 Murder Mystery Packs", dbCategory: "Murder Mystery Packs" }
 ];
 
+export let currentStoreDiscount = 50;
+
+export function getKnownStoreDiscount(): number {
+    return currentStoreDiscount;
+}
+
+export function setKnownStoreDiscount(percent: number): void {
+    currentStoreDiscount = percent;
+}
+
 export function resolveCategory(input: string, categories: CategoryDefinition[]): CategoryDefinition | undefined {
     const trimmed = input.trim().toLowerCase();
 
@@ -122,21 +132,188 @@ async function handleReprocessCommand(
     }
 }
 
+async function handleSupportCommand(
+    remoteJid: string,
+    ctx: BotContext,
+    userLang: Language,
+    effectiveSender?: string
+): Promise<void> {
+    const session = ctx.state.getSession(remoteJid);
+    if (session.step === "LIVE_CHAT") {
+        const alreadyActiveMsg = userLang === "en"
+            ? `💡 *Admin Live Chat is already active!*\nPlease feel free to send your messages directly here. Our admin will reply shortly! 🙏`
+            : `💡 *Sesi Live Chat Admin sudah aktif!*\nSilakan langsung ketik pesan atau kendala kakak di sini ya. Admin kami akan segera membalas! 🙏`;
+        await ctx.sendText(remoteJid, alreadyActiveMsg);
+        return;
+    }
+
+    if (session.step === "AWAITING_SUPPORT_CONFIRMATION") {
+        const alreadyPrompted = userLang === "en"
+            ? `💡 You have a pending Live Chat confirmation.\n👉 Reply *YES* to start Live Chat with our admin, or *CANCEL* to return to the bot 😊`
+            : `💡 Kakak sedang dalam konfirmasi Live Chat.\n👉 Balas *YA* untuk mulai obrolan langsung dengan admin, atau *BATAL* untuk kembali ke bot ya kak 😊`;
+        await ctx.sendText(remoteJid, alreadyPrompted);
+        return;
+    }
+
+    const retry = session.retryOrder || session.lastFailedOrder;
+    let orderInfo: { orderId?: string; itemName?: string; gamertag?: string; attempts?: number } = {};
+
+    if (retry) {
+        orderInfo = {
+            orderId: retry.orderId,
+            itemName: retry.itemName,
+            gamertag: (retry as any).newGamertag || (retry as any).oldGamertag || (retry as any).gamertag,
+            attempts: retry.attempts
+        };
+    } else {
+        try {
+            const userOrders = await ctx.client.getUserOrders(remoteJid);
+            if (userOrders && userOrders.length > 0) {
+                const latest = userOrders[0];
+                orderInfo = {
+                    orderId: latest.id,
+                    itemName: latest.itemName,
+                    gamertag: latest.gamertag
+                };
+            }
+        } catch {}
+    }
+
+    // Set state to AWAITING_SUPPORT_CONFIRMATION to ask user consent first
+    ctx.state.requestSupportConsent(remoteJid, orderInfo.orderId);
+
+    const consentPrompt = userLang === "en" ? (
+        `🛎️ *${config.STORE_NAME.toUpperCase()} LIVE CHAT SUPPORT* 👤💬\n\n` +
+        `Do you want to start a *Live Chat* session with our human admin via WhatsApp?\n\n` +
+        `⚠️ *Please note:* Automated bot commands and replies will be temporarily paused during the live chat session so you can talk directly with the store owner.\n\n` +
+        `👉 Reply *YES* to start Live Chat with admin\n` +
+        `👉 Reply *CANCEL* to stay with the automated bot`
+    ) : (
+        `🛎️ *BANTUAN LIVE CHAT ADMIN ${config.STORE_NAME.toUpperCase()}* 👤💬\n\n` +
+        `Apakah kakak ingin memulai sesi *Live Chat* langsung dengan admin kami melalui WhatsApp?\n\n` +
+        `⚠️ *Penting untuk diketahui:*\n` +
+        `Balasan dan perintah otomatis bot akan dinonaktifkan sementara selama sesi live chat agar kakak bisa mengobrol santai langsung dengan admin toko.\n\n` +
+        `👉 Balas *YA* untuk mulai Live Chat dengan admin\n` +
+        `👉 Balas *BATAL* untuk tetap menggunakan bot otomatis`
+    );
+    await ctx.sendText(remoteJid, consentPrompt);
+}
+
+async function handleSolvedCommand(
+    remoteJid: string,
+    args: string[],
+    ctx: BotContext,
+    userLang: Language,
+    mentionSender?: string
+): Promise<void> {
+    const rawTarget = args.join(" ").trim();
+
+    // 1. Try finding live chat user in state
+    let matched = ctx.state.findLiveChatUser(rawTarget);
+
+    // 2. If not found in memory by direct match, and rawTarget is an order ID, try looking up order in coreClient
+    if (!matched && rawTarget) {
+        try {
+            const cleanOrderId = rawTarget.replace(/^#/, "");
+            const orderRes = await ctx.client.getOrderStatus(cleanOrderId);
+            if (orderRes && orderRes.order && orderRes.order.platformUserId) {
+                const session = ctx.state.getSession(orderRes.order.platformUserId);
+                if (session.step === "LIVE_CHAT") {
+                    matched = { jid: orderRes.order.platformUserId, session };
+                }
+            }
+        } catch {
+            // ignore
+        }
+    }
+
+    // 3. If still not matched and no arguments were provided:
+    if (!matched && !rawTarget) {
+        const activeList = ctx.state.getAllActiveLiveChats();
+        if (activeList.length === 1) {
+            const onlyOne = activeList[0];
+            matched = { jid: onlyOne.jid, session: ctx.state.getSession(onlyOne.jid) };
+        } else if (activeList.length > 1) {
+            let listMsg = `⚠️ Ada *${activeList.length} sesi live chat* yang sedang aktif:\n\n`;
+            activeList.forEach((item, idx) => {
+                const phone = extractPhoneNumber(item.jid);
+                listMsg += `${idx + 1}. +${phone} ${item.orderId ? `(Order #${item.orderId})` : ""}\n`;
+            });
+            listMsg += `\n💡 _Gunakan: */solved <order-id>* atau */solved <nomor>_`;
+            await ctx.sendText(remoteJid, listMsg, mentionSender ? [mentionSender] : undefined);
+            return;
+        }
+    }
+
+    if (!matched) {
+        const notFoundMsg = rawTarget
+            ? `⚠️ Tidak ditemukan sesi live chat aktif untuk *${rawTarget}*. Pastikan ID pesanan atau nomor pelanggan benar.`
+            : `⚠️ Tidak ada sesi live chat yang sedang aktif saat ini.`;
+        await ctx.sendText(remoteJid, notFoundMsg, mentionSender ? [mentionSender] : undefined);
+        return;
+    }
+
+    const targetJid = matched.jid;
+    const targetSession = matched.session;
+    const resolvedOrderId = targetSession.liveChatOrderId || targetSession.retryOrder?.orderId || targetSession.lastFailedOrder?.orderId || rawTarget.replace(/^#/, "");
+    const targetPhone = extractPhoneNumber(targetJid);
+    const targetLang = ctx.state.getLanguage(targetJid);
+
+    // End live chat session
+    ctx.state.endLiveChat(targetJid);
+
+    // Send closing message to the user in DM
+    const userClosing = targetLang === "en" ? (
+        `✅ *SUPPORT SESSION RESOLVED*\n\n` +
+        `Thank you for contacting ${config.STORE_NAME} support! The admin live chat session has been closed, and our bot is now back online for you.\n\n` +
+        `Type */katalog* to browse our catalog or */help* for command list 😊`
+    ) : (
+        `✅ *SESI BANTUAN SELESAI*\n\n` +
+        `Terima kasih telah menghubungi customer support ${config.STORE_NAME}! Sesi live chat bersama admin telah selesai, dan bot kami kini telah aktif kembali.\n\n` +
+        `Ketik */katalog* untuk melihat koleksi item kami atau */bantuan* untuk daftar perintah ya kak 😊`
+    );
+    try {
+        await ctx.sendText(targetJid, userClosing);
+    } catch (err: unknown) {
+        console.warn(`[handleSolvedCommand] Failed to send closing text to user ${targetJid}:`, err);
+    }
+
+    // Reply in admin chat
+    const adminReply =
+        `✅ *TIKET LIVE CHAT BERHASIL DISELESAIKAN*\n\n` +
+        (resolvedOrderId ? `• Order ID: *#${resolvedOrderId}*\n` : "") +
+        `• Pelanggan: *+${targetPhone}*\n` +
+        `• Status: *Bot Aktif Kembali ✅*\n\n` +
+        `Pesan penutup telah dikirimkan ke pelanggan. Terima kasih!`;
+    await ctx.sendText(remoteJid, adminReply, mentionSender ? [mentionSender] : undefined);
+}
+
 async function handleSetDiscountCommand(
     remoteJid: string,
     args: string[],
     ctx: BotContext,
     userLang: Language
 ): Promise<void> {
-    if (args.length === 0) {
+    const rawInput = args.join(" ").trim();
+    if (!rawInput) {
         const usage = userLang === "en"
-            ? `💡 *Usage:* */setdiscount <0-90>*\nExample: */setdiscount 40* (set store discount to 40%)\nUse *0* to disable discount.`
-            : `💡 *Penggunaan:* */setdiskon <0-90>*\nContoh: */setdiskon 40* (set diskon toko 40%)\nGunakan *0* untuk mematikan diskon.`;
+            ? `💡 *Usage:* */setdiscount <0-90>*\nExample: */setdiscount 60%* or */setdiscount 40*\nUse *0* to disable discount.`
+            : `💡 *Penggunaan:* */setdiskon <0-90>*\nContoh: */setdiskon 60%* atau */setdiskon 40*\nGunakan *0* untuk mematikan diskon.`;
         await ctx.sendText(remoteJid, usage);
         return;
     }
 
-    const percent = parseInt(args[0], 10);
+    // Extract whole number from rawInput (e.g. "60%", "%60", "60 %", "diskon 60", etc.)
+    const numberMatch = rawInput.match(/\b\d+\b/) || rawInput.match(/\d+/);
+    if (!numberMatch) {
+        const err = userLang === "en"
+            ? `❌ Discount percentage must be a whole number between 0 and 90.`
+            : `❌ Persentase diskon harus berupa angka bulat antara 0 hingga 90.`;
+        await ctx.sendText(remoteJid, err);
+        return;
+    }
+
+    const percent = parseInt(numberMatch[0], 10);
     if (isNaN(percent) || percent < 0 || percent > 90) {
         const err = userLang === "en"
             ? `❌ Discount percentage must be a whole number between 0 and 90.`
@@ -147,10 +324,12 @@ async function handleSetDiscountCommand(
 
     try {
         await ctx.client.setStoreDiscount(percent);
+        currentStoreDiscount = percent;
         clearPosterCache();
         await ctx.sendText(remoteJid, t("discountUpdated", userLang, { percent }));
     } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : String(err);
+        console.error("[SetDiscount Error]:", errMsg);
         await ctx.sendText(remoteJid, `❌ Gagal mengubah diskon: ${errMsg}`);
     }
 }
@@ -297,14 +476,21 @@ async function handleVoucherCommand(
     );
 }
 
-export function renderOrderCategoryMenu(isRedirectFromMenu = false, lang: Language = "id"): string {
+export function renderOrderCategoryMenu(
+    lang: Language = "id",
+    discountPercent: number = currentStoreDiscount
+): string {
+    const discLineEn = discountPercent > 0
+        ? `> Official cosmetics discount up to ${discountPercent}% for The Hive! ✨\n\n`
+        : `> Official cosmetics for The Hive with special prices! ✨\n\n`;
+
+    const discLineId = discountPercent > 0
+        ? `> Diskon resmi s/d ${discountPercent}% untuk kosmetik The Hive! ✨\n\n`
+        : `> Kosmetik resmi The Hive dengan harga spesial! ✨\n\n`;
+
     if (lang === "en") {
-        let out = "";
-        if (isRedirectFromMenu) {
-            out += `💡 _Info: The */menu* command has been merged into */buy*!_\n\n`;
-        }
-        out += `🛍️ *${config.STORE_NAME.toUpperCase()} — CATALOG & ORDERING*\n`;
-        out += `> Official cosmetics discount up to 50% for The Hive! ✨\n\n`;
+        let out = `🛍️ *${config.STORE_NAME.toUpperCase()} — CATALOG & ORDERING*\n`;
+        out += discLineEn;
         out += `Hello! What cosmetics are you looking for today? Please choose a category below:\n\n`;
         CATEGORIES.forEach((cat) => {
             out += `*${cat.id}.* ${cat.displayName.replace(/^\d+\.\s*/, "")}\n`;
@@ -314,12 +500,8 @@ export function renderOrderCategoryMenu(isRedirectFromMenu = false, lang: Langua
         return out;
     }
 
-    let out = "";
-    if (isRedirectFromMenu) {
-        out += `💡 _Info: Perintah */menu* sekarang sudah digabung ke */beli* ya kak!_\n\n`;
-    }
-    out += `🛍️ *${config.STORE_NAME.toUpperCase()} — KATALOG & PEMESANAN*\n`;
-    out += `> Diskon resmi s/d 50% untuk kosmetik The Hive! ✨\n\n`;
+    let out = `🛍️ *${config.STORE_NAME.toUpperCase()} — KATALOG & PEMESANAN*\n`;
+    out += discLineId;
     out += `Halo kak! Mau cari kosmetik apa hari ini? Silakan pilih kategori di bawah ya:\n\n`;
     CATEGORIES.forEach((cat) => {
         out += `*${cat.id}.* ${cat.displayName.replace(/^\d+\.\s*/, "")}\n`;
@@ -330,7 +512,7 @@ export function renderOrderCategoryMenu(isRedirectFromMenu = false, lang: Langua
 }
 
 export function renderMainMenu(lang: Language = "id"): string {
-    return renderOrderCategoryMenu(true, lang);
+    return renderOrderCategoryMenu(lang);
 }
 
 export function renderCategoryItems(items: CatalogItem[], category: CategoryDefinition, lang: Language = "id"): string {
@@ -342,9 +524,13 @@ export function renderCategoryItems(items: CatalogItem[], category: CategoryDefi
             : `⚠️ Belum ada item aktif di kategori *${category.displayName}* nih kak.`;
     }
 
+    const discountPercent = active[0]?.discountPercent ?? currentStoreDiscount;
+
     if (lang === "en") {
         let out = `📁 *CATALOG: ${category.displayName.toUpperCase()}* (${active.length} Items)\n`;
-        out += `Official store discount up to 50%! ⚡\n\n`;
+        out += discountPercent > 0
+            ? `Official store discount up to ${discountPercent}%! ⚡\n\n`
+            : `Official store special prices! ⚡\n\n`;
 
         active.forEach((item, idx) => {
             out += `${idx + 1}. *${item.name}*\n`;
@@ -358,7 +544,9 @@ export function renderCategoryItems(items: CatalogItem[], category: CategoryDefi
     }
 
     let out = `📁 *KATALOG: ${category.displayName.toUpperCase()}* (${active.length} Item)\n`;
-    out += `Harga resmi diskon hingga 50%! ⚡\n\n`;
+    out += discountPercent > 0
+        ? `Harga resmi diskon hingga ${discountPercent}%! ⚡\n\n`
+        : `Harga promo resmi The Hive! ⚡\n\n`;
 
     active.forEach((item, idx) => {
         out += `${idx + 1}. *${item.name}*\n`;
@@ -378,6 +566,9 @@ async function sendCategoryOrderPoster(
     lang: Language = "id"
 ): Promise<void> {
     const catalog = await ctx.client.getCatalog();
+    if (catalog.length > 0 && typeof catalog[0].discountPercent === "number") {
+        currentStoreDiscount = catalog[0].discountPercent;
+    }
     const categoryItems = catalog.filter((i) => i.active && i.category === cat.dbCategory);
 
     if (categoryItems.length === 0) {
@@ -395,15 +586,21 @@ async function sendCategoryOrderPoster(
         return;
     }
 
+    const discountPercent = categoryItems[0]?.discountPercent ?? currentStoreDiscount;
+
     const caption = lang === "en" ? (
         `🛒 *CATALOG: ${cat.displayName.toUpperCase()}*\n\n` +
-        `There are *${categoryItems.length} awesome items* with up to 50% discount! ⚡\n\n` +
+        (discountPercent > 0
+            ? `There are *${categoryItems.length} awesome items* with up to ${discountPercent}% discount! ⚡\n\n`
+            : `There are *${categoryItems.length} awesome items* ready for order! ⚡\n\n`) +
         `Please type the *item number* (*1 - ${categoryItems.length}*) from the image above that you'd like to buy:\n` +
         `• Type *b* to return to category list\n` +
         `• Type *c* to cancel order`
     ) : (
         `🛒 *KATALOG: ${cat.displayName.toUpperCase()}*\n\n` +
-        `Ada *${categoryItems.length} item* kece dengan diskon s/d 50%! ⚡\n\n` +
+        (discountPercent > 0
+            ? `Ada *${categoryItems.length} item* kece dengan diskon s/d ${discountPercent}%! ⚡\n\n`
+            : `Ada *${categoryItems.length} item* kece siap diorder! ⚡\n\n`) +
         `Silakan ketik *nomor item* (*1 - ${categoryItems.length}*) dari gambar di atas yang mau kakak beli ya:\n` +
         `• Ketik *k* untuk kembali ke pilihan kategori\n` +
         `• Ketik *b* untuk membatalkan pesanan`
@@ -438,6 +635,113 @@ async function sendCategoryOrderPoster(
     }
 
     await ctx.sendText(remoteJid, out);
+}
+
+export async function handleKatalogCommand(
+    remoteJid: string,
+    args: string[],
+    ctx: BotContext,
+    userLang: Language
+): Promise<void> {
+    try {
+        const catalog = await ctx.client.getCatalog();
+        if (!catalog || catalog.length === 0) {
+            await ctx.sendText(
+                remoteJid,
+                userLang === "en"
+                    ? `⚠️ Catalog is currently unavailable. Please try again in a few moments.`
+                    : `⚠️ Katalog saat ini sedang tidak dapat dimuat nih kak. Coba beberapa saat lagi ya.`
+            );
+            return;
+        }
+
+        if (catalog.length > 0 && typeof catalog[0].discountPercent === "number") {
+            currentStoreDiscount = catalog[0].discountPercent;
+        }
+
+        const filterQuery = args.join(" ").trim();
+        if (filterQuery) {
+            const matchedCat = resolveCategory(filterQuery, CATEGORIES);
+            if (matchedCat) {
+                const catItems = catalog.filter((i) => i.active && i.category === matchedCat.dbCategory);
+                if (catItems.length === 0) {
+                    await ctx.sendText(
+                        remoteJid,
+                        userLang === "en"
+                            ? `⚠️ No active items in category *${matchedCat.displayName}*.`
+                            : `⚠️ Belum ada item aktif di kategori *${matchedCat.displayName}*.`
+                    );
+                    return;
+                }
+
+                try {
+                    const poster = await generateCategoryPoster(matchedCat, catalog);
+                    const caption = userLang === "en"
+                        ? `📁 *CATALOG: ${matchedCat.displayName.toUpperCase()}* (${catItems.length} Items)\n\n🛒 *Ready to order?* Type */buy* to start purchasing! ✨`
+                        : `📁 *KATALOG: ${matchedCat.displayName.toUpperCase()}* (${catItems.length} Item)\n\n🛒 *Mau beli item di atas?* Ketik */beli* untuk mulai memesan ya kak! ✨`;
+                    await ctx.sendImage(remoteJid, poster, caption);
+                } catch (err: unknown) {
+                    const textCatalog = renderCategoryItems(catalog, matchedCat, userLang);
+                    await ctx.sendText(
+                        remoteJid,
+                        textCatalog + (userLang === "en" ? "\n\n💡 Type */buy* to start ordering!" : "\n\n💡 Ketik */beli* untuk mulai memesan ya kak!")
+                    );
+                }
+                return;
+            }
+        }
+
+        // Send all category posters
+        const activeCategories = CATEGORIES.filter((cat) =>
+            catalog.some((i) => i.active && i.category === cat.dbCategory)
+        );
+
+        if (activeCategories.length === 0) {
+            await ctx.sendText(
+                remoteJid,
+                userLang === "en"
+                    ? `⚠️ No active items in the catalog yet.`
+                    : `⚠️ Belum ada item aktif di katalog saat ini.`
+            );
+            return;
+        }
+
+        for (const cat of activeCategories) {
+            const catItems = catalog.filter((i) => i.active && i.category === cat.dbCategory);
+            const caption = `📁 *${cat.displayName.toUpperCase()}* (${catItems.length} Item)`;
+            try {
+                const poster = await generateCategoryPoster(cat, catalog);
+                await ctx.sendImage(remoteJid, poster, caption);
+            } catch (err: unknown) {
+                console.error(`[Catalog Poster Error for ${cat.displayName}]:`, err);
+                const textList = renderCategoryItems(catalog, cat, userLang);
+                await ctx.sendText(remoteJid, textList);
+            }
+        }
+
+        const totalItems = catalog.filter((i) => i.active).length;
+        const ctaMessage = userLang === "en"
+            ? `━━━━━━━━━━━━━━━━━━━━━\n` +
+              `🛒 *ALL CATALOG CATEGORIES* (${totalItems} Items)\n` +
+              `${currentStoreDiscount > 0 ? `⚡ Store discount up to *${currentStoreDiscount}%* is active!\n\n` : `⚡ Official store special prices!\n\n`}` +
+              `👉 To start purchasing any item, type */buy* or */beli*! 🛍️`
+            : `━━━━━━━━━━━━━━━━━━━━━\n` +
+              `🛒 *KATALOG LENGKAP ${config.STORE_NAME.toUpperCase()}* (${totalItems} Item)\n` +
+              `${currentStoreDiscount > 0 ? `⚡ Promo diskon resmi s/d *${currentStoreDiscount}%* sedang berlangsung!\n\n` : `⚡ Harga promo resmi The Hive!\n\n`}` +
+              `👉 Mau beli item di atas? Ketik */beli* untuk mulai memesan ya kak! 🛍️`;
+
+        await ctx.sendText(remoteJid, ctaMessage);
+
+    } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error("[handleKatalogCommand Error]:", errMsg);
+        await ctx.sendText(
+            remoteJid,
+            userLang === "en"
+                ? `❌ Failed to load catalog: ${errMsg}\n\n💡 Please wait a moment and try again.`
+                : `❌ Gagal memuat katalog: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.`
+        );
+    }
 }
 
 /**
@@ -804,6 +1108,21 @@ async function handleIncomingMessageInternal(
             return;
         }
 
+        if (
+            lower === "/solved" ||
+            lower.startsWith("/solved ") ||
+            lower === "/solve" ||
+            lower.startsWith("/solve ")
+        ) {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd || "/solved", userLang, ctx, effectiveSender);
+                return;
+            }
+            await handleSolvedCommand(remoteJid, parts.slice(1), ctx, userLang, effectiveSender);
+            return;
+        }
+
         if (lower === "/admin" || lower.startsWith("/admin ")) {
             const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
             if (!isAdmin) {
@@ -824,6 +1143,7 @@ async function handleIncomingMessageInternal(
             out += `• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n`;
             out += `• */reprocess* : Proses ulang semua order tertahan\n`;
             out += `• */reprocess <ID>* : Proses ulang order tertentu\n`;
+            out += `• */solved <ID/No>* : Selesaikan sesi live chat support & aktifkan bot kembali\n`;
             out += `• */setgroup admin* : Daftarkan grup ini sebagai Admin Command Group\n`;
             out += `• */setgroup log* : Daftarkan grup ini sebagai Transaction Log Group\n`;
             out += `• */setdiskon <0-90>* : Ubah persentase diskon toko global\n`;
@@ -865,6 +1185,11 @@ async function handleIncomingMessageInternal(
             }
         }
 
+        if (cmd === "/support") {
+            await handleSupportCommand(remoteJid, ctx, userLang, effectiveSender);
+            return;
+        }
+
         // Cross-language hints in group
         if (cmd === "/buy" && userLang === "id") {
             const text = `@${senderPhone}\n\n` + t("crossLanguageHint", "id");
@@ -877,13 +1202,21 @@ async function handleIncomingMessageInternal(
             return;
         }
 
-        // Buying / Catalog flow redirection to DM
+        // Group Catalog command
+        if (cmd === "/katalog" || cmd === "/catalog") {
+            const groupNotice = userLang === "en"
+                ? `@${senderPhone}\n\n📁 The catalog posters have been sent to your private chat! Please check your DM 😊\nType */buy* in DM to order!`
+                : `@${senderPhone}\n\n📁 Gambar katalog telah dikirimkan ke chat pribadi kakak ya! Silakan cek DM 😊\nKetik */beli* di DM untuk memesan!`;
+            await ctx.sendText(remoteJid, groupNotice, [effectiveSender]);
+            await handleKatalogCommand(effectiveSender, parts.slice(1), ctx, userLang);
+            return;
+        }
+
+        // Buying / Order flow redirection to DM
         if (
             cmd === "/beli" ||
             cmd === "/buy" ||
-            cmd === "/menu" ||
-            cmd === "/katalog" ||
-            cmd === "/catalog"
+            cmd === "/menu"
         ) {
             const currentSession = ctx.state.getSession(effectiveSender);
             if (currentSession.step !== "IDLE") {
@@ -966,7 +1299,7 @@ async function handleIncomingMessageInternal(
                     }
                 } catch (err: unknown) {
                     const errMsg = err instanceof Error ? err.message : String(err);
-                    await ctx.sendText(remoteJid, `@${senderPhone}\n\n❌ Gagal: ${errMsg}`, [effectiveSender]);
+                    await ctx.sendText(remoteJid, `@${senderPhone}\n\n❌ Gagal: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.`, [effectiveSender]);
                 }
                 return;
             }
@@ -978,7 +1311,7 @@ async function handleIncomingMessageInternal(
                 await ctx.sendText(remoteJid, statusMsg, [effectiveSender]);
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `@${senderPhone}\n\n❌ Gagal: ${errMsg}`, [effectiveSender]);
+                await ctx.sendText(remoteJid, `@${senderPhone}\n\n❌ Gagal: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.`, [effectiveSender]);
             }
             return;
         }
@@ -1014,7 +1347,7 @@ async function handleIncomingMessageInternal(
                 await ctx.sendText(remoteJid, out, [effectiveSender]);
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `@${senderPhone}\n\n❌ Gagal: ${errMsg}`, [effectiveSender]);
+                await ctx.sendText(remoteJid, `@${senderPhone}\n\n❌ Gagal: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.`, [effectiveSender]);
             }
             return;
         }
@@ -1026,6 +1359,20 @@ async function handleIncomingMessageInternal(
 
     // 2. Private 1:1 Chat Handling
     const session = ctx.state.getSession(remoteJid);
+
+    // LIVE CHAT MODE: If user is in live chat with human admin, do not intercept with automated bot replies
+    if (session.step === "LIVE_CHAT") {
+        const isSolvedCmd = lower === "/solved" || lower.startsWith("/solved ") || lower === "/solve" || lower.startsWith("/solve ");
+        if (isSolvedCmd) {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            if (isAdmin) {
+                await handleSolvedCommand(remoteJid, trimmed.split(/\s+/).slice(1), ctx, userLang);
+                return;
+            }
+        }
+        return;
+    }
+
     const isCategoryInput = resolveCategory(trimmed, CATEGORIES) !== undefined;
     const isGreeting = GREETINGS.includes(lower);
 
@@ -1142,13 +1489,32 @@ async function handleIncomingMessageInternal(
                 await ctx.sendText(remoteJid, reEnterMsg);
                 return;
             }
+
+            if (session.step === "AWAITING_RETRY_CONFIRMATION") {
+                session.step = "AWAITING_RETRY_GAMERTAG";
+                session.lastUpdated = Date.now();
+                const reEnterPrompt = userLang === "en"
+                    ? `Please enter your *correct Minecraft Bedrock Gamertag*:`
+                    : `Silakan masukkan ulang *Gamertag Minecraft yang benar* ya kak:`;
+                await ctx.sendText(remoteJid, reEnterPrompt);
+                return;
+            }
+
+            if (session.step === "AWAITING_RETRY_GAMERTAG") {
+                ctx.state.clearRetryOrder(remoteJid);
+                const cancelMsg = userLang === "en"
+                    ? `Retry session cancelled. Type */support* anytime if you need help!`
+                    : `Sesi pengiriman ulang dibatalkan. Ketik */support* jika butuh bantuan admin ya kak!`;
+                await ctx.sendText(remoteJid, cancelMsg);
+                return;
+            }
         }
         return;
     }
 
     // Check if user runs /beli or /buy while already inside an active session
     const activeCmd = trimmed.split(/\s+/)[0]?.toLowerCase() || "";
-    if (session.step !== "IDLE" && (activeCmd === "/beli" || activeCmd === "/buy" || activeCmd === "/menu" || activeCmd === "/katalog" || activeCmd === "/catalog")) {
+    if (session.step !== "IDLE" && (activeCmd === "/beli" || activeCmd === "/buy" || activeCmd === "/menu")) {
         const parts = trimmed.split(/\s+/);
         const filterQuery = parts.slice(1).join(" ").trim();
         if (!filterQuery) {
@@ -1257,6 +1623,204 @@ async function handleIncomingMessageInternal(
         } else {
             await ctx.sendText(remoteJid, promptText);
         }
+        return;
+    }
+
+    if (session.step === "AWAITING_RETRY_GAMERTAG") {
+        const lower = trimmed.toLowerCase();
+        if (lower === "/support" || lower.startsWith("/support ")) {
+            await handleSupportCommand(remoteJid, ctx, userLang, effectiveSender);
+            return;
+        }
+
+        if (lower === "c" || lower === "cancel" || lower === "batal") {
+            ctx.state.clearRetryOrder(remoteJid);
+            const cancelMsg = userLang === "en"
+                ? `Retry session cancelled. Type */support* anytime if you need help!`
+                : `Sesi pengiriman ulang dibatalkan. Ketik */support* jika butuh bantuan admin ya kak!`;
+            await ctx.sendText(remoteJid, cancelMsg);
+            return;
+        }
+
+        const gamertag = trimmed;
+        const isValidGamertag = /^[a-zA-Z0-9 _]{3,16}$/.test(gamertag);
+        if (!isValidGamertag) {
+            await ctx.sendText(remoteJid, t("invalidGamertag", userLang));
+            return;
+        }
+
+        const retry = session.retryOrder;
+        if (!retry) {
+            ctx.state.clearRetryOrder(remoteJid);
+            return;
+        }
+
+        retry.newGamertag = gamertag;
+        session.step = "AWAITING_RETRY_CONFIRMATION";
+        session.lastUpdated = Date.now();
+
+        const confirmMsg = userLang === "en" ? (
+            `📋 *CONFIRM NEW GAMERTAG*\n\n` +
+            `🆔 Order ID: *#${retry.orderId}*\n` +
+            `📦 Item: *${retry.itemName}*\n` +
+            `👤 New Gamertag: *${gamertag}*\n\n` +
+            `Please make sure the Gamertag spelling and spaces are exact!\n\n` +
+            `Is this Gamertag correct?\n` +
+            `👉 Reply *YES* to re-deliver to The Hive\n` +
+            `👉 Reply *b* to change gamertag\n` +
+            `👉 Reply *c* to cancel or type */support* for admin help`
+        ) : (
+            `📋 *KONFIRMASI GAMERTAG BARU*\n\n` +
+            `🆔 Order ID: *#${retry.orderId}*\n` +
+            `📦 Item: *${retry.itemName}*\n` +
+            `👤 Gamertag Baru: *${gamertag}*\n\n` +
+            `Mohon pastikan huruf besar/kecil dan spasi sudah benar ya kak.\n\n` +
+            `Apakah data Gamertag ini sudah benar?\n` +
+            `👉 Balas *YA* untuk memproses ulang pengiriman ke The Hive\n` +
+            `👉 Balas *k* untuk ganti gamertag\n` +
+            `👉 Balas *b* untuk membatalkan atau ketik */support* jika butuh bantuan admin`
+        );
+
+        await ctx.sendText(remoteJid, confirmMsg);
+        return;
+    }
+
+    if (session.step === "AWAITING_RETRY_CONFIRMATION") {
+        const lower = trimmed.toLowerCase();
+        if (lower === "/support" || lower.startsWith("/support ")) {
+            await handleSupportCommand(remoteJid, ctx, userLang, effectiveSender);
+            return;
+        }
+
+        const isYes = lower === "ya" || lower === "yes" || lower === "y" || lower === "deal" || lower === "ok";
+        const retry = session.retryOrder;
+        if (!retry) {
+            ctx.state.clearRetryOrder(remoteJid);
+            return;
+        }
+
+        if (isYes) {
+            try {
+                const targetTag = retry.newGamertag || retry.oldGamertag;
+                await ctx.client.updateOrderGamertag(retry.orderId, targetTag);
+                const successMsg = userLang === "en" ? (
+                    `✅ *GAMERTAG UPDATED!*\n\n` +
+                    `Order *#${retry.orderId}* is being re-delivered to *${targetTag}* on The Hive.\n` +
+                    `Please wait 1–2 minutes... 🎁`
+                ) : (
+                    `✅ *GAMERTAG BERHASIL DIPERBARUI!*\n\n` +
+                    `Pesanan *#${retry.orderId}* sedang dikirim ulang ke Gamertag *${targetTag}* di The Hive.\n` +
+                    `Mohon tunggu 1–2 menit ya kak... 🎁`
+                );
+                await ctx.sendText(remoteJid, successMsg);
+                ctx.state.clearRetryOrder(remoteJid);
+            } catch (err: unknown) {
+                const errMsg = err instanceof Error ? err.message : String(err);
+                await ctx.sendText(remoteJid, `❌ Gagal memproses ulang pesanan: ${errMsg}`);
+            }
+            return;
+        }
+
+        const isChange = lower === "k" || lower === "b" || lower === "kembali" || lower === "back";
+        if (isChange) {
+            session.step = "AWAITING_RETRY_GAMERTAG";
+            session.lastUpdated = Date.now();
+            const prompt = userLang === "en"
+                ? `Please enter your *correct Minecraft Bedrock Gamertag*:`
+                : `Silakan masukkan *Gamertag Minecraft yang benar* ya kak:`;
+            await ctx.sendText(remoteJid, prompt);
+            return;
+        }
+
+        const isCancel = lower === "c" || lower === "cancel" || lower === "batal";
+        if (isCancel) {
+            ctx.state.clearRetryOrder(remoteJid);
+            const cancelMsg = userLang === "en"
+                ? `Retry session cancelled. Type */support* anytime if you need help!`
+                : `Sesi pengiriman ulang dibatalkan. Ketik */support* jika butuh bantuan admin ya kak!`;
+            await ctx.sendText(remoteJid, cancelMsg);
+            return;
+        }
+
+        const hint = userLang === "en"
+            ? `💡 Please reply *YES* to proceed, *b* to change gamertag, or *c* to cancel.`
+            : `💡 Mohon balas *YA* untuk lanjut, *k* untuk ganti gamertag, atau *b* untuk membatalkan.`;
+        await ctx.sendText(remoteJid, hint);
+        return;
+    }
+
+    if (session.step === "AWAITING_SUPPORT_CONFIRMATION") {
+        const lower = trimmed.toLowerCase();
+
+        const isYes =
+            lower === "ya" ||
+            lower === "yes" ||
+            lower === "y" ||
+            lower === "1" ||
+            lower === "lanjut" ||
+            lower === "oke" ||
+            lower === "ok" ||
+            lower === "siap";
+
+        const isCancel =
+            lower === "batal" ||
+            lower === "cancel" ||
+            lower === "tidak" ||
+            lower === "no" ||
+            lower === "gak" ||
+            lower === "ngga" ||
+            lower === "c" ||
+            lower === "b";
+
+        if (isYes) {
+            const targetOrderId = session.pendingSupportOrderId;
+            ctx.state.startLiveChat(remoteJid, targetOrderId);
+
+            const activeLiveMsg = userLang === "en" ? (
+                `✅ *LIVE CHAT MODE ACTIVE* 👤💬\n\n` +
+                `You are now connected to *Admin Live Chat* mode.\n` +
+                `Our human admin will reply directly to your messages in this WhatsApp chat as soon as possible.\n\n` +
+                `⚠️ *Note:* Automated bot replies are paused during this live chat session.\n\n` +
+                `Please send your questions or order details below! 🙏`
+            ) : (
+                `✅ *MODE LIVE CHAT AKTIF* 👤💬\n\n` +
+                `Kakak sekarang telah terhubung ke mode *Live Chat Admin*.\n` +
+                `Pesan kakak selanjutnya akan langsung dibaca dan dibalas oleh admin kami secara manual melalui WhatsApp.\n\n` +
+                `⚠️ *Catatan:* Balasan otomatis bot dinonaktifkan sementara selama sesi live chat ini.\n\n` +
+                `Silakan ketik pertanyaan atau detail kendala yang kakak alami di bawah ini ya! Admin kami akan segera membalas 🙏`
+            );
+            await ctx.sendText(remoteJid, activeLiveMsg);
+
+            // Alert admin group
+            if (ctx.adminLogger) {
+                const retry = session.retryOrder || session.lastFailedOrder;
+                await ctx.adminLogger.notifySupportRequest({
+                    orderId: targetOrderId || retry?.orderId,
+                    itemName: retry?.itemName,
+                    gamertag: (retry as any)?.newGamertag || (retry as any)?.oldGamertag || (retry as any)?.gamertag,
+                    attempts: retry?.attempts,
+                    platformUserId: effectiveSender || remoteJid,
+                    reason: retry?.attempts && retry.attempts >= 3
+                        ? `Gamertag tidak ditemukan di The Hive setelah ${retry.attempts}x percobaan`
+                        : "Pelanggan menyetujui masuk ke mode Live Chat Support via /support"
+                });
+            }
+            return;
+        }
+
+        if (isCancel) {
+            ctx.state.cancelSupportConsent(remoteJid);
+            const cancelNotice = userLang === "en"
+                ? `💡 Live chat cancelled. Our automated bot is active again 😊\nType */katalog* to view our catalog or */help* for command list.`
+                : `💡 Sesi live chat dibatalkan. Bot kami telah aktif kembali ya kak 😊\nKetik */katalog* untuk melihat katalog item atau */bantuan* untuk daftar perintah.`;
+            await ctx.sendText(remoteJid, cancelNotice);
+            return;
+        }
+
+        const promptHint = userLang === "en"
+            ? `💡 Please reply *YES* to start Live Chat with our admin, or *CANCEL* to stay with the automated bot 😊`
+            : `💡 Mohon balas *YA* untuk mulai Live Chat dengan admin, atau balas *BATAL* untuk kembali ke bot ya kak 😊`;
+        await ctx.sendText(remoteJid, promptHint);
         return;
     }
 
@@ -1419,8 +1983,8 @@ async function handleIncomingMessageInternal(
                 const errMsg = err instanceof Error ? err.message : String(err);
                 ctx.state.clear(remoteJid);
                 const failMsg = userLang === "en"
-                    ? `❌ Oops, failed to create order: ${errMsg}`
-                    : `❌ Waduh, gagal membuat pesanan kak: ${errMsg}`;
+                    ? `❌ Oops, failed to create order: ${errMsg}\n\n💡 Please wait a moment and try again with */buy* or */katalog*.`
+                    : `❌ Waduh, gagal membuat pesanan kak: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi dengan */beli* atau */katalog* ya kak.`;
                 await ctx.sendText(remoteJid, failMsg);
             }
             return;
@@ -1458,9 +2022,13 @@ async function handleIncomingMessageInternal(
     const lowerCmd = cmd.toLowerCase();
 
     switch (lowerCmd) {
-        case "/menu":
         case "/katalog":
-        case "/catalog":
+        case "/catalog": {
+            await handleKatalogCommand(remoteJid, args, ctx, userLang);
+            break;
+        }
+
+        case "/menu":
         case "/beli":
         case "/buy": {
             const filterQuery = args.join(" ").trim();
@@ -1534,8 +2102,7 @@ async function handleIncomingMessageInternal(
             }
 
             ctx.state.startBuyingFlow(remoteJid);
-            const isMenu = lowerCmd === "/menu" || lowerCmd === "/katalog" || lowerCmd === "/catalog";
-            await ctx.sendText(remoteJid, renderOrderCategoryMenu(isMenu, userLang));
+            await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
             break;
         }
 
@@ -1565,7 +2132,12 @@ async function handleIncomingMessageInternal(
                     await ctx.sendText(remoteJid, formatStatusText(activeOrder, userLang));
                 } catch (err: unknown) {
                     const errMsg = err instanceof Error ? err.message : String(err);
-                    await ctx.sendText(remoteJid, `❌ Gagal mengambil status pesanan kak: ${errMsg}`);
+                    await ctx.sendText(
+                        remoteJid,
+                        userLang === "en"
+                            ? `❌ Failed to fetch order status: ${errMsg}\n\n💡 Please wait a moment and try again.`
+                            : `❌ Gagal mengambil status pesanan kak: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.`
+                    );
                 }
                 return;
             }
@@ -1576,7 +2148,12 @@ async function handleIncomingMessageInternal(
                 await ctx.sendText(remoteJid, formatStatusText(order, userLang));
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `❌ Tidak dapat menemukan pesanan #${orderId} nih kak: ${errMsg}`);
+                await ctx.sendText(
+                    remoteJid,
+                    userLang === "en"
+                        ? `❌ Could not find order #${orderId}: ${errMsg}\n\n💡 Please check the order ID or try again in a moment.`
+                        : `❌ Tidak dapat menemukan pesanan #${orderId} nih kak: ${errMsg}\n\n💡 Mohon pastikan ID pesanan benar atau coba beberapa saat lagi ya kak.`
+                );
             }
             break;
         }
@@ -1612,7 +2189,12 @@ async function handleIncomingMessageInternal(
                 await ctx.sendText(remoteJid, out);
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `❌ Gagal mengambil riwayat pesanan kak: ${errMsg}`);
+                await ctx.sendText(
+                    remoteJid,
+                    userLang === "en"
+                        ? `❌ Failed to fetch order history: ${errMsg}\n\n💡 Please wait a moment and try again.`
+                        : `❌ Gagal mengambil riwayat pesanan kak: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.`
+                );
             }
             break;
         }
@@ -1631,6 +2213,17 @@ async function handleIncomingMessageInternal(
                 return;
             }
             await handleBalanceCommand(remoteJid, args, ctx, userLang);
+            break;
+        }
+
+        case "/solved":
+        case "/solve": {
+            const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
+            if (!isAdmin) {
+                await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
+                return;
+            }
+            await handleSolvedCommand(remoteJid, args, ctx, userLang);
             break;
         }
 
@@ -1656,6 +2249,7 @@ async function handleIncomingMessageInternal(
             out += `• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n`;
             out += `• */reprocess* : Proses ulang semua order tertahan token\n`;
             out += `• */reprocess <ID>* : Proses ulang order tertentu\n`;
+            out += `• */solved <ID/No>* : Selesaikan sesi live chat support & aktifkan bot kembali\n`;
             out += `• */setgroup admin* : Daftarkan grup obrolan sebagai Admin Command Group\n`;
             out += `• */setgroup log* : Daftarkan grup obrolan sebagai Transaction Log Group\n`;
             out += `• */setdiskon <0-90>* : Ubah persentase diskon toko global\n`;
@@ -1753,6 +2347,11 @@ async function handleIncomingMessageInternal(
 
         case "/kembali":
         case "/back": {
+            break;
+        }
+
+        case "/support": {
+            await handleSupportCommand(remoteJid, ctx, userLang, effectiveSender);
             break;
         }
 

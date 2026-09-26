@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 import { createWebhookApp } from "../src/handlers/webhook";
+import { StateManager } from "../src/state";
 
 describe("Webhook Server", () => {
     it("should accept valid payload and dispatch WhatsApp notification", async () => {
@@ -182,5 +183,76 @@ describe("Webhook Server", () => {
         expect(sentMessages.length).toBe(1);
         expect(sentMessages[0]?.text).toContain("ORDER DELIVERED SUCCESSFULLY");
         expect(sentMessages[0]?.text).toContain("Mailbox / Gift Box");
+    });
+
+    it("should prompt buyer to re-enter gamertag when player not found (attempts <= 3)", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            })
+        };
+        const state = new StateManager();
+        const app = createWebhookApp({
+            sender: mockSender,
+            stateManager: state,
+        });
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ord_retry_1",
+                platform: "whatsapp",
+                platformUserId: "628111@s.whatsapp.net",
+                gamertag: "InvalidTag999",
+                itemName: "Dragon Pet",
+                status: "FAILED",
+                message: "Sorry, we can't find a player named InvalidTag999"
+            })
+        });
+
+        expect(res.status).toBe(200);
+        expect(sentMessages.length).toBe(1);
+        expect(sentMessages[0]?.text).toContain("GAMERTAG TIDAK DITEMUKAN");
+        expect(sentMessages[0]?.text).toContain("Percobaan 1 dari 3");
+        expect(state.getSession("628111@s.whatsapp.net").step).toBe("AWAITING_RETRY_GAMERTAG");
+    });
+
+    it("should prompt buyer to contact admin via /support when 3 attempts fail", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            })
+        };
+        const state = new StateManager();
+        state.incrementOrderRetryAttempts("ord_retry_max");
+        state.incrementOrderRetryAttempts("ord_retry_max");
+
+        const app = createWebhookApp({
+            sender: mockSender,
+            stateManager: state,
+        });
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ord_retry_max",
+                platform: "whatsapp",
+                platformUserId: "628111@s.whatsapp.net",
+                gamertag: "InvalidTag999",
+                itemName: "Dragon Pet",
+                status: "FAILED",
+                message: "Sorry, we can't find a player named InvalidTag999"
+            })
+        });
+
+        expect(res.status).toBe(200);
+        expect(sentMessages.length).toBe(1);
+        expect(sentMessages[0]?.text).toContain("SUDAH 3 KALI PERCOBAAN");
+        expect(sentMessages[0]?.text).toContain("/support");
+        expect(state.getSession("628111@s.whatsapp.net").step).toBe("IDLE");
     });
 });

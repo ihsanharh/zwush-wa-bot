@@ -40,13 +40,22 @@ const adminLogger = new AdminGroupLogger(
         adminGroupJid: config.ADMIN_GROUP_JID || ""
     },
     {
-        async sendMessage(jid: string, text: string) {
-            return await client.message.send(jid, text);
+        async sendMessage(jid: string, content: any) {
+            return await client.message.send(jid, content);
         },
         async editMessage(jid: string, key: any, newText: string) {
             const editKey = key?.id ? key : { id: key, remoteJid: jid, fromMe: true };
             console.log(`[Admin Logger] Editing message in ${jid} (id: ${editKey.id})`);
             return await client.message.send(jid, newText, { editKey });
+        },
+        async getGroupParticipants(jid: string) {
+            try {
+                const meta = await client.group.queryGroupMetadata(jid);
+                return meta.participants.map((p) => p.jid);
+            } catch (err: unknown) {
+                console.warn(`[Admin Logger] Failed to fetch participants for ${jid}:`, err);
+                return [];
+            }
         }
     }
 );
@@ -204,7 +213,8 @@ const webhookApp = createWebhookApp({
     sender: webhookSender,
     adminLogger,
     qrDeleter,
-    getBuyerLanguage: (jid: string) => stateManager.getLanguage(jid)
+    getBuyerLanguage: (jid: string) => stateManager.getLanguage(jid),
+    stateManager
 });
 
 Bun.serve({

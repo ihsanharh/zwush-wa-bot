@@ -91,15 +91,15 @@ export function formatStatusNotification(
                     `⏱️ *ORDER EXPIRED*\n\n` +
                     `The 15-minute payment window for order *#${orderId}* has expired.\n` +
                     `This QRIS is no longer valid. Please do not make payment.\n\n` +
-                    `Type */buy* if you wish to place a new order.\n` +
-                    `_(If you already transferred after expiry, please contact our store admin team)_`
+                    `Type */katalog* if you wish to browse and place a new order.\n` +
+                    `_(If you already transferred after expiry, please type */support* for admin live chat)_`
                 );
             case "FAILED":
                 return (
                     `❌ *DELIVERY FAILED*\n\n` +
                     `Order *#${orderId}* could not be delivered.\n` +
                     `Reason: ${message || "Unknown"}\n\n` +
-                    `Don't worry, please contact our store admin team with your order ID.`
+                    `Don't worry, please type */support* to connect directly with our admin live chat.`
                 );
             default:
                 return `ℹ️ Order #${orderId} status: ${status}`;
@@ -133,26 +133,74 @@ export function formatStatusNotification(
             return (
                 `ℹ️ *UPDATE PESANAN #${orderId}*\n\n` +
                 `Halo kak! Pembayaran kamu sudah kami terima dengan baik. Saat ini server sedang antre restock gift The Hive.\n\n` +
-                `Pesanan kamu akan otomatis diproses begitu token siap ya kak. Jika dalam 10 menit belum terkirim, silakan langsung chat admin via */bantuan* ya! 🥰`
+                `Pesanan kamu akan otomatis diproses begitu token siap ya kak. Jika butuh bantuan langsung, silakan ketik */support* untuk live chat bersama admin ya! 🥰`
             );
         case "EXPIRED":
             return (
                 `⏱️ *PESANAN KEDALUWARSA*\n\n` +
                 `Batas waktu pembayaran 15 menit untuk pesanan *#${orderId}* telah habis.\n` +
                 `QRIS tersebut sudah tidak berlaku. Jangan melakukan pembayaran lagi.\n\n` +
-                `Ketik */beli* jika kamu ingin membuat pesanan baru.\n` +
-                `_(Jika kamu terlanjur transfer setelah kedaluwarsa, hubungi tim admin kami)_`
+                `Ketik */katalog* jika kamu ingin melihat katalog & memesan baru.\n` +
+                `_(Jika kamu terlanjur transfer setelah kedaluwarsa, ketik */support* untuk bantuan live chat admin)_`
             );
         case "FAILED":
             return (
                 `❌ *PENGIRIMAN GAGAL*\n\n` +
                 `Pesanan *#${orderId}* gagal dikirim.\n` +
                 `Alasan: ${message || "Tidak diketahui"}\n\n` +
-                `Jangan khawatir, silakan hubungi tim admin kami dengan menyertakan ID pesanan kamu.`
+                `Jangan khawatir, silakan ketik */support* untuk terhubung langsung ke live chat admin kami dengan menyertakan ID pesanan kamu.`
             );
         default:
             return `ℹ️ Pesanan #${orderId} status: ${status}`;
     }
+}
+
+export function formatPlayerNotFoundRetry(
+    orderId: string,
+    itemName: string,
+    gamertag: string,
+    attempt: number,
+    maxAttempts: number = 3,
+    lang: Language = "id"
+): string {
+    if (lang === "en") {
+        return (
+            `❌ *GAMERTAG NOT FOUND ON THE HIVE!*\n\n` +
+            `Order *#${orderId}* (*${itemName}*) could not be delivered because Gamertag *${gamertag}* was not found on The Hive.\n\n` +
+            `⚠️ You might have mistyped a letter or space.\n` +
+            `👉 Please reply to this message with your *correct Minecraft Gamertag* (Attempt ${attempt} of ${maxAttempts}):`
+        );
+    }
+
+    return (
+        `❌ *GAMERTAG TIDAK DITEMUKAN DI THE HIVE!*\n\n` +
+        `Pesanan *#${orderId}* (*${itemName}*) tidak dapat dikirim karena Gamertag *${gamertag}* tidak ditemukan di server The Hive.\n\n` +
+        `⚠️ Kemungkinan ada salah ketik huruf atau spasi.\n` +
+        `👉 Silakan balas pesan ini dengan *Gamertag Minecraft yang benar* ya kak (Percobaan ${attempt} dari ${maxAttempts}):`
+    );
+}
+
+export function formatPlayerNotFoundMaxExceeded(
+    orderId: string,
+    itemName: string,
+    gamertag: string,
+    lang: Language = "id"
+): string {
+    if (lang === "en") {
+        return (
+            `❌ *DELIVERY FAILED (3 ATTEMPTS REACHED)*\n\n` +
+            `The Hive still cannot find player *${gamertag}* for order *#${orderId}* (*${itemName}*).\n\n` +
+            `Don't worry, your payment is 100% safe! 😊\n` +
+            `👉 Please type */support* to connect directly with our admin team for manual assistance.`
+        );
+    }
+
+    return (
+        `❌ *PENGIRIMAN GAGAL (SUDAH 3 KALI PERCOBAAN)*\n\n` +
+        `The Hive tetap tidak dapat menemukan player *${gamertag}* untuk pesanan *#${orderId}* (*${itemName}*).\n\n` +
+        `Tenang kak, uang kakak aman 100%! 😊\n` +
+        `👉 Silakan ketik */support* untuk terhubung langsung dengan tim admin kami agar dibantu secara manual.`
+    );
 }
 
 export interface StringParams {
@@ -181,12 +229,17 @@ export function t(key: string, lang: Language, params?: StringParams): string {
 
     if (lang === "en") {
         switch (key) {
-            case "greeting":
+            case "greeting": {
+                const discount = params?.percent;
+                const discText = discount
+                    ? `at up to ${discount}% discount!`
+                    : `at official discounted prices!`;
                 return (
                     `Hello! Welcome to *${store}* 🛒✨\n\n` +
-                    `We provide official Minecraft Bedrock cosmetics for The Hive at up to 50% discount!\n\n` +
-                    `Type */buy* to view our catalog & start ordering 😊`
+                    `We provide official Minecraft Bedrock cosmetics for The Hive ${discText}\n\n` +
+                    `Type */katalog* to view our full catalog & browse items 😊`
                 );
+            }
 
             case "helpMessage": {
                 let msg = (
@@ -194,6 +247,7 @@ export function t(key: string, lang: Language, params?: StringParams): string {
                     `Hi there! Here are the commands you can use:\n\n` +
                     `• */buy* : View catalog & start buying The Hive cosmetics\n` +
                     `• */buy <1-6>* : Directly open category catalog (e.g. */buy 2*)\n` +
+                    `• */katalog* : View complete catalog posters for all categories\n` +
                     `• */status* : Check your active order status (or */status <ID>*)\n` +
                     `• */history* : View your recent order history\n` +
                     `• */faq* : FAQ about QRIS payment & item delivery\n` +
@@ -295,12 +349,17 @@ export function t(key: string, lang: Language, params?: StringParams): string {
 
     // Indonesian default
     switch (key) {
-        case "greeting":
+        case "greeting": {
+            const discount = params?.percent;
+            const discText = discount
+                ? `dengan diskon s/d ${discount}%!`
+                : `dengan harga diskon spesial!`;
             return (
                 `Halo kak! Selamat datang di *${store}* 🛒✨\n\n` +
-                `Kami menyediakan kosmetik resmi The Hive Minecraft Bedrock dengan diskon s/d 50%!\n\n` +
-                `Yuk ketik */beli* untuk melihat katalog & mulai memesan ya kak 😊`
+                `Kami menyediakan kosmetik resmi The Hive Minecraft Bedrock ${discText}\n\n` +
+                `Yuk ketik */katalog* untuk melihat katalog lengkap kami ya kak 😊`
             );
+        }
 
         case "helpMessage": {
             let msg = (
@@ -308,6 +367,7 @@ export function t(key: string, lang: Language, params?: StringParams): string {
                 `Halo kak! Ini daftar perintah yang bisa kakak gunakan:\n\n` +
                 `• */beli* : Lihat katalog & mulai belanja kosmetik The Hive\n` +
                 `• */beli <1-6>* : Langsung buka katalog kategori (contoh: */beli 2*)\n` +
+                `• */katalog* : Lihat gambar katalog lengkap seluruh kategori\n` +
                 `• */status* : Cek status pesanan aktif kakak (atau */status <ID>*)\n` +
                 `• */riwayat* : Lihat daftar riwayat pesanan kakak\n` +
                 `• */faq* : Tanya jawab pembayaran QRIS & pengiriman item\n` +

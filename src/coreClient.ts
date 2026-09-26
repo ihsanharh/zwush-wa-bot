@@ -23,14 +23,23 @@ export class CoreClient {
     /**
      * Fetches the active catalog from the core service.
      */
-    async getCatalog(): Promise<CatalogItem[]> {
-        const res = await fetch(`${this.baseUrl}/api/catalog`);
-        if (!res.ok) {
-            const errBody = await res.text();
-            throw new Error(`Failed to fetch catalog: ${res.status} ${errBody}`);
+    async getCatalog(retries = 3): Promise<CatalogItem[]> {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                const res = await fetch(`${this.baseUrl}/api/catalog`);
+                if (!res.ok) {
+                    const errBody = await res.text();
+                    throw new Error(`Failed to fetch catalog: ${res.status} ${errBody}`);
+                }
+                const data = (await res.json()) as CatalogResponse;
+                return data.items;
+            } catch (err) {
+                if (attempt === retries) throw err;
+                console.warn(`[CoreClient] getCatalog attempt ${attempt} failed, retrying in 1.5s...`);
+                await new Promise((r) => setTimeout(r, 1500));
+            }
         }
-        const data = (await res.json()) as CatalogResponse;
-        return data.items;
+        return [];
     }
 
     /**
@@ -96,6 +105,22 @@ export class CoreClient {
         const data = (await res.json()) as OrderRetryResponse & { message?: string };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Failed to retry order #${orderId} (${res.status})`);
+        }
+        return data;
+    }
+
+    /**
+     * Updates an order's gamertag and re-enqueues it for gifting.
+     */
+    async updateOrderGamertag(orderId: string, gamertag: string): Promise<OrderRetryResponse> {
+        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/update-gamertag`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ gamertag })
+        });
+        const data = (await res.json()) as OrderRetryResponse & { message?: string };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to update gamertag for order #${orderId} (${res.status})`);
         }
         return data;
     }

@@ -109,6 +109,12 @@ describe("Message Handler Router", () => {
                     discountPercent: 10,
                     activeVouchers: 2
                 }
+            })),
+            updateOrderGamertag: mock(async (id: string, gamertag: string) => ({
+                success: true,
+                orderId: id,
+                gamertag,
+                status: "QUEUED" as const
             }))
         };
 
@@ -132,7 +138,8 @@ describe("Message Handler Router", () => {
             logNewOrder: mock(async (order: Record<string, unknown>) => {
                 loggedOrders.push(order);
             }),
-            updateOrderStatus: mock(async () => {})
+            updateOrderStatus: mock(async () => {}),
+            notifySupportRequest: mock(async (_info: any) => {})
         };
 
         const sentTextEvents: Array<{ jid: string; text: string; mentions?: string[] }> = [];
@@ -162,15 +169,43 @@ describe("Message Handler Router", () => {
         expect(sentImages.length).toBe(0);
     });
 
-    it("should respond to /menu with friendly redirect to /beli category menu", async () => {
+    it("should respond to /menu with category menu without informing about /menu redirect", async () => {
         const { ctx, sentTexts } = createMockContext();
         await handleIncomingMessage("user@s.whatsapp.net", false, "/menu", ctx);
         expect(sentTexts.length).toBe(1);
-        expect(sentTexts[0]).toContain("digabung ke */beli*");
+        expect(sentTexts[0]).not.toContain("digabung ke */beli*");
         expect(sentTexts[0]).toContain("ZWUSH STORE — KATALOG & PEMESANAN");
         expect(sentTexts[0]).toContain("*1.* 👑 Main Store & Ranks");
         expect(sentTexts[0]).toContain("*2.* 🐾 Pets");
         expect(sentTexts[0]).toContain("Ketik nomor kategori (*1 - 6*)");
+    });
+
+    it("should respond to /katalog by sending category posters and CTA to buy", async () => {
+        const { ctx, sentTexts, sentImages } = createMockContext();
+        await handleIncomingMessage("user@s.whatsapp.net", false, "/katalog", ctx);
+
+        // Expect posters or fallback texts to be sent for categories
+        const hasPosters = sentImages.length > 0 || sentTexts.length > 1;
+        expect(hasPosters).toBe(true);
+
+        // Expect final CTA message to prompt typing /beli
+        const lastText = sentTexts[sentTexts.length - 1];
+        expect(lastText).toContain("KATALOG LENGKAP");
+        expect(lastText).toContain("/beli");
+    });
+
+    it("should respond to /katalog <category> with specific category poster and CTA", async () => {
+        const { ctx, sentTexts, sentImages } = createMockContext();
+        await handleIncomingMessage("user@s.whatsapp.net", false, "/katalog 2", ctx);
+
+        const hasContent = sentImages.length > 0 || sentTexts.length > 0;
+        expect(hasContent).toBe(true);
+        if (sentImages.length > 0) {
+            expect(sentImages[0].caption).toContain("PETS");
+            expect(sentImages[0].caption).toContain("/beli");
+        } else {
+            expect(sentTexts[0]).toContain("/beli");
+        }
     });
 
     it("should display category poster and items when user selects category from idle (e.g. '2' or '/beli 2')", async () => {
@@ -194,12 +229,13 @@ describe("Message Handler Router", () => {
         expect(sentTexts[0]).toContain("1");
     });
 
-    it("should respond to natural greetings when idle", async () => {
+    it("should respond to natural greetings when idle with /katalog prompt", async () => {
         const { ctx, sentTexts } = createMockContext();
         await handleIncomingMessage("user@s.whatsapp.net", false, "halo", ctx);
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).toContain("Selamat datang di *Zwush Store*");
-        expect(sentTexts[0]).toContain("*/beli*");
+        expect(sentTexts[0]).toContain("*/katalog*");
+        expect(sentTexts[0]).not.toContain("*/beli*");
     });
 
     it("should execute step-by-step /beli flow with validation at every step", async () => {
@@ -789,5 +825,116 @@ describe("Message Handler Router", () => {
         // Group /kembali when idle - should not reply
         await handleIncomingMessage(groupJid, false, "/kembali", ctx, participant);
         expect(sentTextEvents.length).toBe(0);
+    });
+
+    it("should handle gamertag retry flow when order failed on Hive (re-ask and confirmation)", async () => {
+        const { ctx, sentTexts, mockClient } = createMockContext();
+        const jid = "retry_buyer@s.whatsapp.net";
+
+        // Setup session in AWAITING_RETRY_GAMERTAG
+        ctx.state.setRetryOrder(jid, {
+            orderId: "ord_retry_flow",
+            itemName: "Dragon Pet",
+            oldGamertag: "WrongTag",
+            attempts: 1
+        });
+
+        // 1. Buyer enters new gamertag
+        await handleIncomingMessage(jid, false, "RealSteve", ctx);
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("KONFIRMASI GAMERTAG BARU");
+        expect(sentTexts[0]).toContain("RealSteve");
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_RETRY_CONFIRMATION");
+
+        // 2. Buyer confirms with YA
+        await handleIncomingMessage(jid, false, "YA", ctx);
+        expect(sentTexts.length).toBe(2);
+        expect(sentTexts[1]).toContain("BERHASIL DIPERBARUI");
+        expect(sentTexts[1]).toContain("RealSteve");
+        expect(mockClient.updateOrderGamertag).toHaveBeenCalledWith("ord_retry_flow", "RealSteve");
+        expect(ctx.state.getSession(jid).step).toBe("IDLE");
+    });
+
+    it("should ask user consent on /support before starting live chat, silence bot replies, and restore via /solved", async () => {
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        const jid = "need_support@s.whatsapp.net";
+
+        ctx.state.setLastFailedOrder(jid, {
+            orderId: "ord_failed_3x",
+            itemName: "Dragon Pet",
+            gamertag: "WrongTag99",
+            attempts: 3
+        });
+
+        // 1. Buyer sends /support -> asks for consent first (not automatically live yet!)
+        await handleIncomingMessage(jid, false, "/support", ctx);
+
+        expect(sentTexts.length).toBe(1);
+        expect(sentTexts[0]).toContain("BANTUAN LIVE CHAT ADMIN");
+        expect(sentTexts[0]).toContain("Apakah kakak ingin memulai sesi *Live Chat*");
+        expect(sentTexts[0]).toContain("Balas *YA*");
+        expect(sentTexts[0]).toContain("Balas *BATAL*");
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_SUPPORT_CONFIRMATION");
+
+        // Admin group is NOT alerted yet before consent!
+        expect(mockAdminLogger.notifySupportRequest).not.toHaveBeenCalled();
+
+        // 2. Buyer confirms with YA -> now live chat is activated!
+        await handleIncomingMessage(jid, false, "YA", ctx);
+
+        expect(sentTexts.length).toBe(2);
+        expect(sentTexts[1]).toContain("MODE LIVE CHAT AKTIF");
+        expect(sentTexts[1]).toContain("Balasan otomatis bot dinonaktifkan sementara");
+        expect(ctx.state.getSession(jid).step).toBe("LIVE_CHAT");
+
+        // Admin group now gets alerted
+        expect(mockAdminLogger.notifySupportRequest).toHaveBeenCalled();
+        const calledArg = (mockAdminLogger.notifySupportRequest as any).mock.calls[0][0];
+        expect(calledArg.orderId).toBe("ord_failed_3x");
+        expect(calledArg.attempts).toBe(3);
+
+        // 3. Buyer sends regular messages or commands during live chat mode -> bot is silenced!
+        await handleIncomingMessage(jid, false, "halo min, mau nanya kok failed ya?", ctx);
+        await handleIncomingMessage(jid, false, "/katalog", ctx);
+        // Still only 2 messages sent to buyer (no automated replies)
+        expect(sentTexts.length).toBe(2);
+
+        // 4. Admin sends /solved in admin group
+        const adminGroupJid = "120363@g.us";
+        await handleIncomingMessage(adminGroupJid, false, "/solved ord_failed_3x", ctx, "admin@s.whatsapp.net");
+
+        // Admin group gets confirmation, and buyer gets closing message
+        expect(sentTexts.length).toBe(4);
+        const buyerClosingMsg = sentTexts[2];
+        expect(buyerClosingMsg).toContain("SESI BANTUAN SELESAI");
+        expect(buyerClosingMsg).toContain("*/katalog*");
+
+        const adminConfirmMsg = sentTexts[3];
+        expect(adminConfirmMsg).toContain("TIKET LIVE CHAT BERHASIL DISELESAIKAN");
+        expect(adminConfirmMsg).toContain("#ord_failed_3x");
+
+        // Session is back to IDLE
+        expect(ctx.state.getSession(jid).step).toBe("IDLE");
+
+        // 5. Buyer sends greeting now -> bot is back online!
+        await handleIncomingMessage(jid, false, "halo", ctx);
+        expect(sentTexts.length).toBe(5);
+        expect(sentTexts[4]).toContain("Selamat datang di *Zwush Store*");
+        expect(sentTexts[4]).toContain("*/katalog*");
+    });
+
+    it("should allow user to cancel live chat consent on /support", async () => {
+        const { ctx, sentTexts, mockAdminLogger } = createMockContext();
+        const jid = "cancel_support@s.whatsapp.net";
+
+        await handleIncomingMessage(jid, false, "/support", ctx);
+        expect(ctx.state.getSession(jid).step).toBe("AWAITING_SUPPORT_CONFIRMATION");
+
+        await handleIncomingMessage(jid, false, "BATAL", ctx);
+        expect(sentTexts.length).toBe(2);
+        expect(sentTexts[1]).toContain("Sesi live chat dibatalkan");
+        expect(sentTexts[1]).toContain("*/katalog*");
+        expect(ctx.state.getSession(jid).step).toBe("IDLE");
+        expect(mockAdminLogger.notifySupportRequest).not.toHaveBeenCalled();
     });
 });

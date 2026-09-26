@@ -153,6 +153,42 @@ describe("Voucher & Store Discount Message Handlers", () => {
             expect(sentTexts[0].text).toContain("antara 0 hingga 90");
         });
 
+        it("allows admin to set store discount with percent sign (e.g. 60% or 60 %)", async () => {
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
+
+            await handleIncomingMessage(adminGroupJid, false, "/setdiskon 60%", ctx, "admin_user@s.whatsapp.net");
+
+            expect(mockClient.setStoreDiscount).toHaveBeenCalledWith(60);
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0].text).toContain("60%");
+
+            await handleIncomingMessage(adminGroupJid, false, "/setdiskon 70 %", ctx, "admin_user@s.whatsapp.net");
+            expect(mockClient.setStoreDiscount).toHaveBeenCalledWith(70);
+            expect(sentTexts[1].text).toContain("70%");
+        });
+
+        it("is crash-proof against invalid non-numeric inputs for /setdiskon", async () => {
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
+
+            await handleIncomingMessage(adminGroupJid, false, "/setdiskon abc", ctx, "admin_user@s.whatsapp.net");
+
+            expect(mockClient.setStoreDiscount).not.toHaveBeenCalled();
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0].text).toContain("antara 0 hingga 90");
+        });
+
+        it("is crash-proof against backend errors when setting discount", async () => {
+            const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
+            mockClient.setStoreDiscount = mock(async () => {
+                throw new Error("Connection refused");
+            });
+
+            await handleIncomingMessage(adminGroupJid, false, "/setdiskon 60%", ctx, "admin_user@s.whatsapp.net");
+
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0].text).toContain("Gagal mengubah diskon");
+        });
+
         it("shows usage if /setdiskon has no arguments", async () => {
             const { ctx, mockClient, sentTexts, adminGroupJid } = createMockContext();
 
