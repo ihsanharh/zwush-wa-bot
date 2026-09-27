@@ -241,6 +241,33 @@ export class AdminGroupLogger {
         }
     }
 
+    async notifyDelayedPayment(order: {
+        orderId: string;
+        itemName: string;
+        gamertag: string;
+        failureReason?: string;
+    }): Promise<void> {
+        const targetJids = new Set<string>();
+        if (this.adminGroupJid) targetJids.add(this.adminGroupJid);
+        if (this.logGroupJid) targetJids.add(this.logGroupJid);
+        if (targetJids.size === 0) return;
+
+        const alertText = (
+            `⚠️ *PERHATIAN ADMIN — PEMBAYARAN MASUK SETELAH KEDALUWARSA!*\n\n` +
+            `Pesanan *#${order.orderId}* (*${order.itemName}* untuk Gamertag *${order.gamertag}*) menerima pembayaran setelah QR kedaluwarsa (notifikasi MacroDroid terlambat).\n\n` +
+            `👉 Silakan ketik */reprocess ${order.orderId}* di grup ini untuk memproses pesanan ke The Hive! 🚀`
+        );
+
+        for (const jid of targetJids) {
+            try {
+                await this.sender.sendMessage(jid, alertText);
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.error(`[AdminGroupLogger] Error sending delayed payment alert to group ${jid}:`, msg);
+            }
+        }
+    }
+
     async notifySupportRequest(info: {
         orderId?: string;
         itemName?: string;
