@@ -327,7 +327,7 @@ export class CoreClient {
     async getBalance(forceRefresh = false): Promise<BotBalanceResponse> {
         const url = `${this.baseUrl}/api/bot/balance${forceRefresh ? "?refresh=true" : ""}`;
         const res = await fetch(url, {
-            signal: AbortSignal.timeout(15000)
+            signal: AbortSignal.timeout(forceRefresh ? 90000 : 15000)
         });
         const data = (await res.json()) as BotBalanceResponse & { message?: string };
         if (!res.ok || !data.success) {
