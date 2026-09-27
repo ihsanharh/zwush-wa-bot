@@ -109,6 +109,7 @@ export interface BotBalanceResponse {
     bot: {
         gamertag: string;
         tokens: number;
+        costumeTokens?: number;
         status: string;
     };
     summary: {

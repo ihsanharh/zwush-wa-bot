@@ -225,6 +225,7 @@ describe("CoreClient", () => {
                 bot: {
                     gamertag: "hsuwz",
                     tokens: 12,
+                    costumeTokens: 5,
                     status: "ONLINE"
                 },
                 summary: {
@@ -240,10 +241,11 @@ describe("CoreClient", () => {
             }), { status: 200 }))
         ) as unknown as typeof fetch;
 
-        const res = await client.getBalance();
+        const res = await client.getBalance(true);
         expect(res.success).toBe(true);
         expect(res.bot.gamertag).toBe("hsuwz");
         expect(res.bot.tokens).toBe(12);
+        expect(res.bot.costumeTokens).toBe(5);
         expect(res.summary.todayRevenue).toBe(240000);
         expect(res.summary.todayCompleted).toBe(8);
     });

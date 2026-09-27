@@ -9,11 +9,22 @@ export const balanceCommand: Command = {
     description: "Cek saldo token bot The Hive & omset hari ini",
     execute: async ({ remoteJid, args, isGroup, sender, userLang, ctx }: CommandContext) => {
         try {
-            const forceRefresh = args.includes("--refresh") || args.includes("-r");
+            const forceRefresh = args.length > 0 && args.some((a) =>
+                ["refresh", "force", "sync", "-r", "--refresh", "-f", "--force", "f", "r", "update"].includes(a.toLowerCase())
+            );
+
+            if (forceRefresh) {
+                const notifyMsg = userLang === "en"
+                    ? "🔄 Fetching live token balance directly from The Hive..."
+                    : "🔄 Menyinkronkan saldo token langsung dari The Hive...";
+                await ctx.sendText(remoteJid, notifyMsg);
+            }
+
             const res = await ctx.client.getBalance(forceRefresh);
 
             const gamertag = res.bot.gamertag;
             const tokens = res.bot.tokens;
+            const costumeTokens = res.bot.costumeTokens ?? 0;
             const botStatus = res.bot.status === "ONLINE"
                 ? t("admin.balanceOnline", userLang)
                 : t("admin.balanceOffline", userLang);
@@ -26,6 +37,7 @@ export const balanceCommand: Command = {
                 gamertag,
                 botStatus,
                 tokens,
+                costumeTokens,
                 todayCompleted: s.todayCompleted,
                 todayRevenue: formatRupiah(s.todayRevenue),
                 pendingPayment: s.pendingPayment,
