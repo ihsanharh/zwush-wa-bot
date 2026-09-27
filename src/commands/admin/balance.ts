@@ -14,9 +14,7 @@ export const balanceCommand: Command = {
             );
 
             if (forceRefresh) {
-                const notifyMsg = userLang === "en"
-                    ? "🔄 Fetching live token balance directly from The Hive..."
-                    : "🔄 Menyinkronkan saldo token langsung dari The Hive...";
+                const notifyMsg = t("admin.balanceFetching", userLang);
                 await ctx.sendText(remoteJid, notifyMsg);
             }
 
@@ -50,7 +48,7 @@ export const balanceCommand: Command = {
             await ctx.sendText(remoteJid, out, isGroup && sender ? [sender] : undefined);
         } catch (err: unknown) {
             const errMsg = err instanceof Error ? err.message : String(err);
-            await ctx.sendText(remoteJid, `❌ Gagal mengambil status saldo: ${errMsg}`);
+            await ctx.sendText(remoteJid, t("admin.balanceFailed", userLang, { error: errMsg }));
         }
     },
 };

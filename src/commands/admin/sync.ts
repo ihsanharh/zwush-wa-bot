@@ -1,6 +1,7 @@
 import type { Command, CommandContext } from "../types";
 import { clearPosterCache } from "../../poster";
 import { extractPhoneNumber } from "../../utils/messageUtils";
+import { t } from "../../i18n";
 
 export const syncCatalogCommand: Command = {
     name: "/sync",
@@ -18,16 +19,11 @@ export const syncCatalogCommand: Command = {
             // Invalidate poster cache so new items/prices appear immediately on next /katalog
             clearPosterCache();
 
-            const successMsg = prefix + (userLang === "en"
-                ? `🔄 *CATALOG SYNC INITIATED!*\n\nSync process has started in the server background via gibot. Catalog items and prices will automatically update once complete.`
-                : `🔄 *SINKRONISASI KATALOG DIMULAI!*\n\nProses sinkronisasi telah berjalan di latar belakang server via gibot. Item dan harga katalog akan otomatis terupdate setelah proses selesai.`);
-
+            const successMsg = prefix + t("admin.syncSuccess", userLang);
             await ctx.sendText(remoteJid, successMsg, mentions);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            const failMsg = prefix + (userLang === "en"
-                ? `❌ Failed to initiate catalog sync: ${msg}`
-                : `❌ Gagal memulai sinkronisasi katalog: ${msg}`);
+            const failMsg = prefix + t("admin.syncFailed", userLang, { message: msg });
             await ctx.sendText(remoteJid, failMsg, mentions);
         }
     },

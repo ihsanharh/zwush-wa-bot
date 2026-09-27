@@ -35,7 +35,7 @@ export const discountCommand: Command = {
         } catch (err: unknown) {
             const errMsg = err instanceof Error ? err.message : String(err);
             console.error("[SetDiscount Error]:", errMsg);
-            await ctx.sendText(remoteJid, `❌ Gagal mengubah diskon: ${errMsg}`);
+            await ctx.sendText(remoteJid, t("admin.discountFailed", userLang, { error: errMsg }));
         }
     },
 };

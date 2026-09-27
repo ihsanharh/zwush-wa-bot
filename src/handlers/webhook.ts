@@ -6,6 +6,7 @@ import {
     formatStatusNotification,
     formatPlayerNotFoundRetry,
     formatPlayerNotFoundMaxExceeded,
+    t,
     type Language
 } from "../i18n";
 
@@ -164,9 +165,10 @@ export function createWebhookApp(
                         }
                     }
 
-                    const buyerNotice = buyerLang === "en"
-                        ? `⚠️ *PAYMENT RECEIVED (AWAITING VERIFICATION)*\n\nHello! We have received your payment for order *#${body.orderId}* (*${body.itemName || "Item"}*).\n\nHowever, because the payment notification arrived after the QR time limit, your order is currently awaiting admin verification before in-game gifting.\n\nDon't worry, your payment is 100% safe! Our admin will process your order shortly. 😊\n_Type */support* if you need live chat assistance._`
-                        : `⚠️ *PEMBAYARAN DITERIMA (MENUNGGU KONFIRMASI)*\n\nHalo kak! Pembayaran kamu untuk pesanan *#${body.orderId}* (*${body.itemName || "Item"}*) telah kami terima 🎉\n\nNamun karena notifikasi transfer baru masuk setelah batas waktu QRIS, pesanan kakak saat ini sedang menunggu verifikasi admin untuk diproses pengirimannya.\n\nTenang kak, uang kakak 100% aman! Admin kami akan segera memproses pesanan kakak ya. 😊\n_Ketik */support* jika butuh bantuan live chat admin._`;
+                    const buyerNotice = t("notification.DELAYED_PAYMENT", buyerLang, {
+                        orderId: body.orderId,
+                        itemName: body.itemName || "Item"
+                    });
 
                     await sender.sendMessage(body.platformUserId, buyerNotice);
                     return c.json({ success: true, delayedPayment: true });

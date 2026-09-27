@@ -1,5 +1,6 @@
 import type { OrderStatus } from "../types";
 import { config } from "../config";
+import { formatStatusBadge } from "../i18n";
 
 export interface GroupMessageSender {
     sendMessage(jid: string, content: string | { type: string; text: string; contextInfo?: any }): Promise<any>;
@@ -69,24 +70,7 @@ export class AdminGroupLogger {
     }
 
     private formatStatusBadge(status: OrderStatus, failureReason?: string): string {
-        switch (status) {
-            case "PENDING_PAYMENT":
-                return "⏳ Menunggu Pembayaran";
-            case "QUEUED":
-                return "💳 Pembayaran Diterima / Dalam Antrean";
-            case "GIFTING":
-                return "🎁 Sedang Dikirim ke In-Game (The Hive)";
-            case "SUCCESS":
-                return "✅ Selesai Dikirim (COMPLETED)";
-            case "INSUFFICIENT_TOKENS":
-                return "⚠️ Token Kurang / Menunggu Restock";
-            case "EXPIRED":
-                return "⏱️ Kedaluwarsa (Batal)";
-            case "FAILED":
-                return `❌ Gagal: ${failureReason || "Tidak Diketahui"}`;
-            default:
-                return status;
-        }
+        return formatStatusBadge(status, "id", failureReason);
     }
 
     private formatBuyerContact(platformUserId: string): string {

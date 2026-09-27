@@ -34,7 +34,7 @@ export const voucherCommand: Command = {
                 await ctx.sendText(remoteJid, out);
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `❌ Gagal mengambil status voucher: ${errMsg}`);
+                await ctx.sendText(remoteJid, t("admin.voucherFetchFailed", userLang, { error: errMsg }));
             }
             return;
         }
@@ -92,7 +92,7 @@ export const voucherCommand: Command = {
                 }));
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `❌ Gagal membuat voucher: ${errMsg}`);
+                await ctx.sendText(remoteJid, t("admin.voucherCreateFailed", userLang, { error: errMsg }));
             }
             return;
         }
@@ -109,7 +109,7 @@ export const voucherCommand: Command = {
                 await ctx.sendText(remoteJid, t("voucherDeleted", userLang, { code }));
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `❌ Gagal menghapus voucher: ${errMsg}`);
+                await ctx.sendText(remoteJid, t("admin.voucherDeleteFailed", userLang, { error: errMsg }));
             }
             return;
         }

@@ -8,7 +8,7 @@ export const solvedCommand: Command = {
     aliases: ["/solve"],
     adminOnly: true,
     description: "Selesaikan tiket live chat support dan aktifkan kembali bot untuk pelanggan",
-    execute: async ({ remoteJid, args, isGroup, sender, ctx }: CommandContext) => {
+    execute: async ({ remoteJid, args, isGroup, sender, userLang, ctx }: CommandContext) => {
         const rawTarget = args.join(" ").trim();
 
         // 1. Try finding live chat user in state
@@ -38,12 +38,15 @@ export const solvedCommand: Command = {
                 const onlyOne = activeList[0];
                 matched = { jid: onlyOne.jid, session: ctx.state.getSession(onlyOne.jid) };
             } else if (activeList.length > 1) {
-                let listMsg = `⚠️ Ada *${activeList.length} sesi live chat* yang sedang aktif:\n\n`;
+                let list = "";
                 activeList.forEach((item, idx) => {
                     const phone = extractPhoneNumber(item.jid);
-                    listMsg += `${idx + 1}. +${phone} ${item.orderId ? `(Order #${item.orderId})` : ""}\n`;
+                    list += `${idx + 1}. +${phone} ${item.orderId ? `(Order #${item.orderId})` : ""}\n`;
                 });
-                listMsg += `\n💡 _Gunakan: */solved <order-id>* atau */solved <nomor>_`;
+                const listMsg = t("admin.solvedActiveList", userLang, {
+                    count: activeList.length,
+                    list: list.trim()
+                });
                 await ctx.sendText(remoteJid, listMsg, isGroup && sender ? [sender] : undefined);
                 return;
             }
@@ -51,8 +54,8 @@ export const solvedCommand: Command = {
 
         if (!matched) {
             const notFoundMsg = rawTarget
-                ? `⚠️ Tidak ditemukan sesi live chat aktif untuk *${rawTarget}*. Pastikan ID pesanan atau nomor pelanggan benar.`
-                : `⚠️ Tidak ada sesi live chat yang sedang aktif saat ini.`;
+                ? t("admin.solvedNotFound", userLang, { target: rawTarget })
+                : t("admin.solvedNoneActive", userLang);
             await ctx.sendText(remoteJid, notFoundMsg, isGroup && sender ? [sender] : undefined);
             return;
         }
@@ -75,12 +78,11 @@ export const solvedCommand: Command = {
         }
 
         // Reply in admin chat
-        const adminReply =
-            `✅ *TIKET LIVE CHAT BERHASIL DISELESAIKAN*\n\n` +
-            (resolvedOrderId ? `• Order ID: *#${resolvedOrderId}*\n` : "") +
-            `• Pelanggan: *+${targetPhone}*\n` +
-            `• Status: *Bot Aktif Kembali ✅*\n\n` +
-            `Pesan penutup telah dikirimkan ke pelanggan. Terima kasih!`;
+        const orderIdLine = resolvedOrderId ? `• Order ID: *#${resolvedOrderId}*\n` : "";
+        const adminReply = t("admin.solvedAdminReply", userLang, {
+            orderIdLine,
+            targetPhone
+        });
         await ctx.sendText(remoteJid, adminReply, isGroup && sender ? [sender] : undefined);
     },
 };

@@ -198,27 +198,9 @@ async function handleIncomingMessageInternal(
         return;
     }
 
-    // Prevent bot self-reply loops
-    if (fromMe) {
-        if (
-            trimmed.startsWith("Waduh,") ||
-            trimmed.startsWith("Halo kak!") ||
-            trimmed.startsWith("🛒") ||
-            trimmed.startsWith("🧾") ||
-            trimmed.startsWith("💡") ||
-            trimmed.startsWith("❌") ||
-            trimmed.startsWith("✅") ||
-            trimmed.startsWith("⚠️") ||
-            trimmed.startsWith("ℹ️") ||
-            trimmed.startsWith("⏱️") ||
-            trimmed.startsWith("🏷️") ||
-            trimmed.startsWith("🎉") ||
-            trimmed.startsWith("✨") ||
-            trimmed.startsWith("Silakan balas") ||
-            trimmed.includes("Waduh, pilihan itemnya belum sesuai")
-        ) {
-            return;
-        }
+    // Prevent bot self-reply loops: ignore messages fromMe unless it is an explicit slash command
+    if (fromMe && !trimmed.startsWith("/")) {
+        return;
     }
 
     // Slash command execution (checked BEFORE buying flow so commands always take precedence)

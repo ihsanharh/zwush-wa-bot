@@ -1,11 +1,12 @@
 import type { Command, CommandContext } from "../types";
 import { config } from "../../config";
+import { t } from "../../i18n";
 
 export const setgroupCommand: Command = {
     name: "/setgroup",
     adminOnly: true,
     description: "Daftarkan grup obrolan sebagai Admin Command Group atau Transaction Log Group",
-    execute: async ({ remoteJid, args, isGroup, ctx }: CommandContext) => {
+    execute: async ({ remoteJid, args, isGroup, userLang, ctx }: CommandContext) => {
         const sub = args[0]?.toLowerCase();
         const targetJid = args[1]?.trim();
 
@@ -15,7 +16,7 @@ export const setgroupCommand: Command = {
                     ctx.adminLogger.setAdminGroupJid(remoteJid);
                     await ctx.sendText(
                         remoteJid,
-                        `✅ Grup ini berhasil didaftarkan sebagai *Admin Command Group* ${config.STORE_NAME}!\nSemua anggota di grup ini dapat menjalankan perintah admin.`
+                        t("admin.setgroupAdminRegistered", userLang, { store: config.STORE_NAME })
                     );
                 }
                 return;
@@ -26,7 +27,7 @@ export const setgroupCommand: Command = {
                     ctx.adminLogger.setLogGroupJid(remoteJid);
                     await ctx.sendText(
                         remoteJid,
-                        `✅ Grup ini berhasil didaftarkan sebagai *Transaction Log Group* ${config.STORE_NAME}!\nSemua notifikasi pesanan baru & update transaksi akan dikirim ke sini.`
+                        t("admin.setgroupLogRegistered", userLang, { store: config.STORE_NAME })
                     );
                 }
                 return;
@@ -34,18 +35,20 @@ export const setgroupCommand: Command = {
 
             const adminGid = ctx.adminLogger?.getAdminGroupJid ? ctx.adminLogger.getAdminGroupJid() : ctx.adminLogger?.getGroupJid();
             const logGid = ctx.adminLogger?.getLogGroupJid ? ctx.adminLogger.getLogGroupJid() : ctx.adminLogger?.getGroupJid();
-            const statusAdmin = adminGid === remoteJid ? "✅ Terdaftar (Grup Ini)" : (adminGid ? `✅ Terdaftar (${adminGid})` : "⚠️ Belum terdaftar");
-            const statusLog = logGid === remoteJid ? "✅ Terdaftar (Grup Ini)" : (logGid ? `✅ Terdaftar (${logGid})` : "⚠️ Belum terdaftar");
+            const statusAdmin = adminGid === remoteJid
+                ? t("admin.statusRegisteredThisGroup", userLang)
+                : (adminGid ? t("admin.statusRegisteredWithJid", userLang, { jid: adminGid }) : t("admin.statusUnregistered", userLang));
+            const statusLog = logGid === remoteJid
+                ? t("admin.statusRegisteredThisGroup", userLang)
+                : (logGid ? t("admin.statusRegisteredWithJid", userLang, { jid: logGid }) : t("admin.statusUnregistered", userLang));
 
             await ctx.sendText(
                 remoteJid,
-                `⚙️ *PENGATURAN GRUP ${config.STORE_NAME.toUpperCase()}*\n\n` +
-                `Silakan tentukan peran grup ini:\n` +
-                `• */setgroup admin* : Daftarkan grup ini sebagai *Admin Command Group* (semua anggota dapat menjalankan command admin)\n` +
-                `• */setgroup log* : Daftarkan grup ini sebagai *Transaction Log Group* (khusus log transaksi & notifikasi)\n\n` +
-                `_Status saat ini:_\n` +
-                `• Admin Command Group: *${statusAdmin}*\n` +
-                `• Transaction Log Group: *${statusLog}*`
+                t("admin.setgroupStatus", userLang, {
+                    storeUpper: config.STORE_NAME.toUpperCase(),
+                    statusAdmin,
+                    statusLog
+                })
             );
             return;
         }
@@ -54,32 +57,31 @@ export const setgroupCommand: Command = {
         if (sub === "admin" && targetJid && targetJid.endsWith("@g.us")) {
             if (ctx.adminLogger) {
                 ctx.adminLogger.setAdminGroupJid(targetJid);
-                await ctx.sendText(remoteJid, `✅ Berhasil mendaftarkan Admin Command Group: ${targetJid}`);
+                await ctx.sendText(
+                    remoteJid,
+                    t("admin.setgroupRegistered", userLang, { role: "Admin Command Group", jid: targetJid })
+                );
             }
         } else if ((sub === "log" || sub === "logs") && targetJid && targetJid.endsWith("@g.us")) {
             if (ctx.adminLogger) {
                 ctx.adminLogger.setLogGroupJid(targetJid);
-                await ctx.sendText(remoteJid, `✅ Berhasil mendaftarkan Transaction Log Group: ${targetJid}`);
+                await ctx.sendText(
+                    remoteJid,
+                    t("admin.setgroupRegistered", userLang, { role: "Transaction Log Group", jid: targetJid })
+                );
             }
         } else if (sub && sub.endsWith("@g.us")) {
             // Legacy: /setgroup <JID>
             if (ctx.adminLogger) {
                 ctx.adminLogger.setAdminGroupJid(sub);
                 ctx.adminLogger.setGroupJid(sub);
-                await ctx.sendText(remoteJid, `✅ Berhasil mendaftarkan Admin Group: ${sub}`);
+                await ctx.sendText(
+                    remoteJid,
+                    t("admin.setgroupRegistered", userLang, { role: "Admin Group", jid: sub })
+                );
             }
         } else {
-            await ctx.sendText(
-                remoteJid,
-                `💡 *CARA MENDAFTARKAN ADMIN GROUP / LOG GROUP*\n\n` +
-                `1. Masuk ke grup WhatsApp yang ingin didaftarkan\n` +
-                `2. Ketik salah satu perintah langsung di dalam grup tersebut:\n` +
-                `   • */setgroup admin* : Daftarkan sebagai *Admin Command Group*\n` +
-                `   • */setgroup log* : Daftarkan sebagai *Transaction Log Group*\n\n` +
-                `Atau via chat pribadi:\n` +
-                `• */setgroup admin <JID_GRUP>*\n` +
-                `• */setgroup log <JID_GRUP>*`
-            );
+            await ctx.sendText(remoteJid, t("admin.setgroupHelp", userLang));
         }
     },
 };

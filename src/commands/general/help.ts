@@ -38,6 +38,19 @@ const ADMIN_ORDER = [
     "/solve"
 ];
 
+const PREFERRED_EN_NAMES: Record<string, string> = {
+    "/beli": "/buy",
+    "/katalog": "/catalog",
+    "/riwayat": "/history",
+    "/bahasa": "/language",
+    "/batal": "/cancel",
+    "/bantuan": "/help",
+    "/saldo": "/balance",
+    "/setdiskon": "/setdiscount",
+    "/sync": "/sync",
+    "/synckatalog": "/sync"
+};
+
 export const helpCommand: Command = {
     name: "/bantuan",
     aliases: ["/help"],
@@ -73,8 +86,8 @@ export const helpCommand: Command = {
 
         // Format general commands dynamically
         for (const cmd of generalCmds) {
-            const displayName = userLang === "en" && cmd.aliases && cmd.aliases.length > 0
-                ? (cmd.aliases.find((a) => !a.startsWith("/b") && !a.startsWith("/r")) || cmd.aliases[0] || cmd.name)
+            const displayName = userLang === "en"
+                ? (PREFERRED_EN_NAMES[cmd.name] || cmd.name)
                 : cmd.name;
 
             const desc = t(`help.commandDescriptions.${displayName}`, userLang)
@@ -91,8 +104,8 @@ export const helpCommand: Command = {
         if (isAdmin && adminCmds.length > 0) {
             out += t("help.adminSectionHeader", userLang);
             for (const cmd of adminCmds) {
-                const displayName = userLang === "en" && cmd.aliases && cmd.aliases.length > 0
-                    ? (cmd.aliases[0] || cmd.name)
+                const displayName = userLang === "en"
+                    ? (PREFERRED_EN_NAMES[cmd.name] || cmd.name)
                     : cmd.name;
 
                 const desc = t(`help.commandDescriptions.${displayName}`, userLang)

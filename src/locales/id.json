@@ -2,7 +2,15 @@
     "status": {
         "card": "🔍 *STATUS PESANAN #{{orderId}}*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n📊 Status: *{{badge}}*\n💰 Total: *{{totalFormatted}}*\n\nAda pertanyaan kak? Hubungi tim admin kami di grup toko atau ketik */support* atau */cs* ya!",
         "fetchError": "❌ Gagal mengambil status pesanan kak: {{error}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.",
-        "notFound": "❌ Tidak dapat menemukan pesanan #{{orderId}} nih kak: {{error}}\n\n💡 Mohon pastikan ID pesanan benar atau coba beberapa saat lagi ya kak."
+        "notFound": "❌ Tidak dapat menemukan pesanan #{{orderId}} nih kak: {{error}}\n\n💡 Mohon pastikan ID pesanan benar atau coba beberapa saat lagi ya kak.",
+        "PENDING_PAYMENT": "⏳ Menunggu Pembayaran",
+        "QUEUED": "💳 Pembayaran Diterima / Dalam Antrean",
+        "GIFTING": "🎁 Sedang Dikirim ke In-Game (The Hive)",
+        "SUCCESS": "✅ Selesai Dikirim (COMPLETED)",
+        "INSUFFICIENT_TOKENS": "⚠️ Token Kurang / Menunggu Restock",
+        "EXPIRED": "⏱️ Kedaluwarsa (Batal)",
+        "FAILED": "❌ Gagal: {{reason}}",
+        "CANCELLED": "❌ Dibatalkan"
     },
     "unknown": "Tidak Diketahui",
     "statusNotificationFallback": "ℹ️ Pesanan #{{orderId}} status: {{status}}",
@@ -12,7 +20,8 @@
         "SUCCESS": "🎉 *PESANAN BERHASIL DIKIRIM!*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n🆔 Order ID: #{{orderId}}\n\nSilakan periksa *Mailbox / Gift Box* kamu di The Hive Bedrock.\nTerima kasih telah berbelanja di *{{store}}*! ✨",
         "INSUFFICIENT_TOKENS": "ℹ️ *UPDATE PESANAN #{{orderId}}*\n\nHalo kak! Pembayaran kamu sudah kami terima dengan baik. Saat ini server sedang antre restock gift The Hive.\n\nPesanan kamu akan otomatis diproses begitu token siap ya kak. Jika butuh bantuan langsung, silakan ketik */support* untuk live chat bersama admin ya! 🥰",
         "EXPIRED": "⏱️ *PESANAN KEDALUWARSA*\n\nBatas waktu pembayaran 15 menit untuk pesanan *#{{orderId}}* telah habis.\nQRIS tersebut sudah tidak berlaku. Jangan melakukan pembayaran lagi.\n\nKetik */katalog* jika kamu ingin melihat katalog & memesan baru.\n_(Jika kamu terlanjur transfer setelah kedaluwarsa, ketik */support* untuk bantuan live chat admin)_",
-        "FAILED": "❌ *PENGIRIMAN GAGAL*\n\nPesanan *#{{orderId}}* gagal dikirim.\nAlasan: {{message}}\n\nJangan khawatir, silakan ketik */support* untuk terhubung langsung ke live chat admin kami dengan menyertakan ID pesanan kamu."
+        "FAILED": "❌ *PENGIRIMAN GAGAL*\n\nPesanan *#{{orderId}}* gagal dikirim.\nAlasan: {{message}}\n\nJangan khawatir, silakan ketik */support* untuk terhubung langsung ke live chat admin kami dengan menyertakan ID pesanan kamu.",
+        "DELAYED_PAYMENT": "⚠️ *PEMBAYARAN DITERIMA (MENUNGGU KONFIRMASI)*\n\nHalo kak! Pembayaran kamu untuk pesanan *#{{orderId}}* (*{{itemName}}*) telah kami terima 🎉\n\nNamun karena notifikasi transfer baru masuk setelah batas waktu QRIS, pesanan kakak saat ini sedang menunggu verifikasi admin untuk diproses pengirimannya.\n\nTenang kak, uang kakak 100% aman! Admin kami akan segera memproses pesanan kakak ya. 😊\n_Ketik */support* jika butuh bantuan live chat admin._"
     },
     "playerNotFound": {
         "retry": "❌ *GAMERTAG TIDAK DITEMUKAN DI THE HIVE!*\n\nPesanan *#{{orderId}}* (*{{itemName}}*) tidak dapat dikirim karena Gamertag *{{gamertag}}* tidak ditemukan di server The Hive.\n\n⚠️ Kemungkinan ada salah ketik huruf atau spasi.\n👉 Silakan balas pesan ini dengan *Gamertag Minecraft yang benar* ya kak (Percobaan {{attempt}} dari {{maxAttempts}}):",
@@ -33,7 +42,9 @@
         "textFallbackNotice": "\n\n💡 Ketik */beli* untuk mulai memesan ya kak!",
         "allCategoriesEmpty": "⚠️ Belum ada item aktif di katalog saat ini.",
         "instruction": "💡 Ketik */beli* untuk mulai memesan item di atas, atau */bantuan* untuk melihat daftar perintah lengkap ya kak! 😊",
-        "fetchError": "❌ Gagal memuat katalog: {{message}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak."
+        "fetchError": "❌ Gagal memuat katalog: {{message}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.",
+        "costumesTextMenu": "🦹 *KATALOG: REGULAR COSTUME* ({{count}} Pilihan)\n> Semua costume resmi The Hive tersedia seharga {{price}}!\n\nKetik */beli 7* untuk mencari dan memesan costume.",
+        "costumesPrompt": "🦹 *KATALOG: REGULAR COSTUME* ({{count}} Pilihan)\n> Semua costume resmi The Hive tersedia seharga {{price}}! ✨\n\nSilakan ketik *nama costume* yang kakak inginkan untuk memesan:\n(Contoh: *Owl*, *Alien*, *Abyssal Angler*, *Penguin*, dsb)\n\n• Ketik *k* untuk kembali ke pilihan kategori\n• Ketik *b* untuk membatalkan pesanan"
     },
     "buying": {
         "gamertagPrompt": "✨ *Pilihan mantap kak! Kamu memilih:* *{{itemName}}*\n💰 *Harga Promo:* *{{rupiahPrice}}* (Diskon {{discountPercent}}%)\n🏷️ *Harga Normal:* ~{{originalPrice}}~\n\n🎮 Sekarang masukkan *Gamertag Minecraft Bedrock* kakak ya (contoh: *Steve123*):\n⚠️ *PERINGATAN PENTING:* Pastikan Gamertag kakak sudah *100% benar dan valid* (perhatikan spasi, huruf besar/kecil). Jika item sudah terkirim ke gamertag tersebut, pesanan *TIDAK BISA DIBATALKAN / DI-REFUND* sama sekali oleh siapapun, termasuk oleh pihak The Hive sendiri!\n\n_(Ketik *k* untuk ganti item, atau *b* untuk batalkan)_",
@@ -108,7 +119,39 @@
         "discountRange": "❌ Persentase diskon harus berupa angka bulat antara 0 hingga 90.",
         "balanceSummary": "💰 *SALDO & STATUS BOT — {{storeUpper}}*\n\n🤖 *Status Bot The Hive:*\n• Gamertag: *{{gamertag}}*\n• Status: *{{botStatus}}* ✅\n• Sisa Token Gift: *{{tokens}} Token* 🎁\n• Sisa Token Costume: *{{costumeTokens}} Token* 🦹\n\n📊 *Ringkasan Penjualan Hari Ini:*\n• Pesanan Selesai: *{{todayCompleted}} Pesanan*\n• Total Omset: *{{todayRevenue}}*\n• Menunggu Pembayaran: *{{pendingPayment}} Pesanan*\n• Antrean Gifting: *{{giftingQueue}} Pesanan*\n• Tertahan Stok Token: *{{insufficientTokens}} Pesanan*\n• Diskon Toko Aktif: *{{discountPercent}}%*\n• Voucher Aktif: *{{activeVouchers}} Kode*\n\n💡 _Gunakan /saldo refresh untuk sinkronisasi paksa token dari The Hive._\n💡 _Gunakan /reprocess jika ada pesanan tertahan token._",
         "balanceOnline": "ONLINE / SIAP",
-        "balanceOffline": "OFFLINE / TERPUTUS"
+        "balanceOffline": "OFFLINE / TERPUTUS",
+        "balanceFetching": "🔄 Menyinkronkan saldo token langsung dari The Hive...",
+        "balanceFailed": "❌ Gagal mengambil status saldo: {{error}}",
+        "syncSuccess": "🔄 *SINKRONISASI KATALOG DIMULAI!*\n\nProses sinkronisasi telah berjalan di latar belakang server via gibot. Item dan harga katalog akan otomatis terupdate setelah proses selesai.",
+        "syncFailed": "❌ Gagal memulai sinkronisasi katalog: {{message}}",
+        "reprocessAllSuccess": "🔄 *REPROCESS SELESAI*\n\n✅ Berhasil memproses ulang *{{count}} pesanan* yang tertahan:\n{{list}}",
+        "reprocessNoneHeld": "_Tidak ada pesanan yang tertahan._",
+        "reprocessSingleSuccess": "🔄 *PESANAN #{{orderId}} DIPROSES ULANG*\n\nPesanan telah dimasukkan kembali ke dalam antrean gifting The Hive! 🚀",
+        "reprocessFailed": "❌ Gagal memproses ulang pesanan: {{error}}",
+        "paidUsage": "ℹ️ *FORMAT PERINTAH BYPASS PEMBAYARAN:*\n\nGunakan: */paid <order_id>*\nContoh:\n• */paid ORD-I82AME*\n• */paid I82AME*\n• */acc ORD-I82AME*\n\n_Perintah ini digunakan oleh admin jika HP MacroDroid mati atau webhook tidak tertrigger, untuk memvalidasi pembayaran secara manual dan langsung memproses gifting._",
+        "paidSuccess": "✅ *PEMBAYARAN DIVERIFIKASI MANUAL (BYPASS)*\n\n🆔 Order ID: *#{{orderId}}*\n👤 Gamertag: *{{gamertag}}*\n🎁 Item: *{{itemName}}*\n💰 Total: *{{totalFormatted}}*\n📊 Status: *QUEUED* ⏳\n\nPesanan berhasil ditandai LUNAS dan telah dimasukkan ke antrean gifting bot! 🚀\n_Pembeli juga otomatis menerima notifikasi WhatsApp dan QRIS-nya telah dihapus._",
+        "paidFailed": "❌ Gagal menandai pesanan #{{orderId}} sebagai lunas:\n{{error}}",
+        "discountFailed": "❌ Gagal mengubah diskon: {{error}}",
+        "voucherFetchFailed": "❌ Gagal mengambil status voucher: {{error}}",
+        "voucherCreateFailed": "❌ Gagal membuat voucher: {{error}}",
+        "voucherDeleteFailed": "❌ Gagal menghapus voucher: {{error}}",
+        "voucherUnlimited": "Tak Terbatas",
+        "setgroupAdminRegistered": "✅ Grup ini berhasil didaftarkan sebagai *Admin Command Group* {{store}}!\nSemua anggota di grup ini dapat menjalankan perintah admin.",
+        "setgroupLogRegistered": "✅ Grup ini berhasil didaftarkan sebagai *Transaction Log Group* {{store}}!\nSemua notifikasi pesanan baru & update transaksi akan dikirim ke sini.",
+        "setgroupStatus": "⚙️ *PENGATURAN GRUP {{storeUpper}}*\n\nSilakan tentukan peran grup ini:\n• */setgroup admin* : Daftarkan grup ini sebagai *Admin Command Group* (semua anggota dapat menjalankan command admin)\n• */setgroup log* : Daftarkan grup ini sebagai *Transaction Log Group* (khusus log transaksi & notifikasi)\n\n_Status saat ini:_\n• Admin Command Group: *{{statusAdmin}}*\n• Transaction Log Group: *{{statusLog}}*",
+        "setgroupRegistered": "✅ Berhasil mendaftarkan {{role}}: {{jid}}",
+        "setgroupHelp": "💡 *CARA MENDAFTARKAN ADMIN GROUP / LOG GROUP*\n\n1. Masuk ke grup WhatsApp yang ingin didaftarkan\n2. Ketik salah satu perintah langsung di dalam grup tersebut:\n   • */setgroup admin* : Daftarkan sebagai *Admin Command Group*\n   • */setgroup log* : Daftarkan sebagai *Transaction Log Group*\n\nAtau via chat pribadi:\n• */setgroup admin <JID_GRUP>*\n• */setgroup log <JID_GRUP>*",
+        "statusRegisteredThisGroup": "✅ Terdaftar (Grup Ini)",
+        "statusRegisteredWithJid": "✅ Terdaftar ({{jid}})",
+        "statusUnregistered": "⚠️ Belum terdaftar",
+        "statusAdminUnregisteredHelp": "⚠️ Belum terdaftar (Ketik /setgroup admin di grup admin)",
+        "statusLogUnregisteredHelp": "⚠️ Belum terdaftar (Ketik /setgroup log di grup log)",
+        "adminPhoneLine": "📱 Nomor: *+{{phone}}*\n",
+        "solvedActiveList": "⚠️ Ada *{{count}} sesi live chat* yang sedang aktif:\n\n{{list}}\n\n💡 _Gunakan: */solved <order-id>* atau */solved <nomor>_",
+        "solvedNotFound": "⚠️ Tidak ditemukan sesi live chat aktif untuk *{{target}}*. Pastikan ID pesanan atau nomor pelanggan benar.",
+        "solvedNoneActive": "⚠️ Tidak ada sesi live chat yang sedang aktif saat ini.",
+        "solvedAdminReply": "✅ *TIKET LIVE CHAT BERHASIL DISELESAIKAN*\n\n{{orderIdLine}}• Pelanggan: *+{{targetPhone}}*\n• Status: *Bot Aktif Kembali ✅*\n\nPesan penutup telah dikirimkan ke pelanggan. Terima kasih!",
+        "panel": "🛠️ *PANEL ADMIN {{storeUpper}}*\n\n👤 Status: *Terverifikasi Admin ✅*\n{{phoneLine}}👥 Admin Group: *{{adminStatus}}*\n📋 Log Group: *{{logStatus}}*\n\n*Daftar Perintah Admin:*\n• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n• */sync* / */synckatalog* : Sinkronisasi katalog item dari The Hive ke database\n• */paid <ID>* / */acc <ID>* : Verifikasi manual pembayaran order (bypass GoPay) & proses gift\n• */reprocess* : Proses ulang semua order tertahan token\n• */reprocess <ID>* : Proses ulang order tertentu\n• */solved <ID/No>* : Selesaikan sesi live chat support & aktifkan bot kembali\n• */setgroup admin* : Daftarkan grup obrolan sebagai Admin Command Group\n• */setgroup log* : Daftarkan grup obrolan sebagai Transaction Log Group\n• */setdiskon <0-90>* : Ubah persentase diskon toko global\n• */voucher* : Kelola kode voucher promo (list/create/delete)\n• */status <ID>* : Cek detail status order manapun"
     },
     "greeting": "Halo kak! Selamat datang di *{{store}}* 🛒✨\n\nKami menyediakan kosmetik resmi The Hive Minecraft Bedrock {{discountText}}\n\nYuk ketik */katalog* untuk melihat katalog lengkap kami ya kak 😊",
     "discountTextWithPercent": "dengan diskon s/d {{percent}}%!",
@@ -147,7 +190,8 @@
             "/solved": "Selesaikan tiket live chat support pelanggan",
             "/solve": "Selesaikan tiket live chat support pelanggan",
             "/sync": "Sinkronisasi seluruh item katalog dari The Hive ke database",
-            "/synckatalog": "Sinkronisasi seluruh item katalog dari The Hive ke database"
+            "/synckatalog": "Sinkronisasi seluruh item katalog dari The Hive ke database",
+            "/synccatalog": "Sinkronisasi seluruh item katalog dari The Hive ke database"
         }
     },
     "helpMessage": "🤖 *BANTUAN {{storeUpper}}*\n\nHalo kak! Ini daftar perintah yang bisa kakak gunakan:\n\n• */beli* : Lihat katalog & mulai belanja kosmetik The Hive\n• */beli <1-7>* : Langsung buka katalog kategori (contoh: */beli 2*)\n• */katalog* : Lihat gambar katalog lengkap seluruh kategori\n• */status* : Cek status pesanan aktif kakak (atau */status <ID>*)\n• */riwayat* : Lihat daftar riwayat pesanan kakak\n• */faq* : Tanya jawab pembayaran QRIS & pengiriman item\n• */bahasa <id|en>* : Ganti pilihan bahasa bot\n• */support* / */cs* : Minta bantuan live chat langsung dengan admin\n• *b* / *batal* : Batalkan pesanan yang sedang berjalan\n• *k* / *kembali* : Kembali ke langkah sebelumnya saat belanja\n\n👤 Butuh bantuan langsung dari admin? Tanyakan di grup toko atau ketik */support* atau */cs* ya!",

@@ -53,9 +53,10 @@ export function renderCategoryItems(items: CatalogItem[], category: CategoryDefi
     }
 
     if (category.dbCategory === "Regular Costume") {
-        return lang === "en"
-            ? `🦹 *CATALOG: REGULAR COSTUMES* (${active.length} Available)\n> All official The Hive costumes available for ${formatRupiah(active[0]?.rupiahPrice ?? 20000)}!\n\nType */buy 7* to search and order costumes.`
-            : `🦹 *KATALOG: REGULAR COSTUME* (${active.length} Pilihan)\n> Semua costume resmi The Hive tersedia seharga ${formatRupiah(active[0]?.rupiahPrice ?? 20000)}!\n\nKetik */beli 7* untuk mencari dan memesan costume.`;
+        return t("catalog.costumesTextMenu", lang, {
+            count: active.length,
+            price: formatRupiah(active[0]?.rupiahPrice ?? 20000)
+        });
     }
 
     const discountPercent = active[0]?.discountPercent ?? currentStoreDiscount;
@@ -107,9 +108,10 @@ export async function sendCategoryOrderPoster(
             bannerBuffer = null;
         }
 
-        const costumeMsg = lang === "en"
-            ? `🦹 *CATALOG: REGULAR COSTUMES* (${categoryItems.length} Available)\n> All official The Hive costumes available for ${formatRupiah(categoryItems[0]?.rupiahPrice ?? 20000)}! ✨\n\nPlease type the *costume name* you would like to order:\n(Examples: *Owl*, *Alien*, *Abyssal Angler*, *Penguin*, etc.)\n\n• Type *k* to return to category selection\n• Type *c* to cancel order`
-            : `🦹 *KATALOG: REGULAR COSTUME* (${categoryItems.length} Pilihan)\n> Semua costume resmi The Hive tersedia seharga ${formatRupiah(categoryItems[0]?.rupiahPrice ?? 20000)}! ✨\n\nSilakan ketik *nama costume* yang kakak inginkan untuk memesan:\n(Contoh: *Owl*, *Alien*, *Abyssal Angler*, *Penguin*, dsb)\n\n• Ketik *k* untuk kembali ke pilihan kategori\n• Ketik *b* untuk membatalkan pesanan`;
+        const costumeMsg = t("catalog.costumesPrompt", lang, {
+            count: categoryItems.length,
+            price: formatRupiah(categoryItems[0]?.rupiahPrice ?? 20000)
+        });
 
         if (bannerBuffer) {
             await ctx.sendImage(remoteJid, bannerBuffer, costumeMsg);
