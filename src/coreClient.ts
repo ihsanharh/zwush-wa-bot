@@ -337,16 +337,16 @@ export class CoreClient {
     }
 
     /**
-     * Triggers full catalog synchronization from The Hive via gibot in core service.
+     * Triggers catalog synchronization from The Hive via gibot in core service.
      */
-    async syncCatalog(): Promise<{ success: boolean; updated: number; tokens?: number; costumeTokens?: number }> {
+    async syncCatalog(): Promise<{ success: boolean; message: string; inProgress?: boolean }> {
         const res = await fetch(`${this.baseUrl}/api/catalog/sync`, {
-            method: "POST",
-            signal: AbortSignal.timeout(90000)
+            method: "GET",
+            signal: AbortSignal.timeout(10000)
         });
         const data = (await res.json()) as any;
         if (!res.ok || !data.success) {
-            throw new Error(data.error || `Gagal sinkronisasi katalog (${res.status})`);
+            throw new Error(data.error || data.message || `Gagal sinkronisasi katalog (${res.status})`);
         }
         return data;
     }
