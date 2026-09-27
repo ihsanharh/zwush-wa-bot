@@ -241,7 +241,8 @@ const webhookApp = createWebhookApp({
 Bun.serve({
     fetch: webhookApp.fetch,
     port: config.PORT,
-    hostname: "0.0.0.0"
+    hostname: "0.0.0.0",
+    idleTimeout: 255
 });
 console.log(`🚀 Webhook server listening on http://0.0.0.0:${config.PORT}/webhook/order-update`);
 
