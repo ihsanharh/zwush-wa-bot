@@ -2320,45 +2320,6 @@ async function handleIncomingMessageInternal(
         case "/buy": {
             const filterQuery = args.join(" ").trim();
 
-            if (session.step !== "IDLE" && !filterQuery) {
-                if (session.step === "AWAITING_CATEGORY") {
-                    await ctx.sendText(
-                        remoteJid,
-                        userLang === "en"
-                            ? `💡 Your shopping session is already active! Please select a category (*1 - 6*), or type *c* to cancel.`
-                            : `💡 Sesi belanja kakak sudah aktif! Silakan pilih nomor kategori (*1 - 6*) dari menu di atas ya kak 😊\n(Ketik *b* untuk membatalkan)`
-                    );
-                    return;
-                }
-                if (session.step === "AWAITING_ITEM") {
-                    await ctx.sendText(
-                        remoteJid,
-                        userLang === "en"
-                            ? `💡 You are already selecting an item! Please type the item number, or type *b* to go back, *c* to cancel.`
-                            : `💡 Sesi belanja kakak sedang berlangsung! Silakan ketik nomor item yang diinginkan, atau ketik *k* untuk kembali, *b* untuk membatalkan.`
-                    );
-                    return;
-                }
-                if (session.step === "AWAITING_GAMERTAG") {
-                    await ctx.sendText(
-                        remoteJid,
-                        userLang === "en"
-                            ? `💡 You are currently ordering *${session.selectedItem?.name || ""}*! Please enter your Minecraft Gamertag, or type *c* to cancel.`
-                            : `💡 Kakak sedang memesan *${session.selectedItem?.name || ""}*! Silakan masukkan Gamertag Minecraft kakak ya, atau ketik *b* untuk membatalkan.`
-                    );
-                    return;
-                }
-                if (session.step === "AWAITING_CONFIRMATION") {
-                    await ctx.sendText(
-                        remoteJid,
-                        userLang === "en"
-                            ? `💡 Your order for *${session.selectedItem?.name || ""}* is waiting for confirmation! Reply *YES* to proceed to payment, or type *c* to cancel.`
-                            : `💡 Pesanan *${session.selectedItem?.name || ""}* kakak sedang menunggu konfirmasi! Balas *YA* untuk lanjut ke QRIS, atau ketik *b* untuk membatalkan.`
-                    );
-                    return;
-                }
-            }
-
             if (filterQuery) {
                 const cat = resolveCategory(filterQuery, CATEGORIES);
                 if (cat) {
