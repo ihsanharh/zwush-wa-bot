@@ -371,6 +371,34 @@ describe("Message Handler Router", () => {
         expect(resolveCategory("mount", CATEGORIES)?.dbCategory).toBe("Regular Mount");
         expect(resolveCategory("hats", CATEGORIES)?.dbCategory).toBe("Hats");
         expect(resolveCategory("unknown", CATEGORIES)).toBeUndefined();
+        expect(resolveCategory("b", CATEGORIES)).toBeUndefined();
+        expect(resolveCategory("B", CATEGORIES)).toBeUndefined();
+        expect(resolveCategory("c", CATEGORIES)).toBeUndefined();
+        expect(resolveCategory("C", CATEGORIES)).toBeUndefined();
+    });
+
+    it("should ignore single letters 'B' or 'C' when idle and not trigger category selection", async () => {
+        const { ctx, sentTexts } = createMockContext();
+        const jid = "idle_user@s.whatsapp.net";
+
+        await handleIncomingMessage(jid, false, "B", ctx);
+        await handleIncomingMessage(jid, false, "C", ctx);
+        await handleIncomingMessage(jid, false, "b", ctx);
+        await handleIncomingMessage(jid, false, "c", ctx);
+
+        expect(sentTexts.length).toBe(0);
+        expect(ctx.state.getSession(jid).step).toBe("IDLE");
+    });
+
+    it("should cancel buying flow when user replies 'c'", async () => {
+        const { ctx, sentTexts } = createMockContext();
+        const jid = "user_cancel_c@s.whatsapp.net";
+
+        await handleIncomingMessage(jid, false, "/beli", ctx);
+        await handleIncomingMessage(jid, false, "c", ctx);
+
+        expect(sentTexts[1]?.includes("dibatalkan")).toBe(true);
+        expect(ctx.state.getSession(jid).step).toBe("IDLE");
     });
 
     it("should extract text from plain, extended, and ephemeral message envelopes", () => {

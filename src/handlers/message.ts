@@ -46,16 +46,23 @@ export function setKnownStoreDiscount(percent: number): void {
 
 export function resolveCategory(input: string, categories: CategoryDefinition[]): CategoryDefinition | undefined {
     const trimmed = input.trim().toLowerCase();
+    if (!trimmed) return undefined;
 
     // Check by number ID (e.g. "1", "2")
     const byId = categories.find((c) => c.id === trimmed);
     if (byId) return byId;
 
-    // Check by number prefix (e.g. "1." or "1. 👑 ...")
-    const matchNumber = trimmed.match(/^(\d+)/);
+    // Check by number prefix (e.g. "1." or "1. 👑 ...", "2 - Pets", "3) Mounts")
+    const matchNumber = trimmed.match(/^(\d+)(?:[.\s\-)\]]|$)/);
     if (matchNumber && matchNumber[1]) {
         const byMatchId = categories.find((c) => c.id === matchNumber[1]);
         if (byMatchId) return byMatchId;
+    }
+
+    // Require at least 3 characters for non-numeric category text matching.
+    // Prevents single-letter inputs like "b", "c", "k", "p", etc. from accidentally matching.
+    if (trimmed.length < 3) {
+        return undefined;
     }
 
     // Check by substring in displayName or dbCategory
@@ -1621,7 +1628,8 @@ async function handleIncomingMessageInternal(
         lower === "batal" ||
         lower === "/cancel" ||
         lower === "/batal" ||
-        (userLang === "en" ? lower === "c" : lower === "b");
+        lower === "c" ||
+        (userLang === "id" && lower === "b");
 
     const isBack =
         lower === "back" ||
@@ -1856,7 +1864,7 @@ async function handleIncomingMessageInternal(
             selected = categoryItems[num - 1];
         } else {
             selected = categoryItems.find(
-                (i) => i.name.toLowerCase() === lower || i.name.toLowerCase().includes(lower)
+                (i) => i.name.toLowerCase() === lower || (lower.length >= 3 && i.name.toLowerCase().includes(lower))
             );
         }
 
