@@ -47,6 +47,6 @@
   "voucherCreated": "✅ Voucher *{{code}}* berhasil dibuat! (Tipe: {{discountType}}, Nilai: {{discountValue}}, Kuota: {{maxUses}})",
   "voucherDeleted": "✅ Voucher *{{code}}* berhasil dinonaktifkan!",
   "commandError": "❌ Terjadi kesalahan saat memproses perintah {{command}}. Mohon coba lagi beberapa saat lagi kak.",
-  "unrecognizedCommand": "Waduh, perintah *{{command}}* tidak dikenali nih kak 😊\nKetik */beli* untuk mulai belanja atau */bantuan* untuk melihat panduan ya.",
+  "unrecognizedCommand": "Perintah tidak dikenali: Waduh, perintah *{{command}}* tidak dikenali nih kak 😊\nKetik */beli* untuk mulai belanja atau */bantuan* untuk melihat panduan ya.",
   "unrecognizedGroupCommand": "@{{senderPhone}} Maaf kak, perintah *{{command}}* tidak dikenali.\nKetik */help* untuk melihat perintah yang tersedia."
 }

@@ -139,6 +139,10 @@ async function handleIncomingMessageInternal(
 
     // 1. Group Chat Routing
     if (isGroup) {
+        if (!participant) {
+            return;
+        }
+
         if (!trimmed.startsWith("/")) {
             return;
         }
@@ -273,6 +277,6 @@ async function handleIncomingMessageInternal(
         return;
     }
 
-    // Fallback unrecognized response
-    await sendUnrecognizedCommand(remoteJid, trimmed, userLang, ctx);
+    // Non-command, non-greeting messages outside active flow are ignored
+    return;
 }
