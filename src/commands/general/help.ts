@@ -26,6 +26,8 @@ const ADMIN_ORDER = [
     "/admin",
     "/saldo",
     "/balance",
+    "/sync",
+    "/synckatalog",
     "/reprocess",
     "/setgroup",
     "/setdiskon",

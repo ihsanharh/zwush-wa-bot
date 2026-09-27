@@ -1,9 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRegistry } from "./registry";
+import { defaultRegistry } from "./registry";
 import type { Command } from "./types";
-
-export const defaultRegistry = new CommandRegistry();
 
 const commandsDir = typeof (import.meta as any)?.dir === "string"
     ? (import.meta as any).dir

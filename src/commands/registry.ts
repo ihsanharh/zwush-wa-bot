@@ -136,3 +136,5 @@ export class CommandRegistry {
         return true;
     }
 }
+
+export const defaultRegistry = new CommandRegistry();

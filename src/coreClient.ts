@@ -335,4 +335,19 @@ export class CoreClient {
         }
         return data;
     }
+
+    /**
+     * Triggers full catalog synchronization from The Hive via gibot in core service.
+     */
+    async syncCatalog(): Promise<{ success: boolean; updated: number; tokens?: number; costumeTokens?: number }> {
+        const res = await fetch(`${this.baseUrl}/api/catalog/sync`, {
+            method: "POST",
+            signal: AbortSignal.timeout(90000)
+        });
+        const data = (await res.json()) as any;
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `Gagal sinkronisasi katalog (${res.status})`);
+        }
+        return data;
+    }
 }

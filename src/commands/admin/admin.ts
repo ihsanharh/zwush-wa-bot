@@ -20,6 +20,7 @@ export const adminCommand: Command = {
         out += `📋 Log Group: *${logStatus}*\n\n`;
         out += `*Daftar Perintah Admin:*\n`;
         out += `• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n`;
+        out += `• */sync* / */synckatalog* : Sinkronisasi katalog item dari The Hive ke database\n`;
         out += `• */paid <ID>* / */acc <ID>* : Verifikasi manual pembayaran order (bypass GoPay) & proses gift\n`;
         out += `• */reprocess* : Proses ulang semua order tertahan token\n`;
         out += `• */reprocess <ID>* : Proses ulang order tertentu\n`;

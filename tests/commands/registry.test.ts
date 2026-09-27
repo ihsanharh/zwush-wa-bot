@@ -117,6 +117,10 @@ describe("CommandRegistry", () => {
         expect(registry.get("/menu")).toBeDefined();
         expect(registry.get("/beli")).toBeDefined();
         expect(registry.get("/admin")).toBeDefined();
+        expect(registry.get("/bantuan")).toBeDefined();
+        expect(registry.get("/help")).toBeDefined();
+        expect(registry.get("/sync")).toBeDefined();
+        expect(registry.get("/synckatalog")).toBeDefined();
     });
 });
 
