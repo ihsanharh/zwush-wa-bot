@@ -1,4 +1,4 @@
-import type { Language } from "../i18n";
+import { t, type Language } from "../i18n";
 import type { AdminGroupLogger } from "../handlers/adminLogger";
 import type { BotContext } from "../handlers/message";
 
@@ -163,19 +163,8 @@ export async function sendUnrecognizedCommand(
     const prefix = mentionSender ? `@${senderPhone}\n\n` : "";
     const mentions = mentionSender ? [mentionSender] : undefined;
 
-    if (userLang === "en") {
-        await ctx.sendText(
-            remoteJid,
-            `${prefix}Oops, command *${cmd}* was not recognized 😊\nType */buy* to start shopping or */help* for assistance.`,
-            mentions
-        );
-    } else {
-        await ctx.sendText(
-            remoteJid,
-            `${prefix}Waduh, perintah *${cmd}* tidak dikenali nih kak 😊\nKetik */beli* untuk mulai belanja atau */bantuan* untuk melihat panduan ya.`,
-            mentions
-        );
-    }
+    const body = t("unrecognizedCommand", userLang, { command: cmd });
+    await ctx.sendText(remoteJid, `${prefix}${body}`, mentions);
 }
 
 const userMessageQueues = new Map<string, Promise<void>>();

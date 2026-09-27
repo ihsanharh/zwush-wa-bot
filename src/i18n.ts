@@ -1,56 +1,23 @@
 import type { CatalogItem, OrderNotificationPayload, OrderStatus } from "./types";
 import { config } from "./config";
+import idLocale from "./locales/id.json";
+import enLocale from "./locales/en.json";
 
 export type Language = "id" | "en";
+
+export const locales = {
+    id: idLocale,
+    en: enLocale,
+};
 
 export function formatRupiah(amount: number): string {
     return `Rp ${amount.toLocaleString("id-ID")}`;
 }
 
 export function formatStatusBadge(status: string, lang: Language = "id", failureReason?: string | null): string {
-    if (lang === "en") {
-        switch (status) {
-            case "PENDING_PAYMENT":
-                return "⏳ Awaiting Payment";
-            case "QUEUED":
-                return "💳 Payment Received / In Queue";
-            case "GIFTING":
-                return "🎁 Sending In-Game Gift (The Hive)";
-            case "SUCCESS":
-                return "✅ Delivered (Completed)";
-            case "INSUFFICIENT_TOKENS":
-                return "⚠️ Awaiting Restock";
-            case "EXPIRED":
-                return "⏱️ Expired (Cancelled)";
-            case "CANCELLED":
-                return "❌ Cancelled";
-            case "FAILED":
-                return `❌ Failed: ${failureReason || "Unknown"}`;
-            default:
-                return status;
-        }
-    }
-
-    switch (status) {
-        case "PENDING_PAYMENT":
-            return "⏳ Menunggu Pembayaran";
-        case "QUEUED":
-            return "💳 Pembayaran Diterima / Dalam Antrean";
-        case "GIFTING":
-            return "🎁 Sedang Dikirim ke In-Game (The Hive)";
-        case "SUCCESS":
-            return "✅ Selesai Dikirim";
-        case "INSUFFICIENT_TOKENS":
-            return "⚠️ Token Kurang / Menunggu Restock";
-        case "EXPIRED":
-            return "⏱️ Kedaluwarsa (Batal)";
-        case "CANCELLED":
-            return "❌ Dibatalkan";
-        case "FAILED":
-            return `❌ Gagal: ${failureReason || "Tidak Diketahui"}`;
-        default:
-            return status;
-    }
+    const key = `status.${status}`;
+    const badge = t(key, lang, { reason: failureReason || (lang === "en" ? "Unknown" : "Tidak Diketahui") });
+    return badge !== key ? badge : status;
 }
 
 export function formatStatusNotification(
@@ -60,103 +27,21 @@ export function formatStatusNotification(
 ): string {
     const { orderId, gamertag, itemName, status, message } = payload;
     const store = storeName || config.STORE_NAME || "Store";
+    const key = `notification.${status}`;
 
-    if (lang === "en") {
-        switch (status) {
-            case "QUEUED":
-                return (
-                    `✅ *PAYMENT RECEIVED!*\n\n` +
-                    `Your order *#${orderId}* (*${itemName}* for *${gamertag}*) has been verified 🎉\n\n` +
-                    `⏳ Your item is now queued for automated delivery to The Hive. Please allow 1–2 minutes!`
-                );
-            case "GIFTING":
-                return (
-                    `🎁 *IN-GAME DELIVERY IN PROGRESS*\n\n` +
-                    `${store} bot is logging into The Hive to deliver *${itemName}* to Gamertag *${gamertag}*.\n` +
-                    `Please wait a moment...`
-                );
-            case "SUCCESS":
-                return (
-                    `🎉 *ORDER DELIVERED SUCCESSFULLY!*\n\n` +
-                    `📦 Item: *${itemName}*\n` +
-                    `👤 Gamertag: *${gamertag}*\n` +
-                    `🆔 Order ID: #${orderId}\n\n` +
-                    `Please check your *Mailbox / Gift Box* in The Hive Bedrock.\n` +
-                    `Thank you for shopping with *${store}*! ✨`
-                );
-            case "INSUFFICIENT_TOKENS":
-                return (
-                    `ℹ️ *ORDER UPDATE #${orderId}*\n\n` +
-                    `Hi there! We received your payment. Currently our server is restocking gifts for The Hive.\n\n` +
-                    `Your order will automatically be delivered as soon as tokens are ready. If not delivered within 10 minutes, please reach out to admin via */help*! 🥰`
-                );
-            case "EXPIRED":
-                return (
-                    `⏱️ *ORDER EXPIRED*\n\n` +
-                    `The 15-minute payment window for order *#${orderId}* has expired.\n` +
-                    `This QRIS is no longer valid. Please do not make payment.\n\n` +
-                    `Type */katalog* if you wish to browse and place a new order.\n` +
-                    `_(If you already transferred after expiry, please type */support* for admin live chat)_`
-                );
-            case "FAILED":
-                return (
-                    `❌ *DELIVERY FAILED*\n\n` +
-                    `Order *#${orderId}* could not be delivered.\n` +
-                    `Reason: ${message || "Unknown"}\n\n` +
-                    `Don't worry, please type */support* to connect directly with our admin live chat.`
-                );
-            default:
-                return `ℹ️ Order #${orderId} status: ${status}`;
-        }
+    const formatted = t(key, lang, {
+        orderId,
+        gamertag,
+        itemName,
+        store,
+        message: message || (lang === "en" ? "Unknown" : "Tidak diketahui")
+    });
+
+    if (formatted !== key) {
+        return formatted;
     }
 
-    // Indonesian default
-    switch (status) {
-        case "QUEUED":
-            return (
-                `✅ *PEMBAYARAN DITERIMA!*\n\n` +
-                `Pesanan kamu *#${orderId}* (*${itemName}* untuk *${gamertag}*) sudah berhasil diverifikasi 🎉\n\n` +
-                `⏳ Pesanan saat ini sedang dalam antrean pengiriman otomatis ke The Hive. Mohon tunggu 1–2 menit ya kak!`
-            );
-        case "GIFTING":
-            return (
-                `🎁 *PROSES PENGIRIMAN IN-GAME*\n\n` +
-                `Bot ${store} sedang login ke The Hive untuk mengirimkan *${itemName}* ke Gamertag *${gamertag}*.\n` +
-                `Mohon tunggu sebentar ya kak...`
-            );
-        case "SUCCESS":
-            return (
-                `🎉 *PESANAN BERHASIL DIKIRIM!*\n\n` +
-                `📦 Item: *${itemName}*\n` +
-                `👤 Gamertag: *${gamertag}*\n` +
-                `🆔 Order ID: #${orderId}\n\n` +
-                `Silakan periksa *Mailbox / Gift Box* kamu di The Hive Bedrock.\n` +
-                `Terima kasih telah berbelanja di *${store}*! ✨`
-            );
-        case "INSUFFICIENT_TOKENS":
-            return (
-                `ℹ️ *UPDATE PESANAN #${orderId}*\n\n` +
-                `Halo kak! Pembayaran kamu sudah kami terima dengan baik. Saat ini server sedang antre restock gift The Hive.\n\n` +
-                `Pesanan kamu akan otomatis diproses begitu token siap ya kak. Jika butuh bantuan langsung, silakan ketik */support* untuk live chat bersama admin ya! 🥰`
-            );
-        case "EXPIRED":
-            return (
-                `⏱️ *PESANAN KEDALUWARSA*\n\n` +
-                `Batas waktu pembayaran 15 menit untuk pesanan *#${orderId}* telah habis.\n` +
-                `QRIS tersebut sudah tidak berlaku. Jangan melakukan pembayaran lagi.\n\n` +
-                `Ketik */katalog* jika kamu ingin melihat katalog & memesan baru.\n` +
-                `_(Jika kamu terlanjur transfer setelah kedaluwarsa, ketik */support* untuk bantuan live chat admin)_`
-            );
-        case "FAILED":
-            return (
-                `❌ *PENGIRIMAN GAGAL*\n\n` +
-                `Pesanan *#${orderId}* gagal dikirim.\n` +
-                `Alasan: ${message || "Tidak diketahui"}\n\n` +
-                `Jangan khawatir, silakan ketik */support* untuk terhubung langsung ke live chat admin kami dengan menyertakan ID pesanan kamu.`
-            );
-        default:
-            return `ℹ️ Pesanan #${orderId} status: ${status}`;
-    }
+    return lang === "en" ? `ℹ️ Order #${orderId} status: ${status}` : `ℹ️ Pesanan #${orderId} status: ${status}`;
 }
 
 export function formatPlayerNotFoundRetry(
@@ -167,21 +52,13 @@ export function formatPlayerNotFoundRetry(
     maxAttempts: number = 3,
     lang: Language = "id"
 ): string {
-    if (lang === "en") {
-        return (
-            `❌ *GAMERTAG NOT FOUND ON THE HIVE!*\n\n` +
-            `Order *#${orderId}* (*${itemName}*) could not be delivered because Gamertag *${gamertag}* was not found on The Hive.\n\n` +
-            `⚠️ You might have mistyped a letter or space.\n` +
-            `👉 Please reply to this message with your *correct Minecraft Gamertag* (Attempt ${attempt} of ${maxAttempts}):`
-        );
-    }
-
-    return (
-        `❌ *GAMERTAG TIDAK DITEMUKAN DI THE HIVE!*\n\n` +
-        `Pesanan *#${orderId}* (*${itemName}*) tidak dapat dikirim karena Gamertag *${gamertag}* tidak ditemukan di server The Hive.\n\n` +
-        `⚠️ Kemungkinan ada salah ketik huruf atau spasi.\n` +
-        `👉 Silakan balas pesan ini dengan *Gamertag Minecraft yang benar* ya kak (Percobaan ${attempt} dari ${maxAttempts}):`
-    );
+    return t("playerNotFound.retry", lang, {
+        orderId,
+        itemName,
+        gamertag,
+        attempt,
+        maxAttempts
+    });
 }
 
 export function formatPlayerNotFoundMaxExceeded(
@@ -190,21 +67,11 @@ export function formatPlayerNotFoundMaxExceeded(
     gamertag: string,
     lang: Language = "id"
 ): string {
-    if (lang === "en") {
-        return (
-            `❌ *DELIVERY FAILED (3 ATTEMPTS REACHED)*\n\n` +
-            `The Hive still cannot find player *${gamertag}* for order *#${orderId}* (*${itemName}*).\n\n` +
-            `Don't worry, your payment is 100% safe! 😊\n` +
-            `👉 Please type */support* to connect directly with our admin team for manual assistance.`
-        );
-    }
-
-    return (
-        `❌ *PENGIRIMAN GAGAL (SUDAH 3 KALI PERCOBAAN)*\n\n` +
-        `The Hive tetap tidak dapat menemukan player *${gamertag}* untuk pesanan *#${orderId}* (*${itemName}*).\n\n` +
-        `Tenang kak, uang kakak aman 100%! 😊\n` +
-        `👉 Silakan ketik */support* untuk terhubung langsung dengan tim admin kami agar dibantu secara manual.`
-    );
+    return t("playerNotFound.maxExceeded", lang, {
+        orderId,
+        itemName,
+        gamertag
+    });
 }
 
 export interface StringParams {
@@ -224,249 +91,91 @@ export interface StringParams {
     discountType?: string;
     discountValue?: string | number;
     maxUses?: string | number | null;
+    attempt?: number;
+    maxAttempts?: number;
+    reason?: string;
+    message?: string;
+    command?: string;
+    senderPhone?: string;
+    [key: string]: any;
 }
 
-export function t(key: string, lang: Language, params?: StringParams): string {
-    const phone = params?.phone || "";
+export function t(key: string, lang: Language = "id", params?: StringParams): string {
     const store = params?.storeName || config.STORE_NAME || "Store";
     const storeUpper = store.toUpperCase();
 
-    if (lang === "en") {
-        switch (key) {
-            case "greeting": {
-                const discount = params?.percent;
-                const discText = discount
-                    ? `at up to ${discount}% discount!`
-                    : `at official discounted prices!`;
-                return (
-                    `Hello! Welcome to *${store}* 🛒✨\n\n` +
-                    `We provide official Minecraft Bedrock cosmetics for The Hive ${discText}\n\n` +
-                    `Type */katalog* to view our full catalog & browse items 😊`
-                );
-            }
-
-            case "helpMessage": {
-                let msg = (
-                    `🤖 *${storeUpper} HELP*\n\n` +
-                    `Hi there! Here are the commands you can use:\n\n` +
-                    `• */buy* : View catalog & start buying The Hive cosmetics\n` +
-                    `• */buy <1-6>* : Directly open category catalog (e.g. */buy 2*)\n` +
-                    `• */katalog* : View complete catalog posters for all categories\n` +
-                    `• */status* : Check your active order status (or */status <ID>*)\n` +
-                    `• */history* : View your recent order history\n` +
-                    `• */faq* : FAQ about QRIS payment & item delivery\n` +
-                    `• */language <id|en>* : Switch language preference\n` +
-                    `• *c* / *cancel* : Cancel ongoing order flow\n` +
-                    `• *b* / *back* : Go back 1 step during ordering\n\n` +
-                    `👤 Need direct support from admin? Ask our admin team in the store group!`
-                );
-                if (params?.isAdmin) {
-                    msg += (
-                        `\n\n🛠️ *ADMIN ONLY COMMANDS:*\n` +
-                        `• */admin* : Open admin status & control panel\n` +
-                        `• */balance* / */saldo* : Check The Hive bot token balance & today's sales summary\n` +
-                        `• */reprocess* : Reprocess token-held / failed orders\n` +
-                        `• */reprocess <ID>* : Reprocess a specific order\n` +
-                        `• */setgroup [admin|log]* : Register chat group as Admin or Log Group\n` +
-                        `• */setdiscount <0-90>* : Set global store discount percentage\n` +
-                        `• */voucher* : Manage promo voucher codes (list/create/delete)`
-                    );
-                }
-                return msg;
-            }
-
-            case "faqMessage":
-                return (
-                    `💬 *FAQ & PAYMENT INFO — ${storeUpper}*\n\n` +
-                    `*1. What payment methods are accepted?*\n` +
-                    `You can pay via *QRIS*! Supports all Indonesian e-wallets (GoPay, OVO, DANA, ShopeePay) & Mobile Banking (BCA, Mandiri, BRI, BNI, etc.) 📱\n\n` +
-                    `*2. Why is there a 3-digit unique code in the total?*\n` +
-                    `The 3-digit code allows our system to *automatically verify your payment in seconds* without uploading transfer receipts! Please transfer the exact amount including the last 3 digits ✨\n\n` +
-                    `*3. How is the item delivered?*\n` +
-                    `Items are gifted 100% officially via *The Hive In-Game Gift* feature directly to your Minecraft Bedrock Gamertag 🎁\n\n` +
-                    `*4. How long does delivery take?*\n` +
-                    `Once payment is detected, our bot delivers your gift within *1 - 3 minutes* ⚡\n\n` +
-                    `Any questions? Contact our store admin team 😊`
-                );
-
-            case "crossLanguageHint":
-                return `💡 Hi there! You're currently using *English* mode. Please use */buy* to browse and purchase, or switch language with */language id* 😊`;
-
-            case "groupCheckoutRedirection":
-                return `Hi @${phone}! ✨ For your privacy and payment security, we've sent the catalog & order form directly to your private chat! Please check your direct message 😊`;
-
-            case "languageSwitched":
-                return `✅ Language successfully switched to *English*! 🇬🇧\nType */buy* to browse our catalog or */help* for guidance.`;
-
-            case "currentLanguageStatus":
-                return `🌐 *Language Settings*: English 🇬🇧\nTo switch back to Indonesian, type */bahasa id* or */language id*.`;
-
-            case "cancelSuccess":
-                return `Got it! Your order has been cancelled. Whenever you're ready to order again, just type */buy*! 😊`;
-
-            case "noActiveOrderToCancel":
-                return `You don't have any active order right now. Type */buy* to start shopping! 😊`;
-
-            case "invalidCategory":
-                return `Oops, that category number is not valid 😊\nPlease type a number from *1* to *6*, or type *c* to cancel.`;
-
-            case "invalidItem":
-                return `Oops, that item selection was not recognized 😊\nPlease type the item number from the image above or type *b* to go back.`;
-
-            case "invalidGamertag":
-                return `Oops, that Minecraft Gamertag is invalid 😅\nGamertags must be 3 to 16 characters (letters, numbers, and spaces only).\nExample: *Steve123* (type *b* to go back, *c* to cancel).`;
-
-            case "confirmPrompt":
-                return `Please reply *YES* if the details are correct to generate your QRIS 😊\n(Or reply *b* to change gamertag, *c* to cancel)`;
-
-            case "emptyOrders":
-                return `Hi there! You don't have any order history yet 😊\n\nStart shopping for Hive cosmetics by typing */buy*!`;
-
-            case "voucherPrompt":
-                return `💡 *Have a voucher?* Type *voucher <CODE>* (example: *voucher SAVE10*)`;
-
-            case "voucherApplied":
-                return `🎟️ *Voucher '${params?.code}' applied!*\n💰 Discount: *${formatRupiah(params?.discountNominal || 0)}*\n💵 New Total: *${formatRupiah(params?.finalPrice || 0)}*`;
-
-            case "voucherInvalid":
-                return `⚠️ Voucher *${params?.code}* is invalid or not found. Please double-check your code.`;
-
-            case "voucherExhausted":
-                return `⚠️ Usage quota for voucher *${params?.code}* has been exhausted.`;
-
-            case "voucherExpired":
-                return `⚠️ Voucher *${params?.code}* has expired.`;
-
-            case "discountUpdated":
-                return `✅ Store discount successfully updated to *${params?.percent}%*! Catalog and posters have been refreshed.`;
-
-            case "voucherCreated":
-                return `✅ Voucher *${params?.code}* successfully created! (Type: ${params?.discountType}, Value: ${params?.discountValue}, Quota: ${params?.maxUses ?? "Unlimited"})`;
-
-            case "voucherDeleted":
-                return `✅ Voucher *${params?.code}* has been deactivated successfully!`;
-
-            default:
-                return "";
-        }
+    // Special composite translations
+    if (key === "greeting") {
+        const discountText = params?.percent
+            ? t("discountTextWithPercent", lang, { percent: params.percent })
+            : t("discountTextSpecial", lang);
+        return rawTranslate("greeting", lang, {
+            ...params,
+            store,
+            discountText
+        });
     }
 
-    // Indonesian default
-    switch (key) {
-        case "greeting": {
-            const discount = params?.percent;
-            const discText = discount
-                ? `dengan diskon s/d ${discount}%!`
-                : `dengan harga diskon spesial!`;
-            return (
-                `Halo kak! Selamat datang di *${store}* 🛒✨\n\n` +
-                `Kami menyediakan kosmetik resmi The Hive Minecraft Bedrock ${discText}\n\n` +
-                `Yuk ketik */katalog* untuk melihat katalog lengkap kami ya kak 😊`
-            );
+    if (key === "helpMessage") {
+        let msg = rawTranslate("helpMessage", lang, { ...params, store, storeUpper });
+        if (params?.isAdmin) {
+            msg += rawTranslate("helpAdminSection", lang, params);
         }
+        return msg;
+    }
 
-        case "helpMessage": {
-            let msg = (
-                `🤖 *BANTUAN ${storeUpper}*\n\n` +
-                `Halo kak! Ini daftar perintah yang bisa kakak gunakan:\n\n` +
-                `• */beli* : Lihat katalog & mulai belanja kosmetik The Hive\n` +
-                `• */beli <1-6>* : Langsung buka katalog kategori (contoh: */beli 2*)\n` +
-                `• */katalog* : Lihat gambar katalog lengkap seluruh kategori\n` +
-                `• */status* : Cek status pesanan aktif kakak (atau */status <ID>*)\n` +
-                `• */riwayat* : Lihat daftar riwayat pesanan kakak\n` +
-                `• */faq* : Tanya jawab pembayaran QRIS & pengiriman item\n` +
-                `• */bahasa <id|en>* : Ganti pilihan bahasa bot\n` +
-                `• *b* / *batal* : Batalkan pesanan yang sedang berjalan\n` +
-                `• *k* / *kembali* : Kembali ke langkah sebelumnya saat belanja\n\n` +
-                `👤 Butuh bantuan langsung dari admin? Tanyakan di grup toko atau ketik */bantuan* ya!`
-            );
-            if (params?.isAdmin) {
-                msg += (
-                    `\n\n🛠️ *PERINTAH KHUSUS ADMIN:*\n` +
-                    `• */admin* : Buka panel status & kontrol admin\n` +
-                    `• */saldo* / */balance* : Cek saldo token bot The Hive & omset hari ini\n` +
-                    `• */reprocess* : Proses ulang semua order tertahan token\n` +
-                    `• */reprocess <ID>* : Proses ulang order tertentu\n` +
-                    `• */setgroup [admin|log]* : Daftarkan grup obrolan sebagai Admin atau Log Group\n` +
-                    `• */setdiskon <0-90>* : Ubah persentase diskon toko global\n` +
-                    `• */voucher* : Kelola kode voucher promo (list/create/delete)`
-                );
+    if (key === "faqMessage") {
+        return rawTranslate("faqMessage", lang, { ...params, store, storeUpper });
+    }
+
+    if (key === "voucherApplied") {
+        return rawTranslate("voucherApplied", lang, {
+            ...params,
+            discountFormatted: formatRupiah(params?.discountNominal || 0),
+            finalFormatted: formatRupiah(params?.finalPrice || 0)
+        });
+    }
+
+    return rawTranslate(key, lang, { ...params, store, storeUpper });
+}
+
+function rawTranslate(key: string, lang: Language, params?: Record<string, any>): string {
+    const targetDict = locales[lang] || locales.id;
+    let val: any = resolveNestedKey(targetDict, key);
+
+    if (typeof val !== "string") {
+        const fallbackDict = locales.id;
+        val = resolveNestedKey(fallbackDict, key);
+    }
+
+    if (typeof val !== "string") {
+        return key;
+    }
+
+    if (params) {
+        val = val.replace(/\{\{(\w+)\}\}/g, (_: string, prop: string) => {
+            if (params[prop] !== undefined && params[prop] !== null) {
+                return String(params[prop]);
             }
-            return msg;
-        }
-
-        case "faqMessage":
-            return (
-                `💬 *FAQ & CARA PEMBAYARAN — ${storeUpper}*\n\n` +
-                `*1. Pembayaran pakai apa saja kak?*\n` +
-                `Bisa pakai *QRIS* ya! Mendukung semua e-wallet (GoPay, OVO, DANA, ShopeePay) & Mobile Banking (BCA, Mandiri, BRI, BNI, dll) 📱\n\n` +
-                `*2. Kenapa ada 3 digit kode unik di total nominal?*\n` +
-                `Kode unik berfungsi agar pembayaran kakak *otomatis terverifikasi sistem dalam hitungan detik* tanpa perlu repot kirim bukti transfer! Pastikan transfer tepat sampai digit terakhir ya ✨\n\n` +
-                `*3. Bagaimana item dikirimkan?*\n` +
-                `Item dikirimkan 100% resmi via fitur *In-Game Gift The Hive* langsung ke Gamertag Minecraft Bedrock kakak 🎁\n\n` +
-                `*4. Berapa lama proses pengiriman?*\n` +
-                `Setelah pembayaran masuk, bot langsung memproses gift dalam waktu *1 - 3 menit* ⚡\n\n` +
-                `Ada pertanyaan lain kak? Hubungi tim admin kami di grup toko ya 😊`
-            );
-
-        case "crossLanguageHint":
-            return `💡 Halo kak! Bahasa kamu saat ini adalah *Bahasa Indonesia*. Gunakan */beli* untuk mulai belanja, atau ubah bahasa dengan */bahasa en* ya 😊`;
-
-        case "groupCheckoutRedirection":
-            return `Halo @${phone}! ✨ Untuk kenyamanan & keamanan pembayaran QRIS kakak, katalog dan formulir pemesanan sudah kami kirimkan ke chat pribadi ya! Silakan cek chat dari kami 😊`;
-
-        case "languageSwitched":
-            return `✅ Bahasa berhasil diubah ke *Bahasa Indonesia*! 🇮🇩\nKetik */beli* untuk melihat katalog atau */bantuan* untuk melihat panduan.`;
-
-        case "currentLanguageStatus":
-            return `🌐 *Pengaturan Bahasa*: Bahasa Indonesia 🇮🇩\nUntuk beralih ke Bahasa Inggris, ketik */bahasa en* atau */language en*.`;
-
-        case "cancelSuccess":
-            return `Siap kak, pemesanan telah dibatalkan ya. Kalau mau belanja lagi nanti, tinggal ketik */beli* aja ya kak! 😊`;
-
-        case "noActiveOrderToCancel":
-            return `Saat ini tidak ada pesanan aktif yang sedang berlangsung ya kak. Ketik */beli* untuk mulai belanja! 😊`;
-
-        case "invalidCategory":
-            return `Waduh, nomor kategorinya belum tepat nih kak 😊\nSilakan ketik angka *1* s/d *6* sesuai kategori yang diinginkan, atau ketik *b* untuk keluar ya.`;
-
-        case "invalidItem":
-            return `Waduh, pilihan itemnya belum sesuai nih kak 😊\nSilakan ketik nomor item dari gambar di atas atau ketik *k* untuk kembali.`;
-
-        case "invalidGamertag":
-            return `Waduh, Gamertag tidak valid nih kak 😅\nGamertag Minecraft harus terdiri dari 3 hingga 16 karakter (hanya huruf, angka, dan spasi ya).\nContoh: *Steve123* (atau ketik *k* untuk ganti item, *b* untuk batal).`;
-
-        case "confirmPrompt":
-            return `Balas *YA* jika pesanan sudah sesuai untuk membuat QRIS ya kak 😊\n(Atau balas *k* untuk ganti gamertag, *b* untuk batal)`;
-
-        case "emptyOrders":
-            return `Halo kak! Kakak belum memiliki riwayat pesanan nih 😊\n\nYuk mulai belanja kosmetik The Hive dengan ketik */beli* ya!`;
-
-        case "voucherPrompt":
-            return `💡 *Punya voucher?* Ketik *voucher <KODE>* (contoh: *voucher HEMAT*)`;
-
-        case "voucherApplied":
-            return `🎟️ *Voucher '${params?.code}' berhasil dipasang!*\n💰 Potongan: *${formatRupiah(params?.discountNominal || 0)}*\n💵 Total Baru: *${formatRupiah(params?.finalPrice || 0)}*`;
-
-        case "voucherInvalid":
-            return `⚠️ Voucher *${params?.code}* tidak valid atau tidak ditemukan nih kak. Silakan periksa kembali ya.`;
-
-        case "voucherExhausted":
-            return `⚠️ Kuota penggunaan untuk voucher *${params?.code}* sudah habis kak.`;
-
-        case "voucherExpired":
-            return `⚠️ Voucher *${params?.code}* sudah kedaluwarsa kak.`;
-
-        case "discountUpdated":
-            return `✅ Diskon toko berhasil diubah menjadi *${params?.percent}%*! Katalog dan poster telah diperbarui.`;
-
-        case "voucherCreated":
-            return `✅ Voucher *${params?.code}* berhasil dibuat! (Tipe: ${params?.discountType}, Nilai: ${params?.discountValue}, Kuota: ${params?.maxUses ?? "Tak terbatas"})`;
-
-        case "voucherDeleted":
-            return `✅ Voucher *${params?.code}* berhasil dinonaktifkan!`;
-
-        default:
             return "";
+        });
     }
+
+    return val;
+}
+
+function resolveNestedKey(obj: any, path: string): any {
+    if (!obj || typeof obj !== "object") return undefined;
+    if (path in obj) return obj[path];
+
+    const parts = path.split(".");
+    let curr = obj;
+    for (const part of parts) {
+        if (curr && typeof curr === "object" && part in curr) {
+            curr = curr[part];
+        } else {
+            return undefined;
+        }
+    }
+    return curr;
 }

@@ -73,30 +73,46 @@ export interface BotContext {
 }
 
 export async function handleIncomingMessage(
-    event: unknown,
-    ctx: BotContext
+    remoteJidOrEvent: string | unknown,
+    fromMeOrCtx: boolean | BotContext,
+    bodyText?: string,
+    ctx?: BotContext,
+    participant?: string,
+    timestampSeconds?: number
 ): Promise<void> {
-    const staleCheck = isEventStale(event);
-    if (staleCheck.stale) {
-        return;
+    let remoteJid: string | undefined;
+    let fromMe = false;
+    let text = "";
+    let context: BotContext;
+    let part = participant;
+
+    if (typeof remoteJidOrEvent === "string") {
+        remoteJid = remoteJidOrEvent;
+        fromMe = Boolean(fromMeOrCtx);
+        text = bodyText || "";
+        context = ctx!;
+        part = participant;
+    } else {
+        const staleCheck = isEventStale(remoteJidOrEvent);
+        if (staleCheck.stale) return;
+
+        const ev = remoteJidOrEvent as Record<string, any>;
+        remoteJid = ev?.key?.remoteJid;
+        fromMe = Boolean(ev?.key?.fromMe);
+        part = ev?.key?.participant || ev?.participant;
+        text = extractMessageText(ev?.message) || "";
+        context = fromMeOrCtx as BotContext;
     }
 
-    const ev = event as Record<string, any>;
-    const remoteJid = ev.key?.remoteJid;
-    const fromMe = Boolean(ev.key?.fromMe);
-    const participant = ev.key?.participant || ev.participant;
-
-    if (!remoteJid) return;
-
-    const bodyText = extractMessageText(ev.message);
-    if (!bodyText || !bodyText.trim()) return;
+    if (!remoteJid || !context) return;
+    if (!text || !text.trim()) return;
 
     const userKey = remoteJid.endsWith("@g.us")
-        ? `${remoteJid}:${participant || remoteJid}`
+        ? `${remoteJid}:${part || remoteJid}`
         : remoteJid;
 
     await executeUserSequential(userKey, () =>
-        handleIncomingMessageInternal(remoteJid, fromMe, bodyText, ctx, participant)
+        handleIncomingMessageInternal(remoteJid!, fromMe, text, context, part)
     );
 }
 
@@ -199,20 +215,7 @@ async function handleIncomingMessageInternal(
         }
     }
 
-    // Interactive buying wizard flow (or idle category direct selection)
-    const handledByFlow = await handleBuyingFlow(
-        remoteJid,
-        fromMe,
-        trimmed,
-        ctx,
-        userLang,
-        effectiveSender
-    );
-    if (handledByFlow) {
-        return;
-    }
-
-    // Slash command execution
+    // Slash command execution (checked BEFORE buying flow so commands always take precedence)
     if (trimmed.startsWith("/")) {
         const parts = trimmed.split(/\s+/);
         const cmd = parts[0]?.toLowerCase() || "";
@@ -232,6 +235,19 @@ async function handleIncomingMessageInternal(
         if (!handled) {
             await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
         }
+        return;
+    }
+
+    // Interactive buying wizard flow (or idle category direct selection)
+    const handledByFlow = await handleBuyingFlow(
+        remoteJid,
+        fromMe,
+        trimmed,
+        ctx,
+        userLang,
+        effectiveSender
+    );
+    if (handledByFlow) {
         return;
     }
 

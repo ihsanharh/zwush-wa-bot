@@ -109,4 +109,14 @@ describe("CommandRegistry", () => {
         const dispatched = await registry.dispatch("/unknown", createMockCommandContext());
         expect(dispatched).toBe(false);
     });
+
+    it("autoloader loads commands dynamically from directory", async () => {
+        const registry = new CommandRegistry();
+        const count = await registry.loadFromDirectory();
+        expect(count).toBeGreaterThan(0);
+        expect(registry.get("/menu")).toBeDefined();
+        expect(registry.get("/beli")).toBeDefined();
+        expect(registry.get("/admin")).toBeDefined();
+    });
 });
+
