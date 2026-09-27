@@ -15,9 +15,7 @@ export const menuCommand: Command = {
             const senderPhone = extractPhoneNumber(sender);
             const currentSession = ctx.state.getSession(sender);
             if (currentSession.step !== "IDLE") {
-                const alreadyActiveNotice = userLang === "en"
-                    ? `@${senderPhone}\n\n💡 Your shopping session is already active in private chat! Please continue your order there 😊 (or type *c* in private chat to cancel).`
-                    : `@${senderPhone}\n\n💡 Sesi belanja kakak sudah aktif di chat pribadi! Silakan lanjutkan pemesanan di chat pribadi ya kak 😊 (atau ketik *b* di chat pribadi untuk batal).`;
+                const alreadyActiveNotice = `@${senderPhone}\n\n` + t("menu.alreadyActiveNotice", userLang);
                 await ctx.sendText(remoteJid, alreadyActiveNotice, [sender]);
                 return;
             }
@@ -40,23 +38,12 @@ export const menuCommand: Command = {
             }
 
             // Invalid category filter
-            if (userLang === "en") {
-                let errMsg = `Oops, category *${filterQuery}* was not found 😊\n\n`;
-                errMsg += `Please choose from the categories below:\n`;
-                CATEGORIES.forEach((c) => {
-                    errMsg += `• *${c.id}*. ${c.displayName.replace(/^\d+\.\s*/, "")}\n`;
-                });
-                errMsg += `\nExample: */buy 2* or directly type *2*`;
-                await ctx.sendText(remoteJid, errMsg);
-            } else {
-                let errMsg = `Waduh, kategori *${filterQuery}* tidak ditemukan nih kak 😊\n\n`;
-                errMsg += `Silakan pilih dari daftar kategori berikut ya:\n`;
-                CATEGORIES.forEach((c) => {
-                    errMsg += `• *${c.id}*. ${c.displayName.replace(/^\d+\.\s*/, "")}\n`;
-                });
-                errMsg += `\nContoh: */beli 2* atau langsung ketik *2*`;
-                await ctx.sendText(remoteJid, errMsg);
-            }
+            let categoryList = "";
+            CATEGORIES.forEach((c) => {
+                categoryList += `• *${c.id}*. ${c.displayName.replace(/^\d+\.\s*/, "")}\n`;
+            });
+            const errMsg = t("menu.categoryNotFound", userLang, { query: filterQuery, categoryList: categoryList.trim() });
+            await ctx.sendText(remoteJid, errMsg);
             return;
         }
 

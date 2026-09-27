@@ -9,6 +9,8 @@
     "CANCELLED": "❌ Dibatalkan",
     "FAILED": "❌ Gagal: {{reason}}"
   },
+  "unknown": "Tidak Diketahui",
+  "statusNotificationFallback": "ℹ️ Pesanan #{{orderId}} status: {{status}}",
   "notification": {
     "QUEUED": "✅ *PEMBAYARAN DITERIMA!*\n\nPesanan kamu *#{{orderId}}* (*{{itemName}}* untuk *{{gamertag}}*) sudah berhasil diverifikasi 🎉\n\n⏳ Pesanan saat ini sedang dalam antrean pengiriman otomatis ke The Hive. Mohon tunggu 1–2 menit ya kak!",
     "GIFTING": "🎁 *PROSES PENGIRIMAN IN-GAME*\n\nBot {{store}} sedang login ke The Hive untuk mengirimkan *{{itemName}}* ke Gamertag *{{gamertag}}*.\nMohon tunggu sebentar ya kak...",
@@ -20,6 +22,102 @@
   "playerNotFound": {
     "retry": "❌ *GAMERTAG TIDAK DITEMUKAN DI THE HIVE!*\n\nPesanan *#{{orderId}}* (*{{itemName}}*) tidak dapat dikirim karena Gamertag *{{gamertag}}* tidak ditemukan di server The Hive.\n\n⚠️ Kemungkinan ada salah ketik huruf atau spasi.\n👉 Silakan balas pesan ini dengan *Gamertag Minecraft yang benar* ya kak (Percobaan {{attempt}} dari {{maxAttempts}}):",
     "maxExceeded": "❌ *PENGIRIMAN GAGAL (SUDAH 3 KALI PERCOBAAN)*\n\nThe Hive tetap tidak dapat menemukan player *{{gamertag}}* untuk pesanan *#{{orderId}}* (*{{itemName}}*).\n\nTenang kak, uang kakak aman 100%! 😊\n👉 Silakan ketik */support* untuk terhubung langsung dengan tim admin kami agar dibantu secara manual."
+  },
+  "poster": {
+    "storeBedrockBadge": "THE HIVE BEDROCK STORE",
+    "headerSubtitleWithDiscount": "Diskon s/d {{discount}}% • Pengiriman Cepat • QRIS Otomatis ({{count}} Item)",
+    "headerSubtitleSpecial": "Harga Spesial • Pengiriman Cepat • QRIS Otomatis ({{count}} Item)",
+    "footerCta": "Ketik /beli untuk mulai memesan via WhatsApp",
+    "footerTrust": "{{store}} • Layanan Resmi & Terpercaya"
+  },
+  "catalog": {
+    "groupNotice": "@{{senderPhone}}\n\n📁 Gambar katalog telah dikirimkan ke chat pribadi kakak ya! Silakan cek DM 😊\nKetik */beli* di DM untuk memesan!",
+    "unavailable": "⚠️ Katalog saat ini sedang tidak dapat dimuat nih kak. Coba beberapa saat lagi ya.",
+    "categoryEmpty": "⚠️ Belum ada item aktif di kategori *{{categoryName}}*.",
+    "categoryCaption": "📁 *KATALOG: {{categoryName}}* ({{count}} Item)\n\n🛒 *Mau beli item di atas?* Ketik */beli* untuk mulai memesan ya kak! ✨",
+    "textFallbackNotice": "\n\n💡 Ketik */beli* untuk mulai memesan ya kak!",
+    "allCategoriesEmpty": "⚠️ Belum ada item aktif di katalog saat ini.",
+    "fetchError": "❌ Gagal memuat katalog: {{message}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak."
+  },
+  "buying": {
+    "gamertagPrompt": "✨ *Pilihan mantap kak! Kamu memilih:* *{{itemName}}*\n💰 *Harga Promo:* *{{rupiahPrice}}* (Diskon {{discountPercent}}%)\n🏷️ *Harga Normal:* ~{{originalPrice}}~\n\n🎮 Sekarang masukkan *Gamertag Minecraft Bedrock* kakak ya (contoh: *Steve123*):\n⚠️ *PERINGATAN PENTING:* Pastikan Gamertag kakak sudah *100% benar dan valid* (perhatikan spasi, huruf besar/kecil). Jika item sudah terkirim ke gamertag tersebut, pesanan *TIDAK BISA DIBATALKAN / DI-REFUND* sama sekali oleh siapapun, termasuk oleh pihak The Hive sendiri!\n\n_(Ketik *k* untuk ganti item, atau *b* untuk batalkan)_",
+    "selectItemCaptionDiscount": "🛒 *KATALOG: {{categoryName}}*\n\nAda *{{count}} item* kece dengan diskon s/d {{discount}}%! ⚡\n\nSilakan ketik *nomor item* (*1 - {{count}}*) dari gambar di atas yang mau kakak beli ya:\n• Ketik *k* untuk kembali ke pilihan kategori\n• Ketik *b* untuk membatalkan pesanan",
+    "selectItemCaptionSpecial": "🛒 *KATALOG: {{categoryName}}*\n\nAda *{{count}} item* kece siap diorder! ⚡\n\nSilakan ketik *nomor item* (*1 - {{count}}*) dari gambar di atas yang mau kakak beli ya:\n• Ketik *k* untuk kembali ke pilihan kategori\n• Ketik *b* untuk membatalkan pesanan",
+    "selectItemTextHeader": "🛒 *PILIH ITEM [ {{categoryName}} ]*\n\n",
+    "selectItemTextPrompt": "\nSilakan ketik nomor item (*1 - {{count}}*) yang mau kakak beli ya:\n• Ketik *k* untuk kembali ke kategori\n• Ketik *b* untuk membatalkan pesanan",
+    "categoryEmptyFallback": "⚠️ Belum ada item aktif di kategori *{{categoryName}}* nih kak. Ketik *k* untuk pilih kategori lain atau *b* untuk batal.",
+    "confirmPrompt": "📋 *KONFIRMASI PESANAN KAKAK*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n💰 Total Harga: *{{formattedPrice}}*\n\n⚠️ *PERINGATAN PENTING:* Mohon teliti kembali Gamertag (*{{gamertag}}*)! Jika sudah terkirim, pesanan *TIDAK BISA DIBATALKAN ATAU DI-REFUND* sama sekali oleh siapapun (The Hive sendiri tidak bisa membatalkannya).\n\nApakah data di atas sudah benar kak?\n👉 Balas *YA* untuk memproses QRIS pembayaran\n👉 {{voucherHint}}\n👉 Balas *k* untuk ganti gamertag\n👉 Balas *b* untuk membatalkan",
+    "confirmReminder": "Balas *YA* jika pesanan sudah sesuai untuk membuat QRIS ya kak 😊\n(Atau balas *k* untuk ganti gamertag, *b* untuk batal)",
+    "voucherMatchHint": "💡 Mohon sertakan kode voucher ya kak, contoh: *voucher HEMAT*",
+    "voucherProceedHint": "\n\n👉 Balas *YA* untuk lanjut ke pembayaran\n👉 Balas *k* untuk ganti gamertag, *b* untuk membatalkan",
+    "invoiceText": "🧾 *INVOICE PEMBAYARAN {{storeUpper}}*\n\nHalo kak! Pesanan kakak sudah berhasil dibuat nih 🎉\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n{{voucherLine}}💰 Total Bayar: *{{formattedAmount}}*\n\n⚠️ *PENTING YA KAK:* Mohon transfer tepat *{{formattedAmount}}* (termasuk 3 digit kode unik) agar pembayaran otomatis terverifikasi sistem!\n\n⏱️ *Batas Waktu: 15 Menit!*\nJangan transfer lewat dari 15 menit ya kak agar QRIS tidak kedaluwarsa. Terima kasih banyak sudah berbelanja di {{store}}! 🥰\n\n💡 _Lupa voucher atau ingin batalkan? Ketik */batal* atau *batal*._",
+    "invoiceVoucherLine": "🏷️ Voucher: *{{code}}* (-{{formattedDiscount}})\n",
+    "orderCreateError": "❌ Waduh, gagal membuat pesanan kak: {{error}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi dengan */beli* atau */katalog* ya kak.",
+    "enterGamertagPrompt": "Silakan masukkan *Gamertag Minecraft Bedrock* kakak ya:",
+    "enterCorrectGamertag": "Silakan masukkan *Gamertag Minecraft yang benar* ya kak:",
+    "retryCancelled": "Sesi pengiriman ulang dibatalkan. Ketik */support* jika butuh bantuan admin ya kak!",
+    "retryConfirm": "📋 *KONFIRMASI GAMERTAG BARU*\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 Gamertag Baru: *{{gamertag}}*\n\nMohon pastikan huruf besar/kecil dan spasi sudah benar ya kak.\n\nApakah data Gamertag ini sudah benar?\n👉 Balas *YA* untuk memproses ulang pengiriman ke The Hive\n👉 Balas *k* untuk ganti gamertag\n👉 Balas *b* untuk membatalkan atau ketik */support* jika butuh bantuan admin",
+    "retrySuccess": "✅ *GAMERTAG BERHASIL DIPERBARUI!*\n\nPesanan *#{{orderId}}* sedang dikirim ulang ke Gamertag *{{gamertag}}* di The Hive.\nMohon tunggu 1–2 menit ya kak... 🎁",
+    "retryError": "❌ Gagal memproses ulang pesanan: {{error}}"
+  },
+  "support": {
+    "alreadyActive": "💡 *Sesi Live Chat Admin sudah aktif!*\nSilakan langsung ketik pesan atau kendala kakak di sini ya. Admin kami akan segera membalas! 🙏",
+    "alreadyPrompted": "💡 Kakak sedang dalam konfirmasi Live Chat.\n👉 Balas *YA* untuk mulai obrolan langsung dengan admin, atau *BATAL* untuk kembali ke bot ya kak 😊",
+    "consentPrompt": "🛎️ *BANTUAN LIVE CHAT ADMIN {{storeUpper}}* 👤💬\n\nApakah kakak ingin memulai sesi *Live Chat* langsung dengan admin kami melalui WhatsApp?\n\n⚠️ *Perhatian:* Perintah dan balasan otomatis bot akan dinonaktifkan sementara selama sesi live chat berlangsung agar kakak bisa berbicara langsung dengan admin.\n\n👉 Balas *YA* untuk mulai Live Chat dengan admin\n👉 Balas *BATAL* untuk tetap menggunakan bot otomatis",
+    "activeLiveMsg": "✅ *MODE LIVE CHAT AKTIF* 👤💬\n\nKakak sekarang telah terhubung ke mode *Live Chat Admin*.\nPesan kakak selanjutnya akan langsung dibaca dan dibalas oleh admin kami secara manual melalui WhatsApp.\n\n⚠️ *Catatan:* Balasan otomatis bot dinonaktifkan sementara selama sesi live chat ini.\n\nSilakan ketik pertanyaan atau detail kendala yang kakak alami di bawah ini ya! Admin kami akan segera membalas 🙏",
+    "cancelledNotice": "💡 Sesi live chat dibatalkan. Bot kami telah aktif kembali ya kak 😊\nKetik */katalog* untuk melihat katalog item atau */bantuan* untuk daftar perintah.",
+    "consentHint": "💡 Mohon balas *YA* untuk mulai Live Chat dengan admin, atau balas *BATAL* untuk kembali ke bot ya kak 😊"
+  },
+  "history": {
+    "empty": "Halo kak! Belum ada riwayat pesanan untuk nomor ini nih 😊\n\nYuk mulai belanja dengan ketik */beli* ya!",
+    "title": "📜 *RIWAYAT PESANAN KAKAK*\nDaftar pesanan terbaru di {{store}}:\n\n",
+    "footer": "💡 _Ketik */status <ID>* untuk melihat detail status pesanan tertentu._",
+    "fetchError": "❌ Gagal mengambil riwayat pesanan kak: {{error}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak."
+  },
+  "status": {
+    "card": "🔍 *STATUS PESANAN #{{orderId}}*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n📊 Status: *{{badge}}*\n💰 Total: *{{totalFormatted}}*\n\nAda pertanyaan kak? Silakan hubungi tim admin kami di grup toko.",
+    "fetchError": "❌ Gagal mengambil status pesanan kak: {{error}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.",
+    "notFound": "❌ Tidak dapat menemukan pesanan #{{orderId}} nih kak: {{error}}\n\n💡 Mohon pastikan ID pesanan benar atau coba beberapa saat lagi ya kak."
+  },
+  "menu": {
+    "alreadyActiveNotice": "💡 Sesi belanja kakak sudah aktif di chat pribadi! Silakan lanjutkan pemesanan di chat pribadi ya kak 😊 (atau ketik *b* di chat pribadi untuk batal).",
+    "categoryNotFound": "Waduh, kategori *{{query}}* tidak ditemukan nih kak 😊\n\nSilakan pilih dari daftar kategori berikut ya:\n{{categoryList}}\n\nContoh: */beli 2* atau langsung ketik *2*",
+    "categoryMenuHeader": "🛍️ *{{storeUpper}} — KATALOG & PEMESANAN*\n{{discountLine}}Halo kak! Mau cari kosmetik apa hari ini? Silakan pilih kategori di bawah ya:\n\n",
+    "categoryMenuDiscountLine": "> Diskon resmi s/d {{discount}}% untuk kosmetik The Hive! ✨\n\n",
+    "categoryMenuSpecialLine": "> Kosmetik resmi The Hive dengan harga spesial! ✨\n\n",
+    "categoryMenuFooter": "\n💡 _Ketik nomor kategori (*1 - 6*) untuk melihat katalog & memesan._\n❌ _Ketik *b* atau *batal* untuk keluar._",
+    "textCatalogHeaderDiscount": "📁 *KATALOG: {{categoryName}}* ({{count}} Item)\nHarga resmi diskon hingga {{discount}}%! ⚡\n\n",
+    "textCatalogHeaderSpecial": "📁 *KATALOG: {{categoryName}}* ({{count}} Item)\nHarga promo resmi The Hive! ⚡\n\n",
+    "textCatalogItemLine": "{{idx}}. *{{name}}*\n   ~{{originalPrice}}~ ➔ *{{rupiahPrice}}* (Diskon {{discountPercent}}%)\n",
+    "textCatalogItemLinePlain": "{{idx}}. *{{name}}* (~{{originalPrice}}~ ➔ *{{rupiahPrice}}*)\n",
+    "textCatalogFooter": "\n━━━━━━━━━━━━━━━━━━━━━\n💡 Ketik */beli* untuk mulai memesan ya kak!"
+  },
+  "cancel": {
+    "adminCancelled": "✅ *PESANAN DIBATALKAN OLEH ADMIN*\n\n🆔 Order ID: *#{{orderId}}*\n👤 Gamertag: *{{gamertag}}*\n📦 Item: *{{itemName}}*\n💰 Total: *{{totalFormatted}}*\n📊 Status: *CANCELLED* ❌\n\nPesanan berhasil dibatalkan. Kode unik & kuota voucher (jika ada) telah dikembalikan.",
+    "adminFailed": "❌ Gagal membatalkan pesanan #{{orderId}}:\n{{error}}",
+    "orderCancelled": "✅ *PESANAN BERHASIL DIBATALKAN*\n\nPesanan kakak *#{{orderId}}* (*{{itemName}}*) telah berhasil dibatalkan.\n\nKode unik & kuota voucher kakak sudah dikembalikan. Silakan ketik */beli* atau */katalog* jika ingin membuat pesanan baru ya kak! 😊",
+    "failed": "❌ Gagal membatalkan pesanan #{{orderId}}: {{error}}",
+    "noPending": "💡 Kakak sedang tidak memiliki pesanan yang menunggu pembayaran.\nKetik */beli* atau */katalog* untuk mulai berbelanja ya kak! 😊"
+  },
+  "admin": {
+    "adminOnly": "❌ Perintah ini hanya dapat dijalankan oleh Admin toko.",
+    "solvedBuyerClosing": "✅ *SESI BANTUAN SELESAI*\n\nAdmin telah menyelesaikan sesi live support. Bot otomatis kami sekarang telah aktif kembali! ✨\n\nKetik */katalog* untuk melihat koleksi item kami atau */bantuan* untuk daftar perintah ya kak 😊",
+    "solvedSuccess": "✅ Sesi live support dengan {{buyer}} telah diselesaikan.",
+    "solvedNotInSession": "ℹ️ Chat ini sedang tidak dalam sesi live support aktif.",
+    "voucherHeader": "🎟️ *MANAJEMEN VOUCHER & PROMO*\n\n🏷️ Diskon Toko Global: *{{discount}}%*\n\n*Daftar Voucher Aktif:*\n",
+    "voucherEmpty": "_Belum ada voucher yang aktif saat ini._\n",
+    "voucherItem": "{{idx}}. *{{code}}* ({{val}}) — Kuota: {{quota}} {{status}}\n",
+    "voucherFooter": "\n💡 *Perintah:*\n• */voucher create <KODE> <NILAI> [KUOTA]*\n  (contoh: */voucher create HEMAT10 10% 50* atau */voucher buat POTONGAN 5000*)\n• */voucher delete <KODE>*",
+    "voucherUsage": "💡 *Penggunaan:* */voucher create <KODE> <NILAI> [KUOTA]*\nContoh:\n• */voucher create HEMAT10 10% 50*\n• */voucher buat POTONGAN 5000*",
+    "voucherPercentRange": "❌ Diskon persentase harus antara 1% hingga 90%.",
+    "voucherMinFlat": "❌ Diskon nominal minimal Rp 1.000.",
+    "voucherDeleteUsage": "💡 *Penggunaan:* */voucher delete <KODE>*",
+    "voucherUnknown": "⚠️ Perintah voucher tidak dikenal. Gunakan */voucher list*, */voucher create*, atau */voucher delete*.",
+    "discountUsage": "💡 *Penggunaan:* */setdiskon <0-90>*\nContoh: */setdiskon 60%* atau */setdiskon 40*\nGunakan *0* untuk mematikan diskon.",
+    "discountRange": "❌ Persentase diskon harus berupa angka bulat antara 0 hingga 90.",
+    "balanceSummary": "💰 *SALDO & STATUS BOT — {{storeUpper}}*\n\n🤖 *Status Bot The Hive:*\n• Gamertag: *{{gamertag}}*\n• Status: *{{botStatus}}* ✅\n• Sisa Token Gift: *{{tokens}} Token* 🎁\n\n📊 *Ringkasan Penjualan Hari Ini:*\n• Pesanan Selesai: *{{todayCompleted}} Pesanan*\n• Total Omset: *{{todayRevenue}}*\n• Menunggu Pembayaran: *{{pendingPayment}} Pesanan*\n• Antrean Gifting: *{{giftingQueue}} Pesanan*\n• Tertahan Stok Token: *{{insufficientTokens}} Pesanan*\n• Diskon Toko Aktif: *{{discountPercent}}%*\n• Voucher Aktif: *{{activeVouchers}} Kode*\n\n💡 _Gunakan /reprocess jika ada pesanan tertahan token._",
+    "balanceOnline": "ONLINE / SIAP",
+    "balanceOffline": "OFFLINE / TERPUTUS"
   },
   "greeting": "Halo kak! Selamat datang di *{{store}}* 🛒✨\n\nKami menyediakan kosmetik resmi The Hive Minecraft Bedrock {{discountText}}\n\nYuk ketik */katalog* untuk melihat katalog lengkap kami ya kak 😊",
   "discountTextWithPercent": "dengan diskon s/d {{percent}}%!",
@@ -36,7 +134,6 @@
   "invalidCategory": "Waduh, nomor kategorinya belum tepat nih kak 😊\nSilakan ketik angka *1* s/d *6* sesuai kategori yang diinginkan, atau ketik *b* untuk keluar ya.",
   "invalidItem": "Waduh, pilihan itemnya belum sesuai nih kak 😊\nSilakan ketik nomor item dari gambar di atas atau ketik *k* untuk kembali.",
   "invalidGamertag": "Waduh, Gamertag tidak valid nih kak 😅\nGamertag Minecraft harus terdiri dari 3 hingga 16 karakter (hanya huruf, angka, dan spasi ya).\nContoh: *Steve123* (atau ketik *k* untuk ganti item, *b* untuk batal).",
-  "confirmPrompt": "Balas *YA* jika pesanan sudah sesuai untuk membuat QRIS ya kak 😊\n(Atau balas *k* untuk ganti gamertag, *b* untuk batal)",
   "emptyOrders": "Halo kak! Kakak belum memiliki riwayat pesanan nih 😊\n\nYuk mulai belanja kosmetik The Hive dengan ketik */beli* ya!",
   "voucherPrompt": "💡 *Punya voucher?* Ketik *voucher <KODE>* (contoh: *voucher HEMAT*)",
   "voucherApplied": "🎟️ *Voucher '{{code}}' berhasil dipasang!*\n💰 Potongan: *{{discountFormatted}}*\n💵 Total Baru: *{{finalFormatted}}*",

@@ -2,6 +2,7 @@ import sharp from "sharp";
 import type { CatalogItem } from "./types";
 import type { CategoryDefinition } from "./handlers/message";
 import { config } from "./config";
+import { t, type Language } from "./i18n";
 
 const posterCache = new Map<string, Buffer>();
 const itemImageCache = new Map<string, Buffer>();
@@ -131,7 +132,8 @@ export function stripEmojis(str: string): string {
 
 export async function generateCategoryPoster(
     category: CategoryDefinition,
-    items: CatalogItem[]
+    items: CatalogItem[],
+    lang: Language = "id"
 ): Promise<Buffer> {
     const activeItems = items.filter((i) => i.active && i.category === category.dbCategory);
     if (activeItems.length === 0) {
@@ -139,7 +141,7 @@ export async function generateCategoryPoster(
     }
 
     const discountPercent = activeItems[0]?.discountPercent ?? 0;
-    const cacheKey = `${category.dbCategory}_d${discountPercent}`;
+    const cacheKey = `${category.dbCategory}_d${discountPercent}_${lang}`;
     const cached = posterCache.get(cacheKey);
     if (cached) {
         return cached;
@@ -308,10 +310,12 @@ export async function generateCategoryPoster(
         <!-- Header -->
         <g transform="translate(${padX}, 25)">
             <rect x="0" y="0" width="180" height="22" rx="11" fill="#0369a1" />
-            <text x="90" y="15" fill="#e0f2fe" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">THE HIVE BEDROCK STORE</text>
+            <text x="90" y="15" fill="#e0f2fe" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">${escapeXml(t("poster.storeBedrockBadge", lang))}</text>
             
             <text x="0" y="48" fill="#f8fafc" font-size="22" font-weight="bold" font-family="sans-serif">${storeCleanName} — ${categoryTitle}</text>
-            <text x="0" y="70" fill="#94a3b8" font-size="13" font-family="sans-serif">${discountPercent > 0 ? `Diskon s/d ${discountPercent}% • Pengiriman Cepat • QRIS Otomatis (${activeItems.length} Item)` : `Harga Spesial • Pengiriman Cepat • QRIS Otomatis (${activeItems.length} Item)`}</text>
+            <text x="0" y="70" fill="#94a3b8" font-size="13" font-family="sans-serif">${escapeXml(discountPercent > 0
+                ? t("poster.headerSubtitleWithDiscount", lang, { discount: discountPercent, count: activeItems.length })
+                : t("poster.headerSubtitleSpecial", lang, { count: activeItems.length }))}</text>
         </g>
 
         <!-- Divider -->
@@ -325,10 +329,10 @@ export async function generateCategoryPoster(
             <rect width="${totalWidth}" height="${footerHeight}" fill="#030712" />
             <line x1="0" y1="0" x2="${totalWidth}" y2="0" stroke="#1e293b" stroke-width="1" />
             <text x="${totalWidth / 2}" y="28" fill="#38bdf8" font-size="14" font-weight="bold" font-family="sans-serif" text-anchor="middle">
-                Ketik /beli untuk mulai memesan via WhatsApp
+                ${escapeXml(t("poster.footerCta", lang))}
             </text>
             <text x="${totalWidth / 2}" y="47" fill="#64748b" font-size="11" font-family="sans-serif" text-anchor="middle">
-                ${escapeXml(stripEmojis(config.STORE_NAME) || config.STORE_NAME)} • Layanan Resmi &amp; Terpercaya
+                ${escapeXml(t("poster.footerTrust", lang, { store: stripEmojis(config.STORE_NAME) || config.STORE_NAME }))}
             </text>
         </g>
     </svg>

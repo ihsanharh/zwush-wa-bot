@@ -39,9 +39,7 @@ export const statusCommand: Command = {
                 const errMsg = err instanceof Error ? err.message : String(err);
                 await ctx.sendText(
                     remoteJid,
-                    prefix + (userLang === "en"
-                        ? `❌ Failed to fetch order status: ${errMsg}\n\n💡 Please wait a moment and try again.`
-                        : `❌ Gagal mengambil status pesanan kak: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.`),
+                    prefix + t("status.fetchError", userLang, { error: errMsg }),
                     mentions
                 );
             }
@@ -56,9 +54,7 @@ export const statusCommand: Command = {
             const errMsg = err instanceof Error ? err.message : String(err);
             await ctx.sendText(
                 remoteJid,
-                prefix + (userLang === "en"
-                    ? `❌ Could not find order #${orderId}: ${errMsg}\n\n💡 Please check the order ID or try again in a moment.`
-                    : `❌ Tidak dapat menemukan pesanan #${orderId} nih kak: ${errMsg}\n\n💡 Mohon pastikan ID pesanan benar atau coba beberapa saat lagi ya kak.`),
+                prefix + t("status.notFound", userLang, { orderId, error: errMsg }),
                 mentions
             );
         }

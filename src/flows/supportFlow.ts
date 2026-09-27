@@ -1,5 +1,6 @@
 import type { BotContext } from "../handlers/message";
-import type { Language } from "../i18n";
+import { t, type Language } from "../i18n";
+import { config } from "../config";
 
 export function isLiveChatActive(remoteJid: string, ctx: BotContext): boolean {
     const session = ctx.state.getSession(remoteJid);
@@ -49,19 +50,7 @@ export async function handleSupportConfirmation(
         const targetOrderId = session.pendingSupportOrderId;
         ctx.state.startLiveChat(remoteJid, targetOrderId);
 
-        const activeLiveMsg = userLang === "en" ? (
-            `✅ *LIVE CHAT MODE ACTIVE* 👤💬\n\n` +
-            `You are now connected to *Admin Live Chat* mode.\n` +
-            `Our human admin will reply directly to your messages in this WhatsApp chat as soon as possible.\n\n` +
-            `⚠️ *Note:* Automated bot replies are paused during this live chat session.\n\n` +
-            `Please send your questions or order details below! 🙏`
-        ) : (
-            `✅ *MODE LIVE CHAT AKTIF* 👤💬\n\n` +
-            `Kakak sekarang telah terhubung ke mode *Live Chat Admin*.\n` +
-            `Pesan kakak selanjutnya akan langsung dibaca dan dibalas oleh admin kami secara manual melalui WhatsApp.\n\n` +
-            `⚠️ *Catatan:* Balasan otomatis bot dinonaktifkan sementara selama sesi live chat ini.\n\n` +
-            `Silakan ketik pertanyaan atau detail kendala yang kakak alami di bawah ini ya! Admin kami akan segera membalas 🙏`
-        );
+        const activeLiveMsg = t("support.activeLiveMsg", userLang, { store: config.STORE_NAME });
         await ctx.sendText(remoteJid, activeLiveMsg);
 
         // Alert admin group
@@ -83,16 +72,12 @@ export async function handleSupportConfirmation(
 
     if (isCancel) {
         ctx.state.cancelSupportConsent(remoteJid);
-        const cancelNotice = userLang === "en"
-            ? `💡 Live chat cancelled. Our automated bot is active again 😊\nType */katalog* to view our catalog or */help* for command list.`
-            : `💡 Sesi live chat dibatalkan. Bot kami telah aktif kembali ya kak 😊\nKetik */katalog* untuk melihat katalog item atau */bantuan* untuk daftar perintah.`;
+        const cancelNotice = t("support.cancelledNotice", userLang);
         await ctx.sendText(remoteJid, cancelNotice);
         return true;
     }
 
-    const promptHint = userLang === "en"
-        ? `💡 Please reply *YES* to start Live Chat with our admin, or *CANCEL* to stay with the automated bot 😊`
-        : `💡 Mohon balas *YA* untuk mulai Live Chat dengan admin, atau balas *BATAL* untuk kembali ke bot ya kak 😊`;
+    const promptHint = t("support.consentHint", userLang);
     await ctx.sendText(remoteJid, promptHint);
     return true;
 }

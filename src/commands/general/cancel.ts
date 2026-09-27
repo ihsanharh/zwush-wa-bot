@@ -11,7 +11,7 @@ export const cancelCommand: Command = {
         // Case 1: An order ID is explicitly provided (e.g. /cancel ORD-123456) -> Admin only
         if (args.length > 0) {
             if (!isAdmin) {
-                await ctx.sendText(remoteJid, t("adminOnly", userLang));
+                await ctx.sendText(remoteJid, t("admin.adminOnly", userLang));
                 return;
             }
 
@@ -24,17 +24,16 @@ export const cancelCommand: Command = {
                 const res = await ctx.client.cancelOrder(targetId, "Cancelled by admin via command");
                 await ctx.sendText(
                     remoteJid,
-                    `✅ *PESANAN DIBATALKAN OLEH ADMIN*\n\n` +
-                    `🆔 Order ID: *#${res.orderId}*\n` +
-                    `👤 Gamertag: *${res.gamertag || "-"}*\n` +
-                    `📦 Item: *${res.itemName || "-"}*\n` +
-                    `💰 Total: *${formatRupiah(res.totalNominal || 0)}*\n` +
-                    `📊 Status: *CANCELLED* ❌\n\n` +
-                    `Pesanan berhasil dibatalkan. Kode unik & kuota voucher (jika ada) telah dikembalikan.`
+                    t("cancel.adminCancelled", userLang, {
+                        orderId: res.orderId,
+                        gamertag: res.gamertag || "-",
+                        itemName: res.itemName || "-",
+                        totalFormatted: formatRupiah(res.totalNominal || 0)
+                    })
                 );
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `❌ Gagal membatalkan pesanan #${targetId}:\n${errMsg}`);
+                await ctx.sendText(remoteJid, t("cancel.adminFailed", userLang, { orderId: targetId, error: errMsg }));
             }
             return;
         }
@@ -74,32 +73,22 @@ export const cancelCommand: Command = {
                 ctx.state.clearQrMessageKey(remoteJid);
                 ctx.state.clear(remoteJid);
 
-                const msg = userLang === "en" ? (
-                    `✅ *ORDER CANCELLED*\n\n` +
-                    `Your order *#${res.orderId}* (*${res.itemName || pendingItemName || "Item"}*) has been successfully cancelled.\n\n` +
-                    `Unique payment code & voucher quota have been returned. Type */buy* or */katalog* whenever you want to create a new order! 😊`
-                ) : (
-                    `✅ *PESANAN BERHASIL DIBATALKAN*\n\n` +
-                    `Pesanan kakak *#${res.orderId}* (*${res.itemName || pendingItemName || "Item"}*) telah berhasil dibatalkan.\n\n` +
-                    `Kode unik & kuota voucher kakak sudah dikembalikan. Silakan ketik */beli* atau */katalog* jika ingin membuat pesanan baru ya kak! 😊`
-                );
+                const msg = t("cancel.orderCancelled", userLang, {
+                    orderId: res.orderId,
+                    itemName: res.itemName || pendingItemName || "Item"
+                });
                 await ctx.sendText(remoteJid, msg);
                 return;
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                const failMsg = userLang === "en"
-                    ? `❌ Failed to cancel order #${pendingOrderId}: ${errMsg}`
-                    : `❌ Gagal membatalkan pesanan #${pendingOrderId}: ${errMsg}`;
+                const failMsg = t("cancel.failed", userLang, { orderId: pendingOrderId, error: errMsg });
                 await ctx.sendText(remoteJid, failMsg);
                 return;
             }
         }
 
         // 2c. No active wizard and no pending order
-        const noOrderMsg = userLang === "en"
-            ? `💡 You don't have any active order waiting for payment.\nType */buy* or */catalog* to start shopping! 😊`
-            : `💡 Kakak sedang tidak memiliki pesanan yang menunggu pembayaran.\nKetik */beli* atau */katalog* untuk mulai berbelanja ya kak! 😊`;
-        await ctx.sendText(remoteJid, noOrderMsg);
+        await ctx.sendText(remoteJid, t("cancel.noPending", userLang));
     },
 };
 

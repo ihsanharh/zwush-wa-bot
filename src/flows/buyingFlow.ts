@@ -87,21 +87,12 @@ export async function handleBuyingFlow(
 
         ctx.state.setItem(remoteJid, selected);
 
-        const promptText = userLang === "en" ? (
-            `✨ *Great choice!* You selected: *${selected.name}*\n` +
-            `💰 *Promo Price:* *${formatRupiah(selected.rupiahPrice)}* (Discount ${selected.discountPercent}%)\n` +
-            `🏷️ *Normal Price:* ~${formatRupiah(selected.originalPrice)}~\n\n` +
-            `🎮 Now, please enter your *Minecraft Bedrock Gamertag* (example: *Steve123*):\n` +
-            `⚠️ *CRITICAL WARNING:* Please ensure your Gamertag is *100% accurate and valid* (check spelling, capitalization, and spaces). Once the item is sent, it *CANNOT BE CANCELLED OR REFUNDED* by anyone under any circumstances, not even by The Hive itself!\n\n` +
-            `_(Type *b* to change item, or *c* to cancel)_`
-        ) : (
-            `✨ *Pilihan mantap kak! Kamu memilih:* *${selected.name}*\n` +
-            `💰 *Harga Promo:* *${formatRupiah(selected.rupiahPrice)}* (Diskon ${selected.discountPercent}%)\n` +
-            `🏷️ *Harga Normal:* ~${formatRupiah(selected.originalPrice)}~\n\n` +
-            `🎮 Sekarang masukkan *Gamertag Minecraft Bedrock* kakak ya (contoh: *Steve123*):\n` +
-            `⚠️ *PERINGATAN PENTING:* Pastikan Gamertag kakak sudah *100% benar dan valid* (perhatikan spasi, huruf besar/kecil). Jika item sudah terkirim ke gamertag tersebut, pesanan *TIDAK BISA DIBATALKAN / DI-REFUND* sama sekali oleh siapapun, termasuk oleh pihak The Hive sendiri!\n\n` +
-            `_(Ketik *k* untuk ganti item, atau *b* untuk batalkan)_`
-        );
+        const promptText = t("buying.gamertagPrompt", userLang, {
+            itemName: selected.name,
+            rupiahPrice: formatRupiah(selected.rupiahPrice),
+            discountPercent: selected.discountPercent,
+            originalPrice: formatRupiah(selected.originalPrice)
+        });
 
         const imgUrl = resolveItemImageUrl(selected);
         let previewBuffer: Buffer | null = null;
@@ -136,10 +127,7 @@ export async function handleBuyingFlow(
 
         if (lower === "c" || lower === "cancel" || lower === "batal") {
             ctx.state.clearRetryOrder(remoteJid);
-            const cancelMsg = userLang === "en"
-                ? `Retry session cancelled. Type */support* anytime if you need help!`
-                : `Sesi pengiriman ulang dibatalkan. Ketik */support* jika butuh bantuan admin ya kak!`;
-            await ctx.sendText(remoteJid, cancelMsg);
+            await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
             return true;
         }
 
@@ -160,27 +148,11 @@ export async function handleBuyingFlow(
         session.step = "AWAITING_RETRY_CONFIRMATION";
         session.lastUpdated = Date.now();
 
-        const confirmMsg = userLang === "en" ? (
-            `📋 *CONFIRM NEW GAMERTAG*\n\n` +
-            `🆔 Order ID: *#${retry.orderId}*\n` +
-            `📦 Item: *${retry.itemName}*\n` +
-            `👤 New Gamertag: *${gamertag}*\n\n` +
-            `Please make sure the Gamertag spelling and spaces are exact!\n\n` +
-            `Is this Gamertag correct?\n` +
-            `👉 Reply *YES* to re-deliver to The Hive\n` +
-            `👉 Reply *b* to change gamertag\n` +
-            `👉 Reply *c* to cancel or type */support* for admin help`
-        ) : (
-            `📋 *KONFIRMASI GAMERTAG BARU*\n\n` +
-            `🆔 Order ID: *#${retry.orderId}*\n` +
-            `📦 Item: *${retry.itemName}*\n` +
-            `👤 Gamertag Baru: *${gamertag}*\n\n` +
-            `Mohon pastikan huruf besar/kecil dan spasi sudah benar ya kak.\n\n` +
-            `Apakah data Gamertag ini sudah benar?\n` +
-            `👉 Balas *YA* untuk memproses ulang pengiriman ke The Hive\n` +
-            `👉 Balas *k* untuk ganti gamertag\n` +
-            `👉 Balas *b* untuk membatalkan atau ketik */support* jika butuh bantuan admin`
-        );
+        const confirmMsg = t("buying.retryConfirm", userLang, {
+            orderId: retry.orderId,
+            itemName: retry.itemName,
+            gamertag
+        });
 
         await ctx.sendText(remoteJid, confirmMsg);
         return true;
@@ -212,20 +184,16 @@ export async function handleBuyingFlow(
             try {
                 const targetTag = retry.newGamertag || retry.oldGamertag;
                 await ctx.client.updateOrderGamertag(retry.orderId, targetTag);
-                const successMsg = userLang === "en" ? (
-                    `✅ *GAMERTAG UPDATED!*\n\n` +
-                    `Order *#${retry.orderId}* is being re-delivered to *${targetTag}* on The Hive.\n` +
-                    `Please wait 1–2 minutes... 🎁`
-                ) : (
-                    `✅ *GAMERTAG BERHASIL DIPERBARUI!*\n\n` +
-                    `Pesanan *#${retry.orderId}* sedang dikirim ulang ke Gamertag *${targetTag}* di The Hive.\n` +
-                    `Mohon tunggu 1–2 menit ya kak... 🎁`
-                );
+                const successMsg = t("buying.retrySuccess", userLang, {
+                    orderId: retry.orderId,
+                    itemName: retry.itemName,
+                    gamertag: targetTag
+                });
                 await ctx.sendText(remoteJid, successMsg);
                 ctx.state.clearRetryOrder(remoteJid);
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                await ctx.sendText(remoteJid, `❌ Gagal memproses ulang pesanan: ${errMsg}`);
+                await ctx.sendText(remoteJid, t("buying.retryError", userLang, { error: errMsg }));
             }
             return true;
         }
@@ -234,20 +202,14 @@ export async function handleBuyingFlow(
         if (isChange) {
             session.step = "AWAITING_RETRY_GAMERTAG";
             session.lastUpdated = Date.now();
-            const prompt = userLang === "en"
-                ? `Please enter your *correct Minecraft Bedrock Gamertag*:`
-                : `Silakan masukkan *Gamertag Minecraft yang benar* ya kak:`;
-            await ctx.sendText(remoteJid, prompt);
+            await ctx.sendText(remoteJid, t("buying.enterCorrectGamertag", userLang));
             return true;
         }
 
         const isCancel = lower === "c" || lower === "cancel" || lower === "batal";
         if (isCancel) {
             ctx.state.clearRetryOrder(remoteJid);
-            const cancelMsg = userLang === "en"
-                ? `Retry session cancelled. Type */support* anytime if you need help!`
-                : `Sesi pengiriman ulang dibatalkan. Ketik */support* jika butuh bantuan admin ya kak!`;
-            await ctx.sendText(remoteJid, cancelMsg);
+            await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
             return true;
         }
         return true;
@@ -284,29 +246,12 @@ export async function handleBuyingFlow(
         const item = session.selectedItem!;
         const voucherHint = t("voucherPrompt", userLang);
 
-        const confirmText = userLang === "en" ? (
-            `📋 *ORDER CONFIRMATION*\n\n` +
-            `📦 Item: *${item.name}*\n` +
-            `👤 Gamertag: *${gamertag}*\n` +
-            `💰 Total Price: *${formatRupiah(item.rupiahPrice)}*\n\n` +
-            `⚠️ *CRITICAL REMINDER:* Double-check your Gamertag (*${gamertag}*)! If it's valid and gifted, it *CANNOT BE UNDONE OR REFUNDED* (even The Hive cannot undo it).\n\n` +
-            `Are the details above correct?\n` +
-            `👉 Reply *YES* to generate payment QRIS\n` +
-            `👉 ${voucherHint}\n` +
-            `👉 Reply *b* to change gamertag\n` +
-            `👉 Reply *c* to cancel`
-        ) : (
-            `📋 *KONFIRMASI PESANAN KAKAK*\n\n` +
-            `📦 Item: *${item.name}*\n` +
-            `👤 Gamertag: *${gamertag}*\n` +
-            `💰 Total Harga: *${formatRupiah(item.rupiahPrice)}*\n\n` +
-            `⚠️ *PERINGATAN PENTING:* Mohon teliti kembali Gamertag (*${gamertag}*)! Jika sudah terkirim, pesanan *TIDAK BISA DIBATALKAN ATAU DI-REFUND* sama sekali oleh siapapun (The Hive sendiri tidak bisa membatalkannya).\n\n` +
-            `Apakah data di atas sudah benar kak?\n` +
-            `👉 Balas *YA* untuk memproses QRIS pembayaran\n` +
-            `👉 ${voucherHint}\n` +
-            `👉 Balas *k* untuk ganti gamertag\n` +
-            `👉 Balas *b* untuk membatalkan`
-        );
+        const confirmText = t("buying.confirmPrompt", userLang, {
+            itemName: item.name,
+            gamertag,
+            formattedPrice: formatRupiah(item.rupiahPrice),
+            voucherHint
+        });
 
         await ctx.sendText(remoteJid, confirmText);
         return true;
@@ -317,10 +262,7 @@ export async function handleBuyingFlow(
         if (isBack) {
             session.step = "AWAITING_GAMERTAG";
             session.lastUpdated = Date.now();
-            const prompt = userLang === "en"
-                ? `Please enter your *Minecraft Bedrock Gamertag*:`
-                : `Silakan masukkan *Gamertag Minecraft Bedrock* kakak ya:`;
-            await ctx.sendText(remoteJid, prompt);
+            await ctx.sendText(remoteJid, t("buying.enterGamertagPrompt", userLang));
             return true;
         }
 
@@ -336,10 +278,7 @@ export async function handleBuyingFlow(
         if (voucherMatch) {
             const code = voucherMatch[1]?.trim().toUpperCase();
             if (!code) {
-                const hint = userLang === "en"
-                    ? `💡 Please include the voucher code, e.g. *voucher SAVE10*`
-                    : `💡 Mohon sertakan kode voucher ya kak, contoh: *voucher HEMAT*`;
-                await ctx.sendText(remoteJid, hint);
+                await ctx.sendText(remoteJid, t("buying.voucherMatchHint", userLang));
                 return true;
             }
 
@@ -357,9 +296,7 @@ export async function handleBuyingFlow(
                     discountNominal: res.discountNominal,
                     finalPrice: res.finalPrice
                 });
-                msg += userLang === "en"
-                    ? `\n\n👉 Reply *YES* to proceed to payment\n👉 Reply *b* to change gamertag, *c* to cancel`
-                    : `\n\n👉 Balas *YA* untuk lanjut ke pembayaran\n👉 Balas *k* untuk ganti gamertag, *b* untuk membatalkan`;
+                msg += t("buying.voucherProceedHint", userLang);
                 await ctx.sendText(remoteJid, msg);
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
@@ -375,9 +312,11 @@ export async function handleBuyingFlow(
         }
 
         const isConfirmed =
-            userLang === "en"
-                ? (trimmed.toUpperCase() === "YES" || trimmed.toUpperCase() === "YA")
-                : (trimmed.toUpperCase() === "YA");
+            trimmed.toUpperCase() === "YES" ||
+            trimmed.toUpperCase() === "YA" ||
+            trimmed.toUpperCase() === "Y" ||
+            trimmed.toUpperCase() === "OK" ||
+            trimmed.toUpperCase() === "OKE";
 
         if (isConfirmed) {
             const item = session.selectedItem!;
@@ -401,34 +340,20 @@ export async function handleBuyingFlow(
                 }
 
                 const voucherLine = appliedVoucher
-                    ? `🏷️ Voucher: *${appliedVoucher.code}* (-${formatRupiah(appliedVoucher.discountNominal)})\n`
+                    ? t("buying.invoiceVoucherLine", userLang, {
+                        code: appliedVoucher.code,
+                        formattedDiscount: formatRupiah(appliedVoucher.discountNominal)
+                    })
                     : "";
 
-                const invoice = userLang === "en" ? (
-                    `🧾 *${config.STORE_NAME.toUpperCase()} PAYMENT INVOICE*\n\n` +
-                    `Hi! Your order has been successfully created 🎉\n\n` +
-                    `🆔 Order ID: *#${order.orderId}*\n` +
-                    `📦 Item: *${item.name}*\n` +
-                    `👤 Gamertag: *${gamertag}*\n` +
-                    voucherLine +
-                    `💰 Total Payment: *${formatRupiah(order.totalNominal)}*\n\n` +
-                    `⚠️ *IMPORTANT:* Please transfer the exact amount *${formatRupiah(order.totalNominal)}* (including the last 3-digit unique code) so our system can verify your payment automatically!\n\n` +
-                    `⏱️ *Time Limit: 15 Minutes!*\n` +
-                    `Please complete the payment within 15 minutes to avoid QRIS expiration. Thank you for shopping with ${config.STORE_NAME}! 🥰\n\n` +
-                    `💡 _Forgot voucher or want to cancel? Type */cancel* or *cancel*._`
-                ) : (
-                    `🧾 *INVOICE PEMBAYARAN ${config.STORE_NAME.toUpperCase()}*\n\n` +
-                    `Halo kak! Pesanan kakak sudah berhasil dibuat nih 🎉\n\n` +
-                    `🆔 Order ID: *#${order.orderId}*\n` +
-                    `📦 Item: *${item.name}*\n` +
-                    `👤 Gamertag: *${gamertag}*\n` +
-                    voucherLine +
-                    `💰 Total Bayar: *${formatRupiah(order.totalNominal)}*\n\n` +
-                    `⚠️ *PENTING YA KAK:* Mohon transfer tepat *${formatRupiah(order.totalNominal)}* (termasuk 3 digit kode unik) agar pembayaran otomatis terverifikasi sistem!\n\n` +
-                    `⏱️ *Batas Waktu: 15 Menit!*\n` +
-                    `Jangan transfer lewat dari 15 menit ya kak agar QRIS tidak kedaluwarsa. Terima kasih banyak sudah berbelanja di ${config.STORE_NAME}! 🥰\n\n` +
-                    `💡 _Lupa voucher atau ingin batalkan? Ketik */batal* atau *batal*._`
-                );
+                const invoice = t("buying.invoiceText", userLang, {
+                    orderId: order.orderId,
+                    itemName: item.name,
+                    gamertag,
+                    voucherLine,
+                    formattedAmount: formatRupiah(order.totalNominal),
+                    store: config.STORE_NAME
+                });
 
                 const sent = await ctx.sendImage(remoteJid, qrisBuffer, invoice);
                 const qrKey =
@@ -451,16 +376,13 @@ export async function handleBuyingFlow(
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
                 ctx.state.clear(remoteJid);
-                const failMsg = userLang === "en"
-                    ? `❌ Oops, failed to create order: ${errMsg}\n\n💡 Please wait a moment and try again with */buy* or */katalog*.`
-                    : `❌ Waduh, gagal membuat pesanan kak: ${errMsg}\n\n💡 Mohon tunggu beberapa saat dan coba lagi dengan */beli* atau */katalog* ya kak.`;
-                await ctx.sendText(remoteJid, failMsg);
+                await ctx.sendText(remoteJid, t("buying.orderCreateError", userLang, { error: errMsg }));
             }
             return true;
         }
 
         if (fromMe) return true;
-        await ctx.sendText(remoteJid, t("confirmPrompt", userLang));
+        await ctx.sendText(remoteJid, t("buying.confirmReminder", userLang));
         return true;
     }
 

@@ -16,7 +16,7 @@ export function formatRupiah(amount: number): string {
 
 export function formatStatusBadge(status: string, lang: Language = "id", failureReason?: string | null): string {
     const key = `status.${status}`;
-    const badge = t(key, lang, { reason: failureReason || (lang === "en" ? "Unknown" : "Tidak Diketahui") });
+    const badge = t(key, lang, { reason: failureReason || t("unknown", lang) });
     return badge !== key ? badge : status;
 }
 
@@ -34,14 +34,14 @@ export function formatStatusNotification(
         gamertag,
         itemName,
         store,
-        message: message || (lang === "en" ? "Unknown" : "Tidak diketahui")
+        message: message || t("unknown", lang)
     });
 
     if (formatted !== key) {
         return formatted;
     }
 
-    return lang === "en" ? `ℹ️ Order #${orderId} status: ${status}` : `ℹ️ Pesanan #${orderId} status: ${status}`;
+    return t("statusNotificationFallback", lang, { orderId, status });
 }
 
 export function formatPlayerNotFoundRetry(

@@ -9,6 +9,8 @@
     "CANCELLED": "❌ Cancelled",
     "FAILED": "❌ Failed: {{reason}}"
   },
+  "unknown": "Unknown",
+  "statusNotificationFallback": "ℹ️ Order #{{orderId}} status: {{status}}",
   "notification": {
     "QUEUED": "✅ *PAYMENT RECEIVED!*\n\nYour order *#{{orderId}}* (*{{itemName}}* for *{{gamertag}}*) has been verified 🎉\n\n⏳ Your item is now queued for automated delivery to The Hive. Please allow 1–2 minutes!",
     "GIFTING": "🎁 *IN-GAME DELIVERY IN PROGRESS*\n\n{{store}} bot is logging into The Hive to deliver *{{itemName}}* to Gamertag *{{gamertag}}*.\nPlease wait a moment...",
@@ -20,6 +22,102 @@
   "playerNotFound": {
     "retry": "❌ *GAMERTAG NOT FOUND ON THE HIVE!*\n\nOrder *#{{orderId}}* (*{{itemName}}*) could not be delivered because Gamertag *{{gamertag}}* was not found on The Hive.\n\n⚠️ You might have mistyped a letter or space.\n👉 Please reply to this message with your *correct Minecraft Gamertag* (Attempt {{attempt}} of {{maxAttempts}}):",
     "maxExceeded": "❌ *DELIVERY FAILED (3 ATTEMPTS REACHED)*\n\nThe Hive still cannot find player *{{gamertag}}* for order *#{{orderId}}* (*{{itemName}}*).\n\nDon't worry, your payment is 100% safe! 😊\n👉 Please type */support* to connect directly with our admin team for manual assistance."
+  },
+  "poster": {
+    "storeBedrockBadge": "THE HIVE BEDROCK STORE",
+    "headerSubtitleWithDiscount": "Up to {{discount}}% Off • Fast Delivery • Automatic QRIS ({{count}} Items)",
+    "headerSubtitleSpecial": "Special Prices • Fast Delivery • Automatic QRIS ({{count}} Items)",
+    "footerCta": "Type /buy to order via WhatsApp",
+    "footerTrust": "{{store}} • Official & Trusted Service"
+  },
+  "catalog": {
+    "groupNotice": "@{{senderPhone}}\n\n📁 The catalog posters have been sent to your private chat! Please check your DM 😊\nType */buy* in DM to order!",
+    "unavailable": "⚠️ Catalog is currently unavailable. Please try again in a few moments.",
+    "categoryEmpty": "⚠️ No active items in category *{{categoryName}}*.",
+    "categoryCaption": "📁 *CATALOG: {{categoryName}}* ({{count}} Items)\n\n🛒 *Ready to order?* Type */buy* to start purchasing! ✨",
+    "textFallbackNotice": "\n\n💡 Type */buy* to start ordering!",
+    "allCategoriesEmpty": "⚠️ No active items in the catalog yet.",
+    "fetchError": "❌ Failed to load catalog: {{message}}\n\n💡 Please wait a moment and try again."
+  },
+  "buying": {
+    "gamertagPrompt": "✨ *Great choice!* You selected: *{{itemName}}*\n💰 *Promo Price:* *{{rupiahPrice}}* (Discount {{discountPercent}}%)\n🏷️ *Normal Price:* ~{{originalPrice}}~\n\n🎮 Now, please enter your *Minecraft Bedrock Gamertag* (example: *Steve123*):\n⚠️ *CRITICAL WARNING:* Please ensure your Gamertag is *100% accurate and valid* (check spelling, capitalization, and spaces). Once the item is sent, it *CANNOT BE CANCELLED OR REFUNDED* by anyone under any circumstances, not even by The Hive itself!\n\n_(Type *b* to change item, or *c* to cancel)_",
+    "selectItemCaptionDiscount": "🛒 *CATALOG: {{categoryName}}*\n\nThere are *{{count}} awesome items* with up to {{discount}}% discount! ⚡\n\nPlease type the *item number* (*1 - {{count}}*) from the image above that you'd like to buy:\n• Type *b* to return to category list\n• Type *c* to cancel order",
+    "selectItemCaptionSpecial": "🛒 *CATALOG: {{categoryName}}*\n\nThere are *{{count}} awesome items* ready for order! ⚡\n\nPlease type the *item number* (*1 - {{count}}*) from the image above that you'd like to buy:\n• Type *b* to return to category list\n• Type *c* to cancel order",
+    "selectItemTextHeader": "🛒 *SELECT ITEM [ {{categoryName}} ]*\n\n",
+    "selectItemTextPrompt": "\nPlease type the item number (*1 - {{count}}*) you want to buy:\n• Type *b* to return to category list\n• Type *c* to cancel order",
+    "categoryEmptyFallback": "⚠️ No active items in category *{{categoryName}}* yet. Type *b* to pick another category or *c* to cancel.",
+    "confirmPrompt": "📋 *ORDER CONFIRMATION*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n💰 Total Amount: *{{formattedPrice}}*\n\n⚠️ *CRITICAL REMINDER:* Double-check your Gamertag (*{{gamertag}}*)! If it's valid and gifted, it *CANNOT BE UNDONE OR REFUNDED* (even The Hive cannot undo it).\n\nAre the details above correct?\n👉 Reply *YES* to generate payment QRIS\n👉 {{voucherHint}}\n👉 Reply *b* to change gamertag\n👉 Reply *c* to cancel",
+    "confirmReminder": "Please reply *YES* if the details are correct to generate your QRIS 😊\n(Or reply *b* to change gamertag, *c* to cancel)",
+    "voucherMatchHint": "💡 Please include the voucher code, e.g. *voucher SAVE10*",
+    "voucherProceedHint": "\n\n👉 Reply *YES* to proceed to payment\n👉 Reply *b* to change gamertag, *c* to cancel",
+    "invoiceText": "🧾 *QRIS PAYMENT INVOICE — {{storeUpper}}*\n\nHi! Your order has been successfully created 🎉\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n{{voucherLine}}💰 Total Payment: *{{formattedAmount}}*\n\n⚠️ *CRITICAL:* Transfer the *EXACT* amount *{{formattedAmount}}* (including the last 3 unique digits) so our system can verify your payment automatically!\n\n⏱️ *Time Limit: 15 Minutes!*\nPlease complete the payment within 15 minutes to avoid QRIS expiration. Thank you for shopping with {{store}}! 🥰\n\n💡 _Forgot voucher or want to cancel? Type */cancel* or *cancel*._",
+    "invoiceVoucherLine": "🏷️ Voucher: *{{code}}* (-{{formattedDiscount}})\n",
+    "orderCreateError": "❌ Oops, failed to create order: {{error}}\n\n💡 Please wait a moment and try again with */buy* or */katalog*.",
+    "enterGamertagPrompt": "Please enter your *Minecraft Bedrock Gamertag*:",
+    "enterCorrectGamertag": "Please reply with your *correct Minecraft Gamertag*:",
+    "retryCancelled": "Retry session cancelled. Type */support* anytime if you need help!",
+    "retryConfirm": "📋 *CONFIRM NEW GAMERTAG*\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 New Gamertag: *{{gamertag}}*\n\nPlease make sure the Gamertag spelling and spaces are exact!\n\nIs this Gamertag correct?\n👉 Reply *YES* to re-deliver to The Hive\n👉 Reply *b* to change gamertag\n👉 Reply *c* to cancel or type */support* for admin help",
+    "retrySuccess": "✅ *GAMERTAG UPDATED!*\n\nOrder *#{{orderId}}* is being re-delivered to *{{gamertag}}* on The Hive.\nPlease wait 1–2 minutes... 🎁",
+    "retryError": "❌ Failed to retry order: {{error}}"
+  },
+  "support": {
+    "alreadyActive": "💡 *Admin Live Chat is already active!*\nPlease feel free to send your messages directly here. Our admin will reply shortly! 🙏",
+    "alreadyPrompted": "💡 You have a pending Live Chat confirmation.\n👉 Reply *YES* to start Live Chat with our admin, or *CANCEL* to return to the bot 😊",
+    "consentPrompt": "🛎️ *{{storeUpper}} LIVE CHAT SUPPORT* 👤💬\n\nDo you want to start a *Live Chat* session with our human admin via WhatsApp?\n\n⚠️ *Please note:* Automated bot commands and replies will be temporarily paused during the live chat session so you can talk directly with the store owner.\n\n👉 Reply *YES* to start Live Chat with admin\n👉 Reply *CANCEL* to stay with the automated bot",
+    "activeLiveMsg": "✅ *LIVE CHAT MODE ACTIVE* 👤💬\n\nYou are now connected to *Admin Live Chat* mode.\nOur human admin will reply directly to your messages in this WhatsApp chat as soon as possible.\n\n⚠️ *Note:* Automated bot replies are paused during this live chat session.\n\nPlease send your questions or order details below! 🙏",
+    "cancelledNotice": "💡 Live chat cancelled. Our automated bot is active again 😊\nType */katalog* to view our catalog or */help* for command list.",
+    "consentHint": "💡 Please reply *YES* to start Live Chat with our admin, or *CANCEL* to stay with the automated bot 😊"
+  },
+  "history": {
+    "empty": "Hi there! You don't have any order history yet 😊\n\nStart shopping by typing */buy*!",
+    "title": "📜 *ORDER HISTORY*\nRecent orders in {{store}}:\n\n",
+    "footer": "💡 _Type */status <ID>* to check details of a specific order._",
+    "fetchError": "❌ Failed to fetch order history: {{error}}\n\n💡 Please wait a moment and try again."
+  },
+  "status": {
+    "card": "🔍 *ORDER STATUS #{{orderId}}*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n📊 Status: *{{badge}}*\n💰 Total: *{{totalFormatted}}*\n\nAny questions? Please contact our store admin team.",
+    "fetchError": "❌ Failed to fetch order status: {{error}}\n\n💡 Please wait a moment and try again.",
+    "notFound": "❌ Could not find order #{{orderId}}: {{error}}\n\n💡 Please check the order ID or try again in a moment."
+  },
+  "menu": {
+    "alreadyActiveNotice": "💡 Your shopping session is already active in private chat! Please continue your order there 😊 (or type *c* in private chat to cancel).",
+    "categoryNotFound": "Oops, category *{{query}}* was not found 😊\n\nPlease choose from the categories below:\n{{categoryList}}\n\nExample: */buy 2* or directly type *2*",
+    "categoryMenuHeader": "🛍️ *{{storeUpper}} — CATALOG & ORDERING*\n{{discountLine}}Hello! What cosmetics are you looking for today? Please choose a category below:\n\n",
+    "categoryMenuDiscountLine": "> Official cosmetics discount up to {{discount}}% for The Hive! ✨\n\n",
+    "categoryMenuSpecialLine": "> Official cosmetics for The Hive with special prices! ✨\n\n",
+    "categoryMenuFooter": "\n💡 _Type the category number (*1 - 6*) to view catalog & order._\n❌ _Type *c* or *cancel* to exit._",
+    "textCatalogHeaderDiscount": "📁 *CATALOG: {{categoryName}}* ({{count}} Items)\nOfficial store discount up to {{discount}}%! ⚡\n\n",
+    "textCatalogHeaderSpecial": "📁 *CATALOG: {{categoryName}}* ({{count}} Items)\nOfficial store special prices! ⚡\n\n",
+    "textCatalogItemLine": "{{idx}}. *{{name}}*\n   ~{{originalPrice}}~ ➔ *{{rupiahPrice}}* (Discount {{discountPercent}}%)\n",
+    "textCatalogItemLinePlain": "{{idx}}. *{{name}}* (~{{originalPrice}}~ ➔ *{{rupiahPrice}}*)\n",
+    "textCatalogFooter": "\n━━━━━━━━━━━━━━━━━━━━━\n💡 Type */buy* to start ordering!"
+  },
+  "cancel": {
+    "adminCancelled": "✅ *ORDER CANCELLED BY ADMIN*\n\n🆔 Order ID: *#{{orderId}}*\n👤 Gamertag: *{{gamertag}}*\n📦 Item: *{{itemName}}*\n💰 Total: *{{totalFormatted}}*\n📊 Status: *CANCELLED* ❌\n\nOrder successfully cancelled. Unique code & voucher quota (if any) have been restored.",
+    "adminFailed": "❌ Failed to cancel order #{{orderId}}:\n{{error}}",
+    "orderCancelled": "✅ *ORDER CANCELLED*\n\nYour order *#{{orderId}}* (*{{itemName}}*) has been successfully cancelled.\n\nUnique payment code & voucher quota have been returned. Type */buy* or */katalog* whenever you want to create a new order! 😊",
+    "failed": "❌ Failed to cancel order #{{orderId}}: {{error}}",
+    "noPending": "💡 You don't have any active order waiting for payment.\nType */buy* or */catalog* to start shopping! 😊"
+  },
+  "admin": {
+    "adminOnly": "❌ This command can only be executed by store Admins.",
+    "solvedBuyerClosing": "✅ *SUPPORT SESSION RESOLVED*\n\nAdmin has resolved this live support session. Our automated bot is now active again! ✨\n\nType */katalog* to browse our catalog or */help* for command list 😊",
+    "solvedSuccess": "✅ Support session with {{buyer}} has been resolved.",
+    "solvedNotInSession": "ℹ️ This chat is not currently in an active live support session.",
+    "voucherHeader": "🎟️ *VOUCHER & PROMO MANAGEMENT*\n\n🏷️ Active Store Discount: *{{discount}}%*\n\n*Active Voucher Codes:*\n",
+    "voucherEmpty": "_No active vouchers found._\n",
+    "voucherItem": "{{idx}}. *{{code}}* ({{val}}) — Quota: {{quota}} {{status}}\n",
+    "voucherFooter": "\n💡 *Commands:*\n• */voucher create <CODE> <VALUE> [QUOTA]*\n  (e.g. */voucher create SAVE10 10% 50* or */voucher create FLAT5K 5000*)\n• */voucher delete <CODE>*",
+    "voucherUsage": "💡 *Usage:* */voucher create <CODE> <VALUE> [QUOTA]*\nExamples:\n• */voucher create SAVE10 10% 50*\n• */voucher create FLAT5K 5000*",
+    "voucherPercentRange": "❌ Percentage discount must be between 1% and 90%.",
+    "voucherMinFlat": "❌ Flat discount must be at least Rp 1.000.",
+    "voucherDeleteUsage": "💡 *Usage:* */voucher delete <CODE>*",
+    "voucherUnknown": "⚠️ Unknown voucher command. Use */voucher list*, */voucher create*, or */voucher delete*.",
+    "discountUsage": "💡 *Usage:* */setdiscount <0-90>*\nExample: */setdiscount 60%* or */setdiscount 40*\nUse *0* to disable discount.",
+    "discountRange": "❌ Discount percentage must be a whole number between 0 and 90.",
+    "balanceSummary": "💰 *BOT BALANCE & STORE STATUS — {{storeUpper}}*\n\n🤖 *The Hive Bot Status:*\n• Gamertag: *{{gamertag}}*\n• Status: *{{botStatus}}* ✅\n• Remaining Gift Tokens: *{{tokens}} Token(s)* 🎁\n\n📊 *Today's Sales Summary:*\n• Completed Orders: *{{todayCompleted}} Orders*\n• Total Revenue: *{{todayRevenue}}*\n• Pending Payment: *{{pendingPayment}} Orders*\n• Gifting Queue: *{{giftingQueue}} Orders*\n• Token Deficit (Stuck): *{{insufficientTokens}} Orders*\n• Active Store Discount: *{{discountPercent}}%*\n• Active Vouchers: *{{activeVouchers}} Codes*\n\n💡 _Use /reprocess if any orders are stuck due to token deficit._",
+    "balanceOnline": "ONLINE / READY",
+    "balanceOffline": "OFFLINE / DISCONNECTED"
   },
   "greeting": "Hello! Welcome to *{{store}}* 🛒✨\n\nWe provide official Minecraft Bedrock cosmetics for The Hive {{discountText}}\n\nType */katalog* to view our full catalog & browse items 😊",
   "discountTextWithPercent": "at up to {{percent}}% discount!",

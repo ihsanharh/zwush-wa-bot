@@ -11,33 +11,26 @@ export const voucherCommand: Command = {
         if (!subCmd || subCmd === "list" || subCmd === "daftar") {
             try {
                 const status = await ctx.client.getVoucherStatus();
-                let out = userLang === "en"
-                    ? `🎟️ *VOUCHER & PROMO MANAGEMENT*\n\n`
-                    : `🎟️ *MANAJEMEN VOUCHER & PROMO*\n\n`;
-
-                out += userLang === "en"
-                    ? `🏷️ Active Store Discount: *${status.discountPercent}%*\n\n`
-                    : `🏷️ Diskon Toko Global: *${status.discountPercent}%*\n\n`;
-
-                out += userLang === "en" ? `*Active Voucher Codes:*\n` : `*Daftar Voucher Aktif:*\n`;
+                let out = t("admin.voucherHeader", userLang, { discount: status.discountPercent });
 
                 if (status.vouchers.length === 0) {
-                    out += userLang === "en"
-                        ? `_No active vouchers found._\n`
-                        : `_Belum ada voucher yang aktif saat ini._\n`;
+                    out += t("admin.voucherEmpty", userLang);
                 } else {
                     status.vouchers.forEach((v, idx) => {
                         const val = v.discountType === "PERCENT" ? `${v.discountValue}%` : formatRupiah(v.discountValue);
                         const quota = v.maxUses ? `${v.usedCount}/${v.maxUses}` : `${v.usedCount}/∞`;
                         const statusTag = v.active ? "✅" : "❌";
-                        out += `${idx + 1}. *${v.code}* (${val}) — Kuota: ${quota} ${statusTag}\n`;
+                        out += t("admin.voucherItem", userLang, {
+                            idx: idx + 1,
+                            code: v.code,
+                            val,
+                            quota,
+                            status: statusTag
+                        });
                     });
                 }
 
-                out += userLang === "en"
-                    ? `\n💡 *Commands:*\n• */voucher create <CODE> <VALUE> [QUOTA]*\n  (e.g. */voucher create SAVE10 10% 50* or */voucher create FLAT5K 5000*)\n• */voucher delete <CODE>*`
-                    : `\n💡 *Perintah:*\n• */voucher create <KODE> <NILAI> [KUOTA]*\n  (contoh: */voucher create HEMAT10 10% 50* atau */voucher buat POTONGAN 5000*)\n• */voucher delete <KODE>*`;
-
+                out += t("admin.voucherFooter", userLang);
                 await ctx.sendText(remoteJid, out);
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
@@ -52,10 +45,7 @@ export const voucherCommand: Command = {
             const quotaRaw = args[3]?.trim();
 
             if (!code || !valueRaw) {
-                const err = userLang === "en"
-                    ? `💡 *Usage:* */voucher create <CODE> <VALUE> [QUOTA]*\nExamples:\n• */voucher create SAVE10 10% 50*\n• */voucher create FLAT5K 5000*`
-                    : `💡 *Penggunaan:* */voucher create <KODE> <NILAI> [KUOTA]*\nContoh:\n• */voucher create HEMAT10 10% 50*\n• */voucher buat POTONGAN 5000*`;
-                await ctx.sendText(remoteJid, err);
+                await ctx.sendText(remoteJid, t("admin.voucherUsage", userLang));
                 return;
             }
 
@@ -66,20 +56,14 @@ export const voucherCommand: Command = {
                 discountType = "PERCENT";
                 discountValue = parseInt(valueRaw.replace("%", ""), 10);
                 if (isNaN(discountValue) || discountValue < 1 || discountValue > 90) {
-                    const msg = userLang === "en"
-                        ? `❌ Percentage discount must be between 1% and 90%.`
-                        : `❌ Diskon persentase harus antara 1% hingga 90%.`;
-                    await ctx.sendText(remoteJid, msg);
+                    await ctx.sendText(remoteJid, t("admin.voucherPercentRange", userLang));
                     return;
                 }
             } else {
                 const cleanedNum = parseInt(valueRaw.replace(/[^0-9]/g, ""), 10);
                 discountValue = cleanedNum;
                 if (isNaN(discountValue) || discountValue < 1000) {
-                    const msg = userLang === "en"
-                        ? `❌ Flat discount must be at least Rp 1.000.`
-                        : `❌ Diskon nominal minimal Rp 1.000.`;
-                    await ctx.sendText(remoteJid, msg);
+                    await ctx.sendText(remoteJid, t("admin.voucherMinFlat", userLang));
                     return;
                 }
             }
@@ -104,7 +88,7 @@ export const voucherCommand: Command = {
                     code,
                     discountType,
                     discountValue: formattedVal,
-                    maxUses: maxUses ?? (userLang === "en" ? "Unlimited" : "Tak terbatas")
+                    maxUses: maxUses ?? t("admin.voucherUnlimited", userLang)
                 }));
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
@@ -116,10 +100,7 @@ export const voucherCommand: Command = {
         if (subCmd === "delete" || subCmd === "hapus") {
             const code = (args[1] || "").trim().toUpperCase();
             if (!code) {
-                const err = userLang === "en"
-                    ? `💡 *Usage:* */voucher delete <CODE>*`
-                    : `💡 *Penggunaan:* */voucher delete <KODE>*`;
-                await ctx.sendText(remoteJid, err);
+                await ctx.sendText(remoteJid, t("admin.voucherDeleteUsage", userLang));
                 return;
             }
 
@@ -134,12 +115,7 @@ export const voucherCommand: Command = {
         }
 
         // Default unknown voucher subcommand
-        await ctx.sendText(
-            remoteJid,
-            userLang === "en"
-                ? `⚠️ Unknown voucher command. Use */voucher list*, */voucher create*, or */voucher delete*.`
-                : `⚠️ Perintah voucher tidak dikenal. Gunakan */voucher list*, */voucher create*, atau */voucher delete*.`
-        );
+        await ctx.sendText(remoteJid, t("admin.voucherUnknown", userLang));
     },
 };
 

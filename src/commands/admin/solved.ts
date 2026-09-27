@@ -1,6 +1,7 @@
 import type { Command, CommandContext } from "../types";
 import { config } from "../../config";
 import { extractPhoneNumber } from "../../utils/messageUtils";
+import { t } from "../../i18n";
 
 export const solvedCommand: Command = {
     name: "/solved",
@@ -65,15 +66,7 @@ export const solvedCommand: Command = {
         ctx.state.endLiveChat(targetJid);
 
         // Send closing message to the user in DM
-        const userClosing = targetLang === "en" ? (
-            `✅ *SUPPORT SESSION RESOLVED*\n\n` +
-            `Thank you for contacting ${config.STORE_NAME} support! The admin live chat session has been closed, and our bot is now back online for you.\n\n` +
-            `Type */katalog* to browse our catalog or */help* for command list 😊`
-        ) : (
-            `✅ *SESI BANTUAN SELESAI*\n\n` +
-            `Terima kasih telah menghubungi customer support ${config.STORE_NAME}! Sesi live chat bersama admin telah selesai, dan bot kami kini telah aktif kembali.\n\n` +
-            `Ketik */katalog* untuk melihat koleksi item kami atau */bantuan* untuk daftar perintah ya kak 😊`
-        );
+        const userClosing = t("admin.solvedBuyerClosing", targetLang, { store: config.STORE_NAME });
         try {
             await ctx.sendText(targetJid, userClosing);
         } catch (err: unknown) {
