@@ -4,7 +4,10 @@ import { t } from "../../i18n";
 export const languageCommand: Command = {
     name: "/bahasa",
     aliases: ["/language", "/lang"],
+    englishName: "/language",
+    order: 60,
     description: "Ubah pengaturan bahasa bot (id / en)",
+    descriptionEn: "Switch language preference (/language id or /language en)",
     execute: async ({ remoteJid, args, userLang, ctx }: CommandContext) => {
         const langArg = args[0]?.toLowerCase();
         if (langArg === "en" || langArg === "english") {

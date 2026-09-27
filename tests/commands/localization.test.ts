@@ -196,4 +196,23 @@ describe("Bot Commands Bilingual Localization Tests", () => {
         expect(idCtx.getSentText()).toContain("PESANAN DIBATALKAN OLEH ADMIN");
         expect(idCtx.getSentText()).not.toContain("cancel.adminCancelled");
     });
+
+    it("should dynamically include new commands registered at runtime without modifying help.ts", async () => {
+        defaultRegistry.register({
+            name: "/custompromo",
+            englishName: "/customoffer",
+            description: "Dapatkan penawaran promo custom terbaru",
+            descriptionEn: "Get latest custom promo offers",
+            order: 95,
+            execute: async () => {}
+        });
+
+        const idCtx = createMockContext("id", false);
+        await helpCommand.execute(idCtx.buildCmdCtx([]));
+        expect(idCtx.getSentText()).toContain("• */custompromo* : Dapatkan penawaran promo custom terbaru");
+
+        const enCtx = createMockContext("en", false);
+        await helpCommand.execute(enCtx.buildCmdCtx([]));
+        expect(enCtx.getSentText()).toContain("• */customoffer* : Get latest custom promo offers");
+    });
 });

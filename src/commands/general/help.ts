@@ -1,60 +1,27 @@
 import type { Command, CommandContext } from "../types";
 import { defaultRegistry } from "../registry";
-import { t } from "../../i18n";
+import { t, type Language } from "../../i18n";
 import { extractPhoneNumber } from "../../utils/messageUtils";
 
-const GENERAL_ORDER = [
-    "/beli",
-    "/buy",
-    "/katalog",
-    "/catalog",
-    "/status",
-    "/riwayat",
-    "/history",
-    "/faq",
-    "/bahasa",
-    "/language",
-    "/support",
-    "/cs",
-    "/batal",
-    "/cancel",
-    "/bantuan",
-    "/help"
-];
+function getCommandDesc(cmd: Command, displayName: string, userLang: Language): string {
+    const key1 = `help.commandDescriptions.${displayName}`;
+    const t1 = t(key1, userLang);
+    if (t1 && t1 !== key1) return t1;
 
-const ADMIN_ORDER = [
-    "/admin",
-    "/saldo",
-    "/balance",
-    "/sync",
-    "/synckatalog",
-    "/reprocess",
-    "/setgroup",
-    "/setdiskon",
-    "/setdiscount",
-    "/voucher",
-    "/paid",
-    "/solved",
-    "/solve"
-];
+    const key2 = `help.commandDescriptions.${cmd.name}`;
+    const t2 = t(key2, userLang);
+    if (t2 && t2 !== key2) return t2;
 
-const PREFERRED_EN_NAMES: Record<string, string> = {
-    "/beli": "/buy",
-    "/katalog": "/catalog",
-    "/riwayat": "/history",
-    "/bahasa": "/language",
-    "/batal": "/cancel",
-    "/bantuan": "/help",
-    "/saldo": "/balance",
-    "/setdiskon": "/setdiscount",
-    "/sync": "/sync",
-    "/synckatalog": "/sync"
-};
+    return userLang === "en" ? (cmd.descriptionEn || cmd.description) : cmd.description;
+}
 
 export const helpCommand: Command = {
     name: "/bantuan",
     aliases: ["/help"],
+    englishName: "/help",
+    order: 90,
     description: "Bantuan dan panduan penggunaan bot toko",
+    descriptionEn: "View bot commands guide and help",
     execute: async ({ remoteJid, sender, isGroup, isAdmin, userLang, ctx }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";
@@ -64,36 +31,22 @@ export const helpCommand: Command = {
         const generalCmds = allCommands.filter((c) => !c.adminOnly);
         const adminCmds = allCommands.filter((c) => c.adminOnly);
 
-        generalCmds.sort((a, b) => {
-            const idxA = GENERAL_ORDER.indexOf(a.name);
-            const idxB = GENERAL_ORDER.indexOf(b.name);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
+        const sortCommands = (a: Command, b: Command) => {
+            const orderA = a.order ?? 999;
+            const orderB = b.order ?? 999;
+            if (orderA !== orderB) return orderA - orderB;
             return a.name.localeCompare(b.name);
-        });
+        };
 
-        adminCmds.sort((a, b) => {
-            const idxA = ADMIN_ORDER.indexOf(a.name);
-            const idxB = ADMIN_ORDER.indexOf(b.name);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
-            return a.name.localeCompare(b.name);
-        });
+        generalCmds.sort(sortCommands);
+        adminCmds.sort(sortCommands);
 
         let out = prefix + t("help.header", userLang);
 
         // Format general commands dynamically
         for (const cmd of generalCmds) {
-            const displayName = userLang === "en"
-                ? (PREFERRED_EN_NAMES[cmd.name] || cmd.name)
-                : cmd.name;
-
-            const desc = t(`help.commandDescriptions.${displayName}`, userLang)
-                || t(`help.commandDescriptions.${cmd.name}`, userLang)
-                || cmd.description;
-
+            const displayName = userLang === "en" ? (cmd.englishName || cmd.name) : cmd.name;
+            const desc = getCommandDesc(cmd, displayName, userLang);
             out += `• *${displayName}* : ${desc}\n`;
         }
 
@@ -104,14 +57,8 @@ export const helpCommand: Command = {
         if (isAdmin && adminCmds.length > 0) {
             out += t("help.adminSectionHeader", userLang);
             for (const cmd of adminCmds) {
-                const displayName = userLang === "en"
-                    ? (PREFERRED_EN_NAMES[cmd.name] || cmd.name)
-                    : cmd.name;
-
-                const desc = t(`help.commandDescriptions.${displayName}`, userLang)
-                    || t(`help.commandDescriptions.${cmd.name}`, userLang)
-                    || cmd.description;
-
+                const displayName = userLang === "en" ? (cmd.englishName || cmd.name) : cmd.name;
+                const desc = getCommandDesc(cmd, displayName, userLang);
                 out += `• *${displayName}* : ${desc}\n`;
             }
             out += "\n";

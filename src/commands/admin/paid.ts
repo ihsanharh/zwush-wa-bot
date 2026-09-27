@@ -5,7 +5,10 @@ export const paidCommand: Command = {
     name: "/paid",
     aliases: ["/acc", "/approve", "/bayar"],
     adminOnly: true,
+    englishName: "/paid",
+    order: 80,
     description: "Verifikasi manual pembayaran order & masukkan ke antrean gifting",
+    descriptionEn: "Manually mark order as paid by admin",
     execute: async ({ remoteJid, args, userLang, ctx }: CommandContext) => {
         if (args.length === 0) {
             await ctx.sendText(remoteJid, t("admin.paidUsage", userLang));

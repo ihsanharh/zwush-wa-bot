@@ -7,7 +7,10 @@ import { t } from "../../i18n";
 export const menuCommand: Command = {
     name: "/beli",
     aliases: ["/buy", "/menu"],
+    englishName: "/buy",
+    order: 10,
     description: "Buka menu pembelian katalog Hive",
+    descriptionEn: "View catalog & start buying The Hive cosmetics",
     execute: async ({ remoteJid, sender, isGroup, args, userLang, ctx }: CommandContext) => {
         const filterQuery = args.join(" ").trim();
 

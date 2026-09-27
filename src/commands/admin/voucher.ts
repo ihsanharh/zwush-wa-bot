@@ -4,7 +4,10 @@ import { formatRupiah, t } from "../../i18n";
 export const voucherCommand: Command = {
     name: "/voucher",
     adminOnly: true,
+    englishName: "/voucher",
+    order: 70,
     description: "Kelola kode voucher diskon toko (list, create, delete)",
+    descriptionEn: "Manage promo voucher codes (list, create, delete)",
     execute: async ({ remoteJid, args, userLang, ctx }: CommandContext) => {
         const subCmd = (args[0] || "").toLowerCase();
 

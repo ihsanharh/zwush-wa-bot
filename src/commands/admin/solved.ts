@@ -7,7 +7,10 @@ export const solvedCommand: Command = {
     name: "/solved",
     aliases: ["/solve"],
     adminOnly: true,
+    englishName: "/solved",
+    order: 90,
     description: "Selesaikan tiket live chat support dan aktifkan kembali bot untuk pelanggan",
+    descriptionEn: "Resolve active live chat support session",
     execute: async ({ remoteJid, args, isGroup, sender, userLang, ctx }: CommandContext) => {
         const rawTarget = args.join(" ").trim();
 

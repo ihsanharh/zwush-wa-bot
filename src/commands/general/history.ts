@@ -6,7 +6,10 @@ import { extractPhoneNumber } from "../../utils/messageUtils";
 export const historyCommand: Command = {
     name: "/riwayat",
     aliases: ["/history"],
+    englishName: "/history",
+    order: 40,
     description: "Lihat riwayat pesanan kosmetik kakak",
+    descriptionEn: "View your recent order history",
     execute: async ({ remoteJid, sender, isGroup, userLang, ctx }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";

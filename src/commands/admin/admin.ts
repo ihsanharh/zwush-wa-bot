@@ -6,7 +6,10 @@ import { t } from "../../i18n";
 export const adminCommand: Command = {
     name: "/admin",
     adminOnly: true,
+    englishName: "/admin",
+    order: 10,
     description: "Panel daftar perintah khusus admin toko",
+    descriptionEn: "Open admin status & control panel",
     execute: async ({ remoteJid, sender, userLang, ctx }: CommandContext) => {
         const cleanPhone = extractPhoneNumber(sender);
         const adminGid = ctx.adminLogger?.getAdminGroupJid ? ctx.adminLogger.getAdminGroupJid() : ctx.adminLogger?.getGroupJid();
