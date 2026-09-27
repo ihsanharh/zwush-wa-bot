@@ -5,10 +5,8 @@ export const reprocessCommand: Command = {
     name: "/reprocess",
     aliases: ["/retry"],
     adminOnly: true,
-    englishName: "/reprocess",
     order: 40,
     description: "Proses ulang pesanan yang tertahan stok token",
-    descriptionEn: "Reprocess orders queued for tokens",
     execute: async ({ remoteJid, args, userLang, ctx }: CommandContext) => {
         if (args.length === 0) {
             try {

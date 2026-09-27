@@ -161,6 +161,16 @@
         "adminSectionHeader": "\n🛠️ *PERINTAH KHUSUS ADMIN:*\n",
         "navigationShortcuts": "• *b* / *batal* : Batalkan pesanan yang sedang berjalan\n• *k* / *kembali* : Kembali ke langkah sebelumnya saat belanja\n\n",
         "footer": "👤 Butuh bantuan langsung dari admin? Tanyakan di grup toko atau ketik */support* atau */cs* ya!",
+        "commandNames": {
+            "/beli": "/beli",
+            "/katalog": "/katalog",
+            "/riwayat": "/riwayat",
+            "/bahasa": "/bahasa",
+            "/batal": "/batal",
+            "/bantuan": "/bantuan",
+            "/saldo": "/saldo",
+            "/setdiskon": "/setdiskon"
+        },
         "commandDescriptions": {
             "/beli": "Lihat katalog & mulai belanja kosmetik The Hive",
             "/buy": "Lihat katalog & mulai belanja kosmetik The Hive",

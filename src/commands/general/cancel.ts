@@ -4,10 +4,8 @@ import { formatRupiah, t } from "../../i18n";
 export const cancelCommand: Command = {
     name: "/batal",
     aliases: ["/cancel"],
-    englishName: "/cancel",
     order: 80,
     description: "Batalkan sesi pemesanan aktif atau pesanan pending",
-    descriptionEn: "Cancel ongoing order flow or pending order",
     execute: async ({ remoteJid, args, isAdmin, userLang, ctx }: CommandContext) => {
         const session = ctx.state.getSession(remoteJid);
 

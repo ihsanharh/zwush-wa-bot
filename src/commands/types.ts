@@ -12,13 +12,17 @@ export interface CommandContext {
     ctx: BotContext;
 }
 
+export interface CommandLocaleInfo {
+    name?: string;
+    description?: string;
+}
+
 export interface Command {
     name: string;
     aliases?: string[];
     description: string;
-    descriptionEn?: string;
-    englishName?: string;
     order?: number;
     adminOnly?: boolean;
+    locales?: Record<string, CommandLocaleInfo>;
     execute(cmdCtx: CommandContext): Promise<void>;
 }

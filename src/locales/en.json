@@ -161,6 +161,16 @@
         "adminSectionHeader": "\n🛠️ *ADMIN ONLY COMMANDS:*\n",
         "navigationShortcuts": "• *c* / *cancel* : Cancel ongoing order flow\n• *b* / *back* : Go back 1 step during ordering\n\n",
         "footer": "👤 Need direct support from admin? Ask our admin team in the store group or type */support* or */cs*!",
+        "commandNames": {
+            "/beli": "/buy",
+            "/katalog": "/catalog",
+            "/riwayat": "/history",
+            "/bahasa": "/language",
+            "/batal": "/cancel",
+            "/bantuan": "/help",
+            "/saldo": "/balance",
+            "/setdiskon": "/setdiscount"
+        },
         "commandDescriptions": {
             "/beli": "View catalog & start buying The Hive cosmetics",
             "/buy": "View catalog & start buying The Hive cosmetics",

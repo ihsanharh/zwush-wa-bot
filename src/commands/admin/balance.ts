@@ -6,10 +6,8 @@ export const balanceCommand: Command = {
     name: "/saldo",
     aliases: ["/balance"],
     adminOnly: true,
-    englishName: "/balance",
     order: 20,
     description: "Cek saldo token bot The Hive & omset hari ini",
-    descriptionEn: "Check The Hive bot token balance & today's sales summary",
     execute: async ({ remoteJid, args, isGroup, sender, userLang, ctx }: CommandContext) => {
         try {
             const forceRefresh = args.length > 0 && args.some((a) =>

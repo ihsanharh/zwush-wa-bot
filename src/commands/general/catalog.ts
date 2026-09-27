@@ -8,10 +8,8 @@ import { t } from "../../i18n";
 export const catalogCommand: Command = {
     name: "/katalog",
     aliases: ["/catalog"],
-    englishName: "/catalog",
     order: 20,
     description: "Lihat katalog lengkap item The Hive",
-    descriptionEn: "View complete catalog posters for all categories",
     execute: async ({ remoteJid, sender, isGroup, args, userLang, ctx }: CommandContext) => {
         try {
             if (isGroup) {

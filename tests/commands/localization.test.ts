@@ -200,19 +200,32 @@ describe("Bot Commands Bilingual Localization Tests", () => {
     it("should dynamically include new commands registered at runtime without modifying help.ts", async () => {
         defaultRegistry.register({
             name: "/custompromo",
-            englishName: "/customoffer",
             description: "Dapatkan penawaran promo custom terbaru",
-            descriptionEn: "Get latest custom promo offers",
             order: 95,
+            locales: {
+                en: {
+                    name: "/customoffer",
+                    description: "Get latest custom promo offers"
+                }
+            },
+            execute: async () => {}
+        });
+
+        defaultRegistry.register({
+            name: "/fallbackcmd",
+            description: "Perintah tanpa locale khusus",
+            order: 96,
             execute: async () => {}
         });
 
         const idCtx = createMockContext("id", false);
         await helpCommand.execute(idCtx.buildCmdCtx([]));
         expect(idCtx.getSentText()).toContain("• */custompromo* : Dapatkan penawaran promo custom terbaru");
+        expect(idCtx.getSentText()).toContain("• */fallbackcmd* : Perintah tanpa locale khusus");
 
         const enCtx = createMockContext("en", false);
         await helpCommand.execute(enCtx.buildCmdCtx([]));
         expect(enCtx.getSentText()).toContain("• */customoffer* : Get latest custom promo offers");
+        expect(enCtx.getSentText()).toContain("• */fallbackcmd* : Perintah tanpa locale khusus");
     });
 });

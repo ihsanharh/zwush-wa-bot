@@ -5,10 +5,8 @@ import { t } from "../../i18n";
 
 export const statusCommand: Command = {
     name: "/status",
-    englishName: "/status",
     order: 30,
     description: "Cek status pesanan terbaru atau berdasarkan ID",
-    descriptionEn: "Check your active order status (or /status <ID>)",
     execute: async ({ remoteJid, sender, isGroup, args, userLang, ctx }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";
