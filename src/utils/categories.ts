@@ -10,7 +10,8 @@ export const CATEGORIES: CategoryDefinition[] = [
     { id: "3", displayName: "3. 🦄 Mounts", dbCategory: "Regular Mount" },
     { id: "4", displayName: "4. 🎩 Hats", dbCategory: "Hats" },
     { id: "5", displayName: "5. 🎒 Back Blings", dbCategory: "Back Blings" },
-    { id: "6", displayName: "6. 🔪 Murder Mystery Packs", dbCategory: "Murder Mystery Packs" }
+    { id: "6", displayName: "6. 🔪 Murder Mystery Packs", dbCategory: "Murder Mystery Packs" },
+    { id: "7", displayName: "7. 🦹 Costumes", dbCategory: "Regular Costume" }
 ];
 
 export let currentStoreDiscount = 50;

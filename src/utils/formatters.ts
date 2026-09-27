@@ -1,5 +1,5 @@
 import { formatStatusBadge, formatRupiah, t, type Language } from "../i18n";
-import { generateCategoryPoster } from "../poster";
+import { generateCategoryPoster, getItemImageBuffer } from "../poster";
 import type { CatalogItem } from "../types";
 import type { BotContext } from "../handlers/message";
 import { CATEGORIES, type CategoryDefinition, currentStoreDiscount } from "./categories";
@@ -52,6 +52,12 @@ export function renderCategoryItems(items: CatalogItem[], category: CategoryDefi
         return t("catalog.categoryEmpty", lang, { categoryName: category.displayName });
     }
 
+    if (category.dbCategory === "Regular Costume") {
+        return lang === "en"
+            ? `🦹 *CATALOG: REGULAR COSTUMES* (${active.length} Available)\n> All official The Hive costumes available for ${formatRupiah(active[0]?.rupiahPrice ?? 20000)}!\n\nType */buy 7* to search and order costumes.`
+            : `🦹 *KATALOG: REGULAR COSTUME* (${active.length} Pilihan)\n> Semua costume resmi The Hive tersedia seharga ${formatRupiah(active[0]?.rupiahPrice ?? 20000)}!\n\nKetik */beli 7* untuk mencari dan memesan costume.`;
+    }
+
     const discountPercent = active[0]?.discountPercent ?? currentStoreDiscount;
     let out = discountPercent > 0
         ? t("menu.textCatalogHeaderDiscount", lang, {
@@ -89,6 +95,27 @@ export async function sendCategoryOrderPoster(
 
     if (categoryItems.length === 0) {
         await ctx.sendText(remoteJid, t("buying.categoryEmptyFallback", lang, { categoryName: cat.displayName }));
+        return;
+    }
+
+    if (cat.dbCategory === "Regular Costume") {
+        const costumeBannerUrl = "https://cdn.playhive.com/icons/hub/gifts/costumes.png";
+        let bannerBuffer: Buffer | null = null;
+        try {
+            bannerBuffer = await getItemImageBuffer(costumeBannerUrl);
+        } catch {
+            bannerBuffer = null;
+        }
+
+        const costumeMsg = lang === "en"
+            ? `🦹 *CATALOG: REGULAR COSTUMES* (${categoryItems.length} Available)\n> All official The Hive costumes available for ${formatRupiah(categoryItems[0]?.rupiahPrice ?? 20000)}! ✨\n\nPlease type the *costume name* you would like to order:\n(Examples: *Owl*, *Alien*, *Abyssal Angler*, *Penguin*, etc.)\n\n• Type *k* to return to category selection\n• Type *c* to cancel order`
+            : `🦹 *KATALOG: REGULAR COSTUME* (${categoryItems.length} Pilihan)\n> Semua costume resmi The Hive tersedia seharga ${formatRupiah(categoryItems[0]?.rupiahPrice ?? 20000)}! ✨\n\nSilakan ketik *nama costume* yang kakak inginkan untuk memesan:\n(Contoh: *Owl*, *Alien*, *Abyssal Angler*, *Penguin*, dsb)\n\n• Ketik *k* untuk kembali ke pilihan kategori\n• Ketik *b* untuk membatalkan pesanan`;
+
+        if (bannerBuffer) {
+            await ctx.sendImage(remoteJid, bannerBuffer, costumeMsg);
+        } else {
+            await ctx.sendText(remoteJid, costumeMsg);
+        }
         return;
     }
 

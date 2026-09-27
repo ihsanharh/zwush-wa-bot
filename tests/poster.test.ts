@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { generateCategoryPoster, getCachedPoster, wrapItemName } from "../src/poster";
+import { generateCategoryPoster, getCachedPoster, resolveItemImageUrl, wrapItemName } from "../src/poster";
 import type { CatalogItem } from "../src/types";
 import { CATEGORIES } from "../src/handlers/message";
+import { resolveCategory } from "../src/utils/categories";
 
 describe("Category Poster Generator", () => {
     const makeItems = (count: number, category: string): CatalogItem[] => {
@@ -121,6 +122,27 @@ describe("Category Poster Generator", () => {
             expect(stripEmojis("🛒 Zwush Store")).toBe("Zwush Store");
             expect(stripEmojis("⚡ Diskon 50%")).toBe("Diskon 50%");
             expect(stripEmojis("Normal Item")).toBe("Normal Item");
+        });
+    });
+
+    describe("resolveItemImageUrl & Costume Category Mapping", () => {
+        it("returns official The Hive costume icon for Regular Costume", () => {
+            const url = resolveItemImageUrl({ category: "Regular Costume" });
+            expect(url).toBe("https://cdn.playhive.com/icons/hub/gifts/costumes.png");
+        });
+
+        it("resolves Regular Costume category via number 7 and text aliases", () => {
+            const byId = resolveCategory("7", CATEGORIES);
+            expect(byId).toBeDefined();
+            expect(byId?.dbCategory).toBe("Regular Costume");
+
+            const byName = resolveCategory("costume", CATEGORIES);
+            expect(byName).toBeDefined();
+            expect(byName?.dbCategory).toBe("Regular Costume");
+
+            const byPlural = resolveCategory("costumes", CATEGORIES);
+            expect(byPlural).toBeDefined();
+            expect(byPlural?.dbCategory).toBe("Regular Costume");
         });
     });
 });

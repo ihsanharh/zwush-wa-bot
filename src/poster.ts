@@ -87,6 +87,9 @@ export function wrapItemName(name: string, maxCharsPerLine = 16): string[] {
  */
 export function resolveItemImageUrl(item: { imageUrl?: string | null; category: string }): string | null {
     if (item.imageUrl) return item.imageUrl;
+    if (item.category === "Regular Costume") {
+        return "https://cdn.playhive.com/icons/hub/gifts/costumes.png";
+    }
     if (item.category === "Murder Mystery Packs" || item.category === "Main Store") {
         return "https://cdn.playhive.com/icons/hub/gifts/bundles.png";
     }
