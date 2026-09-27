@@ -325,7 +325,7 @@ export async function generateCategoryPoster(
             <rect width="${totalWidth}" height="${footerHeight}" fill="#030712" />
             <line x1="0" y1="0" x2="${totalWidth}" y2="0" stroke="#1e293b" stroke-width="1" />
             <text x="${totalWidth / 2}" y="28" fill="#38bdf8" font-size="14" font-weight="bold" font-family="sans-serif" text-anchor="middle">
-                Ketik nomor item (contoh: 1) atau ketik /beli untuk memesan via WhatsApp
+                Ketik /beli untuk mulai memesan via WhatsApp
             </text>
             <text x="${totalWidth / 2}" y="47" fill="#64748b" font-size="11" font-family="sans-serif" text-anchor="middle">
                 ${escapeXml(stripEmojis(config.STORE_NAME) || config.STORE_NAME)} • Layanan Resmi &amp; Terpercaya

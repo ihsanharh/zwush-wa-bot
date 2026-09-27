@@ -99,8 +99,7 @@ export function renderCategoryItems(items: CatalogItem[], category: CategoryDefi
         });
 
         out += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
-        out += `Type the item number (*1 - ${active.length}*) to buy this item!\n`;
-        out += `Type *b* to return to category list, or *c* to cancel.`;
+        out += `💡 Type */buy* to start ordering!`;
         return out;
     }
 
@@ -115,8 +114,7 @@ export function renderCategoryItems(items: CatalogItem[], category: CategoryDefi
     });
 
     out += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
-    out += `Ketik nomor item (*1 - ${active.length}*) untuk membeli item ini ya kak!\n`;
-    out += `Ketik *k* untuk kembali ke kategori, atau *b* untuk batal.`;
+    out += `💡 Ketik */beli* untuk mulai memesan ya kak!`;
     return out;
 }
 

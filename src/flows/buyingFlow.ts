@@ -21,14 +21,8 @@ export async function handleBuyingFlow(
     const lower = trimmed.toLowerCase();
     const session = ctx.state.getSession(remoteJid);
 
-    // If IDLE, check if user directly types a category number / name from idle menu
+    // If IDLE, buying flow is not active; user must use /beli to start ordering
     if (session.step === "IDLE") {
-        const cat = resolveCategory(trimmed, CATEGORIES);
-        if (cat) {
-            ctx.state.setCategory(remoteJid, cat.dbCategory);
-            await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
-            return true;
-        }
         return false;
     }
 

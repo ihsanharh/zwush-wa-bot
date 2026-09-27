@@ -235,9 +235,9 @@ describe("Message Handler Router", () => {
         }
     });
 
-    it("should display category poster and items when user selects category from idle (e.g. '2' or '/beli 2')", async () => {
+    it("should display category poster and items on /beli 2", async () => {
         const { ctx, sentTexts, sentImages } = createMockContext();
-        await handleIncomingMessage("user@s.whatsapp.net", false, "2", ctx);
+        await handleIncomingMessage("user@s.whatsapp.net", false, "/beli 2", ctx);
         // Either sent as a poster image or as formatted text with items
         const hasContent = sentImages.length > 0 || sentTexts.length > 0;
         expect(hasContent).toBe(true);
@@ -246,6 +246,13 @@ describe("Message Handler Router", () => {
         } else {
             expect(sentTexts[0]).toContain("PETS");
         }
+    });
+
+    it("should not activate buying flow on /katalog", async () => {
+        const { ctx } = createMockContext();
+        const jid = "user@s.whatsapp.net";
+        await handleIncomingMessage(jid, false, "/katalog", ctx);
+        expect(ctx.state.getSession(jid).step).toBe("IDLE");
     });
 
     it("should validate invalid category on /beli <query>", async () => {
