@@ -37,6 +37,7 @@
     "categoryCaption": "📁 *KATALOG: {{categoryName}}* ({{count}} Item)\n\n🛒 *Mau beli item di atas?* Ketik */beli* untuk mulai memesan ya kak! ✨",
     "textFallbackNotice": "\n\n💡 Ketik */beli* untuk mulai memesan ya kak!",
     "allCategoriesEmpty": "⚠️ Belum ada item aktif di katalog saat ini.",
+    "instruction": "💡 Ketik */beli* untuk mulai memesan item di atas, atau */bantuan* untuk melihat daftar perintah lengkap ya kak! 😊",
     "fetchError": "❌ Gagal memuat katalog: {{message}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak."
   },
   "buying": {

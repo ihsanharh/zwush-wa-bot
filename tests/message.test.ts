@@ -201,7 +201,7 @@ describe("Message Handler Router", () => {
         expect(sentTexts[0]).toContain("Ketik nomor kategori (*1 - 6*)");
     });
 
-    it("should respond to /katalog by sending category posters without individual captions and without trailing text messages", async () => {
+    it("should respond to /katalog by sending category posters and a single instruction to /beli or /bantuan", async () => {
         const { ctx, sentTexts, sentImages } = createMockContext();
         await handleIncomingMessage("user@s.whatsapp.net", false, "/katalog", ctx);
 
@@ -214,10 +214,10 @@ describe("Message Handler Router", () => {
             expect(img.caption || "").toBe("");
         }
 
-        // No trailing summary text message should be sent (posters speak for themselves)
-        if (sentImages.length > 0) {
-            expect(sentTexts.length).toBe(0);
-        }
+        // Exactly one instruction text message should be sent with /beli and /bantuan
+        const instructionText = sentTexts[sentTexts.length - 1];
+        expect(instructionText).toContain("/beli");
+        expect(instructionText).toContain("/bantuan");
     });
 
     it("should respond to /katalog <category> with specific category poster and CTA", async () => {

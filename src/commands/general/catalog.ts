@@ -80,6 +80,8 @@ export const catalogCommand: Command = {
                 }
             }
 
+            await ctx.sendText(targetJid, t("catalog.instruction", userLang));
+
         } catch (err: unknown) {
             const errMsg = err instanceof Error ? err.message : String(err);
             console.error("[catalogCommand Error]:", errMsg);

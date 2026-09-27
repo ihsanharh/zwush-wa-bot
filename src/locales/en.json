@@ -37,6 +37,7 @@
     "categoryCaption": "📁 *CATALOG: {{categoryName}}* ({{count}} Items)\n\n🛒 *Ready to order?* Type */buy* to start purchasing! ✨",
     "textFallbackNotice": "\n\n💡 Type */buy* to start ordering!",
     "allCategoriesEmpty": "⚠️ No active items in the catalog yet.",
+    "instruction": "💡 Type */buy* to start ordering items above, or */help* to see all available commands! 😊",
     "fetchError": "❌ Failed to load catalog: {{message}}\n\n💡 Please wait a moment and try again."
   },
   "buying": {
