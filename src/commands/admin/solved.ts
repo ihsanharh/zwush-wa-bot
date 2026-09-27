@@ -19,10 +19,11 @@ export const solvedCommand: Command = {
             try {
                 const cleanOrderId = rawTarget.replace(/^#/, "");
                 const orderRes = await ctx.client.getOrderStatus(cleanOrderId);
-                if (orderRes && orderRes.order && orderRes.order.platformUserId) {
-                    const session = ctx.state.getSession(orderRes.order.platformUserId);
+                const platformUserId = orderRes?.platformUserId;
+                if (platformUserId) {
+                    const session = ctx.state.getSession(platformUserId);
                     if (session.step === "LIVE_CHAT") {
-                        matched = { jid: orderRes.order.platformUserId, session };
+                        matched = { jid: platformUserId, session };
                     }
                 }
             } catch {
@@ -33,7 +34,7 @@ export const solvedCommand: Command = {
         // 3. If still not matched and no arguments were provided:
         if (!matched && !rawTarget) {
             const activeList = ctx.state.getAllActiveLiveChats();
-            if (activeList.length === 1) {
+            if (activeList.length === 1 && activeList[0]) {
                 const onlyOne = activeList[0];
                 matched = { jid: onlyOne.jid, session: ctx.state.getSession(onlyOne.jid) };
             } else if (activeList.length > 1) {

@@ -2,14 +2,10 @@ import sharp from "sharp";
 import type { CatalogItem } from "./types";
 import type { CategoryDefinition } from "./handlers/message";
 import { config } from "./config";
-import { t, type Language } from "./i18n";
+import { formatRupiah, t, type Language } from "./i18n";
 
 const posterCache = new Map<string, Buffer>();
 const itemImageCache = new Map<string, Buffer>();
-
-function formatRupiah(amount: number): string {
-    return `Rp ${amount.toLocaleString("id-ID")}`;
-}
 
 function escapeXml(unsafe: string): string {
     return unsafe.replace(/[<>&'"]/g, (c) => {
@@ -72,7 +68,7 @@ export function wrapItemName(name: string, maxCharsPerLine = 16): string[] {
     }
 
     if (lines.length > 2) {
-        const first = lines[0];
+        const first = lines[0] || "";
         const rest = lines.slice(1).join(" ");
         const second = rest.length > maxCharsPerLine ? rest.slice(0, maxCharsPerLine - 1) + "…" : rest;
         return [first, second];
@@ -210,13 +206,13 @@ export async function generateCategoryPoster(
 
         let nameSvg = "";
         if (nameLines.length === 1) {
-            const displayName = escapeXml(nameLines[0]);
+            const displayName = escapeXml(nameLines[0] || "");
             const nameY = y + (isCompact ? 42 : 46);
             const fontSize = isCompact ? 13 : 14;
             nameSvg = `<text x="${textStartX}" y="${nameY}" fill="#f8fafc" font-size="${fontSize}" font-weight="bold" font-family="sans-serif">${displayName}</text>`;
         } else {
-            const line1 = escapeXml(nameLines[0]);
-            const line2 = escapeXml(nameLines[1]);
+            const line1 = escapeXml(nameLines[0] || "");
+            const line2 = escapeXml(nameLines[1] || "");
             const line1Y = y + (isCompact ? 35 : 39);
             const line2Y = y + (isCompact ? 49 : 54);
             const fontSize = isCompact ? 11 : 12;

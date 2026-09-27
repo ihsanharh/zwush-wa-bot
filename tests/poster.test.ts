@@ -75,7 +75,7 @@ describe("Category Poster Generator", () => {
         it("handles long single words without spaces", () => {
             const lines = wrapItemName("Supercalifragilisticexpialidocious", 16);
             expect(lines.length).toBe(2);
-            expect(lines[0].length).toBeLessThanOrEqual(16);
+            expect(lines[0]!.length).toBeLessThanOrEqual(16);
         });
 
         it("successfully renders poster with long wrapped item names", async () => {

@@ -176,7 +176,8 @@ async function handleIncomingMessageInternal(
         if (lower === "/solved" || lower.startsWith("/solved ") || lower === "/solve" || lower.startsWith("/solve ")) {
             if (isAdmin) {
                 const parts = trimmed.split(/\s+/);
-                await defaultRegistry.dispatch(parts[0].toLowerCase(), {
+                const cmdPart = parts[0]?.toLowerCase() || "";
+                await defaultRegistry.dispatch(cmdPart, {
                     remoteJid,
                     sender: effectiveSender,
                     args: parts.slice(1),

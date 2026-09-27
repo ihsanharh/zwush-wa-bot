@@ -290,4 +290,38 @@ describe("Webhook Server", () => {
         // Sender should NOT have sent any message to customer
         expect(sentMessages.length).toBe(0);
     });
+
+    it("should handle delayed payment arriving after QR expiration", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            })
+        };
+
+        const app = createWebhookApp({
+            sender: mockSender
+        });
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ord_delayed_123",
+                platform: "whatsapp",
+                platformUserId: "628123456789@s.whatsapp.net",
+                gamertag: "Steve",
+                itemName: "Dragon Pet",
+                status: "FAILED",
+                message: "Pembayaran diterima setelah QR kedaluwarsa (notifikasi GoPay terlambat)"
+            })
+        });
+
+        expect(res.status).toBe(200);
+        const json = (await res.json()) as { success: boolean; delayedPayment?: boolean };
+        expect(json.success).toBe(true);
+        expect(json.delayedPayment).toBe(true);
+        expect(sentMessages.length).toBe(1);
+        expect(sentMessages[0]?.text).toContain("MENUNGGU KONFIRMASI");
+    });
 });

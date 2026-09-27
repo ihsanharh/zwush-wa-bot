@@ -32,7 +32,8 @@ export type OrderStatus =
     | "SUCCESS"
     | "INSUFFICIENT_TOKENS"
     | "FAILED"
-    | "EXPIRED";
+    | "EXPIRED"
+    | "CANCELLED";
 
 export interface OrderStatusResponse {
     success: boolean;
@@ -42,6 +43,7 @@ export interface OrderStatusResponse {
         itemName: string;
         status: OrderStatus;
         totalNominal: number;
+        platformUserId?: string;
         failureReason?: string | null;
     };
 }

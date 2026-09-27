@@ -81,6 +81,10 @@ export class StateManager {
      * Gets or creates user session, resetting if timed out.
      */
     getSession(jid: string): UserSession {
+        if (this.sessions.size > 500) {
+            this.cleanupExpiredSessions();
+        }
+
         const existing = this.sessions.get(jid);
         if (!existing) {
             const fresh: UserSession = {
@@ -104,6 +108,21 @@ export class StateManager {
         }
 
         return existing;
+    }
+
+    /**
+     * Purges expired sessions and trims stale retry counters to prevent unbounded memory growth.
+     */
+    cleanupExpiredSessions(): void {
+        const now = Date.now();
+        for (const [jid, session] of this.sessions.entries()) {
+            if (session.step !== "LIVE_CHAT" && now - session.lastUpdated > this.ttlMs * 2) {
+                this.sessions.delete(jid);
+            }
+        }
+        if (this.orderRetryAttempts.size > 2000) {
+            this.orderRetryAttempts.clear();
+        }
     }
 
     /**

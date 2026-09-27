@@ -93,4 +93,19 @@ describe("StateManager", () => {
         mgr.clearAppliedVoucher(jid);
         expect(mgr.getSession(jid).appliedVoucher).toBeUndefined();
     });
+
+    it("should purge stale sessions on cleanupExpiredSessions", () => {
+        const mgr = new StateManager(100);
+        const jid1 = "user_stale@s.whatsapp.net";
+        const session1 = mgr.getSession(jid1);
+        session1.lastUpdated = Date.now() - 500;
+
+        const jid2 = "user_fresh@s.whatsapp.net";
+        mgr.getSession(jid2);
+
+        mgr.cleanupExpiredSessions();
+        // Stale session entry should be purged, fresh preserved
+        const freshSession = mgr.getSession(jid2);
+        expect(freshSession.step).toBe("IDLE");
+    });
 });

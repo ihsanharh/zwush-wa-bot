@@ -151,9 +151,9 @@ export function createWebhookApp(
                     msgLower.includes("delayed");
 
                 if (isDelayedPayment) {
-                    if (adminLogger && (adminLogger as any).notifyDelayedPayment) {
+                    if (adminLogger) {
                         try {
-                            await (adminLogger as any).notifyDelayedPayment({
+                            await adminLogger.notifyDelayedPayment({
                                 orderId: body.orderId,
                                 itemName: body.itemName || "Item",
                                 gamertag: body.gamertag || "-",

@@ -171,12 +171,24 @@ const userMessageQueues = new Map<string, Promise<void>>();
 
 export function executeUserSequential(userKey: string, task: () => Promise<void>): Promise<void> {
     const lastTask = userMessageQueues.get(userKey) || Promise.resolve();
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
     const timeoutPromise = new Promise<void>((_, reject) => {
-        setTimeout(() => reject(new Error("User queue task timed out (90s)")), 90000);
+        timerId = setTimeout(() => reject(new Error("User queue task timed out (90s)")), 90000);
     });
 
+    const runWithTimeout = async () => {
+        try {
+            await Promise.race([task(), timeoutPromise]);
+        } finally {
+            if (timerId !== undefined) {
+                clearTimeout(timerId);
+            }
+        }
+    };
+
     const currentTask = lastTask
-        .then(() => Promise.race([task(), timeoutPromise]))
+        .then(runWithTimeout)
         .catch((err) => {
             console.error(`[Message Queue Error for ${userKey}]:`, err);
         })

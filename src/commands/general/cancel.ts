@@ -15,7 +15,8 @@ export const cancelCommand: Command = {
                 return;
             }
 
-            let targetId = args[0].trim().toUpperCase().replace(/^#/, "");
+            const rawArg = args[0] || "";
+            let targetId = rawArg.trim().toUpperCase().replace(/^#/, "");
             if (!targetId.startsWith("ORD-")) {
                 targetId = "ORD-" + targetId;
             }

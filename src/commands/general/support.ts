@@ -30,7 +30,7 @@ export const supportCommand: Command = {
         } else {
             try {
                 const userOrders = await ctx.client.getUserOrders(remoteJid);
-                if (userOrders && userOrders.length > 0) {
+                if (userOrders && userOrders.length > 0 && userOrders[0]) {
                     const latest = userOrders[0];
                     orderInfo = {
                         orderId: latest.id,

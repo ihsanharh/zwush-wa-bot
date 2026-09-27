@@ -5,7 +5,7 @@ import { config } from "../config";
 import { generateQrisBuffer } from "../qr";
 import { getItemImageBuffer, resolveItemImageUrl } from "../poster";
 import { CATEGORIES, resolveCategory } from "../utils/categories";
-import { sendCategoryOrderPoster } from "../utils/formatters";
+import { sendCategoryOrderPoster, renderOrderCategoryMenu } from "../utils/formatters";
 import { supportCommand } from "../commands/general/support";
 
 export async function handleBuyingFlow(
@@ -51,7 +51,6 @@ export async function handleBuyingFlow(
         const isBack = lower === "k" || lower === "kembali" || lower === "back";
         if (isBack) {
             ctx.state.startBuyingFlow(remoteJid);
-            const { renderOrderCategoryMenu } = await import("../utils/formatters");
             await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
             return true;
         }

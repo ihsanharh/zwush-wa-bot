@@ -24,8 +24,9 @@ export const catalogCommand: Command = {
                 return;
             }
 
-            if (catalog.length > 0 && typeof catalog[0].discountPercent === "number") {
-                setKnownStoreDiscount(catalog[0].discountPercent);
+            const firstItem = catalog[0];
+            if (firstItem && typeof firstItem.discountPercent === "number") {
+                setKnownStoreDiscount(firstItem.discountPercent);
             }
 
             const filterQuery = args.join(" ").trim();
