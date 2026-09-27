@@ -22,6 +22,14 @@ export const cancelCommand: Command = {
 
             try {
                 const res = await ctx.client.cancelOrder(targetId, "Cancelled by admin via command");
+                if (ctx.adminLogger) {
+                    await ctx.adminLogger.updateOrderStatus(res.orderId, "CANCELLED", {
+                        failureReason: "Cancelled by admin via command",
+                        itemName: res.itemName,
+                        gamertag: res.gamertag,
+                        platformUserId: remoteJid
+                    });
+                }
                 await ctx.sendText(
                     remoteJid,
                     t("cancel.adminCancelled", userLang, {
@@ -39,14 +47,7 @@ export const cancelCommand: Command = {
         }
 
         // Case 2: No order ID provided
-        // 2a. If in the middle of active ordering wizard
-        if (session.step !== "IDLE" && session.step !== "LIVE_CHAT" && session.step !== "AWAITING_SUPPORT_CONFIRMATION") {
-            ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
-            return;
-        }
-
-        // 2b. Check if user has an active pending payment order
+        // 2a. Check if user has an active pending payment order
         let pendingOrderId = ctx.state.getActiveOrderId(remoteJid);
         let pendingItemName: string | undefined;
 
@@ -64,6 +65,14 @@ export const cancelCommand: Command = {
         if (pendingOrderId) {
             try {
                 const res = await ctx.client.cancelOrder(pendingOrderId, "Cancelled by buyer");
+                if (ctx.adminLogger) {
+                    await ctx.adminLogger.updateOrderStatus(res.orderId, "CANCELLED", {
+                        failureReason: "Cancelled by buyer",
+                        itemName: res.itemName || pendingItemName,
+                        gamertag: res.gamertag,
+                        platformUserId: remoteJid
+                    });
+                }
                 if (ctx.qrDeleter) {
                     try {
                         await ctx.qrDeleter(remoteJid);
@@ -85,6 +94,13 @@ export const cancelCommand: Command = {
                 await ctx.sendText(remoteJid, failMsg);
                 return;
             }
+        }
+
+        // 2b. If in the middle of active ordering wizard (before order creation)
+        if (session.step !== "IDLE" && session.step !== "LIVE_CHAT" && session.step !== "AWAITING_SUPPORT_CONFIRMATION") {
+            ctx.state.clear(remoteJid);
+            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            return;
         }
 
         // 2c. No active wizard and no pending order

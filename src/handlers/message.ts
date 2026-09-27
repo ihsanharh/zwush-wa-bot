@@ -34,6 +34,7 @@ import { defaultRegistry } from "../commands";
 import { isLiveChatActive, isAwaitingSupportConfirmation, handleSupportConfirmation } from "../flows/supportFlow";
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import statusCommand from "../commands/general/status";
+import cancelCommand from "../commands/general/cancel";
 
 // Re-exports for backward compatibility
 export {
@@ -240,6 +241,25 @@ async function handleIncomingMessageInternal(
             await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
         }
         return;
+    }
+
+    // Bare cancel keyword check (e.g. user sends "batal", "cancel", "c" as instructed in the invoice)
+    if (lower === "batal" || lower === "cancel" || lower === "c") {
+        const pendingOrderId = ctx.state.getActiveOrderId(remoteJid);
+        const session = ctx.state.getSession(remoteJid);
+        if (pendingOrderId || (session.step !== "IDLE" && session.step !== "LIVE_CHAT" && session.step !== "AWAITING_SUPPORT_CONFIRMATION")) {
+            await cancelCommand.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [],
+                rawText: trimmed,
+                isGroup: false,
+                isAdmin,
+                userLang,
+                ctx
+            });
+            return;
+        }
     }
 
     // Interactive buying wizard flow (or idle category direct selection)
