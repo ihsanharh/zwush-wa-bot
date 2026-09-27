@@ -3,6 +3,7 @@ import { t } from "../../i18n";
 
 export const supportCommand: Command = {
     name: "/support",
+    aliases: ["/cs"],
     description: "Minta bantuan live chat langsung dengan admin",
     execute: async ({ remoteJid, userLang, ctx }: CommandContext) => {
         const session = ctx.state.getSession(remoteJid);

@@ -584,6 +584,7 @@ describe("Message Handler Router", () => {
         await handleIncomingMessage("buyer@s.whatsapp.net", false, "/bantuan", ctx);
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]).not.toContain("PERINTAH KHUSUS ADMIN");
+        expect(sentTexts[0]).toContain("/support");
     });
 
     it("should query specific order with /status <ID>", async () => {
