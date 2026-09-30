@@ -4,18 +4,22 @@ import { t, type Language } from "../../i18n";
 import { extractPhoneNumber } from "../../utils/messageUtils";
 
 function getCommandDisplayName(cmd: Command, userLang: Language | string): string {
-    const key = `help.commandNames.${cmd.name}`;
-    const localized = t(key, userLang as Language);
-    if (localized && localized !== key) return localized;
-
     if (cmd.locales?.[userLang]?.name) {
         return cmd.locales[userLang].name!;
     }
+
+    const key = `help.commandNames.${cmd.name}`;
+    const localized = t(key, userLang as Language);
+    if (localized && localized !== key) return localized;
 
     return cmd.name;
 }
 
 function getCommandDesc(cmd: Command, displayName: string, userLang: Language | string): string {
+    if (cmd.locales?.[userLang]?.description) {
+        return cmd.locales[userLang].description!;
+    }
+
     const key1 = `help.commandDescriptions.${displayName}`;
     const t1 = t(key1, userLang as Language);
     if (t1 && t1 !== key1) return t1;
@@ -24,10 +28,6 @@ function getCommandDesc(cmd: Command, displayName: string, userLang: Language | 
     const t2 = t(key2, userLang as Language);
     if (t2 && t2 !== key2) return t2;
 
-    if (cmd.locales?.[userLang]?.description) {
-        return cmd.locales[userLang].description!;
-    }
-
     return cmd.description;
 }
 
@@ -35,7 +35,14 @@ export const helpCommand: Command = {
     name: "/bantuan",
     aliases: ["/help"],
     order: 90,
+    category: "general",
     description: "Bantuan dan panduan penggunaan bot toko",
+    locales: {
+        en: {
+            name: "/help",
+            description: "Help guide and bot command list"
+        }
+    },
     execute: async ({ remoteJid, sender, isGroup, isAdmin, userLang, ctx }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";

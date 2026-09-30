@@ -9,7 +9,14 @@ export const catalogCommand: Command = {
     name: "/katalog",
     aliases: ["/catalog"],
     order: 20,
-    description: "Lihat katalog lengkap item The Hive",
+    category: "general",
+    description: "Lihat gambar katalog lengkap seluruh kategori",
+    locales: {
+        en: {
+            name: "/catalog",
+            description: "View complete image catalog for all categories"
+        }
+    },
     execute: async ({ remoteJid, sender, isGroup, args, userLang, ctx }: CommandContext) => {
         try {
             if (isGroup) {

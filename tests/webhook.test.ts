@@ -324,4 +324,78 @@ describe("Webhook Server", () => {
         expect(sentMessages.length).toBe(1);
         expect(sentMessages[0]?.text).toContain("MENUNGGU KONFIRMASI");
     });
+
+    it("should handle ineligible upgrade when player does not have Hive+ rank", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            })
+        };
+
+        const app = createWebhookApp({
+            sender: mockSender
+        });
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ord_upgrade_fail",
+                platform: "whatsapp",
+                platformUserId: "6289999@s.whatsapp.net",
+                gamertag: "Wellingsun",
+                itemName: "Hive+ to Ultimate Upgrade",
+                status: "FAILED",
+                message: "Gifting 'Ultimate Rank' requires 22 tokens, but maximum allowed is 11 tokens. Recipient does not have Hive+ rank."
+            })
+        });
+
+        expect(res.status).toBe(200);
+        const json = (await res.json()) as { success: boolean; ineligibleUpgrade?: boolean };
+        expect(json.success).toBe(true);
+        expect(sentMessages[0]?.text).toContain("UPGRADE DITOLAK OLEH THE HIVE");
+        expect(sentMessages[0]?.text).toContain("Wellingsun");
+    });
+
+    it("should update adminLogger but NOT notify buyer when silent is true", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            })
+        };
+        const updateOrderStatusMock = mock(async () => {});
+        const mockAdminLogger = {
+            updateOrderStatus: updateOrderStatusMock,
+        } as any;
+
+        const app = createWebhookApp({
+            sender: mockSender,
+            adminLogger: mockAdminLogger,
+        });
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ORD-SILENT-123",
+                platform: "whatsapp",
+                platformUserId: "6289999@s.whatsapp.net",
+                gamertag: "OldBuyer",
+                itemName: "Hive+ to Ultimate Upgrade",
+                status: "SUCCESS",
+                silent: true,
+                message: "Order manually fulfilled by admin",
+            })
+        });
+
+        expect(res.status).toBe(200);
+        const json = (await res.json()) as { success: boolean; silent?: boolean };
+        expect(json.success).toBe(true);
+        expect(json.silent).toBe(true);
+        expect(updateOrderStatusMock).toHaveBeenCalledTimes(1);
+        expect(sentMessages.length).toBe(0); // Buyer must NEVER receive any message!
+    });
 });
+

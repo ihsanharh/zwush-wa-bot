@@ -7,8 +7,15 @@ export const syncCatalogCommand: Command = {
     name: "/sync",
     aliases: ["/synckatalog", "/synccatalog"],
     adminOnly: true,
-    order: 30,
+    order: 45,
+    category: "store",
     description: "Sinkronisasi seluruh item katalog dari The Hive ke database",
+    locales: {
+        en: {
+            name: "/sync",
+            description: "Synchronize catalog items from The Hive to database"
+        }
+    },
     execute: async ({ remoteJid, isGroup, sender, userLang, ctx }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";

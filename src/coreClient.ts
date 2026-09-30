@@ -105,12 +105,14 @@ export class CoreClient {
     /**
      * Retries a single order that is in INSUFFICIENT_TOKENS or FAILED status.
      */
-    async retryOrder(orderId: string): Promise<OrderRetryResponse> {
+    async retryOrder(orderId: string, options?: { silent?: boolean }): Promise<OrderRetryResponse & { silent?: boolean }> {
         const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/retry`, {
             method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ silent: options?.silent ?? false }),
             signal: AbortSignal.timeout(15000)
         });
-        const data = (await res.json()) as OrderRetryResponse & { message?: string };
+        const data = (await res.json()) as OrderRetryResponse & { message?: string; silent?: boolean };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Failed to retry order #${orderId} (${res.status})`);
         }
@@ -120,17 +122,20 @@ export class CoreClient {
     /**
      * Manually marks an order as paid, bypassing the GoPay webhook.
      */
-    async markOrderAsPaid(orderId: string): Promise<{
+    async markOrderAsPaid(orderId: string, options?: { silent?: boolean }): Promise<{
         success: boolean;
         orderId: string;
         status: string;
         gamertag: string;
         itemName: string;
         totalNominal: number;
+        silent?: boolean;
         message?: string;
     }> {
         const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/paid`, {
             method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ silent: options?.silent ?? false }),
             signal: AbortSignal.timeout(15000)
         });
         const data = (await res.json()) as {
@@ -140,10 +145,34 @@ export class CoreClient {
             gamertag: string;
             itemName: string;
             totalNominal: number;
+            silent?: boolean;
             message?: string;
         };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Failed to mark order #${orderId} as paid (${res.status})`);
+        }
+        return data;
+    }
+
+    /**
+     * Manually marks all pending payment orders as paid.
+     */
+    async markAllOrdersAsPaid(options?: { silent?: boolean }): Promise<{
+        success: boolean;
+        count: number;
+        orderIds: string[];
+        silent?: boolean;
+        message?: string;
+    }> {
+        const res = await fetch(`${this.baseUrl}/api/orders/paid-all`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ silent: options?.silent ?? false }),
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as any;
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to mark all orders as paid (${res.status})`);
         }
         return data;
     }
@@ -201,12 +230,14 @@ export class CoreClient {
     /**
      * Retries all orders currently in INSUFFICIENT_TOKENS status.
      */
-    async retryAllOrders(): Promise<OrderRetryAllResponse> {
+    async retryAllOrders(options?: { silent?: boolean }): Promise<OrderRetryAllResponse & { silent?: boolean }> {
         const res = await fetch(`${this.baseUrl}/api/orders/retry-all`, {
             method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ silent: options?.silent ?? false }),
             signal: AbortSignal.timeout(15000)
         });
-        const data = (await res.json()) as OrderRetryAllResponse & { message?: string };
+        const data = (await res.json()) as OrderRetryAllResponse & { message?: string; silent?: boolean };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Failed to retry all orders (${res.status})`);
         }
@@ -349,5 +380,77 @@ export class CoreClient {
             throw new Error(data.error || data.message || `Gagal sinkronisasi katalog (${res.status})`);
         }
         return data;
+    }
+
+    /**
+     * Marks an order as manually completed (SUCCESS) without triggering gibot.
+     */
+    async manualCompleteOrder(orderId: string, options?: { silent?: boolean }): Promise<{
+        success: boolean;
+        orderId: string;
+        status: string;
+        gamertag: string;
+        itemName: string;
+        totalNominal: number;
+        silent?: boolean;
+        message?: string;
+    }> {
+        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/manual-complete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ silent: options?.silent ?? false }),
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as any;
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to complete order #${orderId} (${res.status})`);
+        }
+        return data;
+    }
+
+    /**
+     * Marks all uncompleted orders as manually completed (SUCCESS).
+     */
+    async manualCompleteAllOrders(options?: { silent?: boolean }): Promise<{
+        success: boolean;
+        count: number;
+        orderIds: string[];
+        silent?: boolean;
+        message?: string;
+    }> {
+        const res = await fetch(`${this.baseUrl}/api/orders/manual-complete-all`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ silent: options?.silent ?? false }),
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as any;
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to complete all orders (${res.status})`);
+        }
+        return data;
+    }
+
+    /**
+     * Lists recent orders from the core service, optionally filtered by status.
+     */
+    async listOrders(status?: string, limit = 10): Promise<{
+        count: number;
+        orders: OrderStatusResponse["order"][];
+    }> {
+        const params = new URLSearchParams();
+        if (status) params.set("status", status);
+        params.set("limit", String(limit));
+        const res = await fetch(`${this.baseUrl}/api/orders?${params.toString()}`, {
+            signal: AbortSignal.timeout(10000)
+        });
+        const data = (await res.json()) as any;
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to list orders (${res.status})`);
+        }
+        return {
+            count: data.count,
+            orders: data.orders
+        };
     }
 }

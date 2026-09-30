@@ -8,7 +8,14 @@ export const menuCommand: Command = {
     name: "/beli",
     aliases: ["/buy", "/menu"],
     order: 10,
-    description: "Buka menu pembelian katalog Hive",
+    category: "general",
+    description: "Lihat katalog & mulai belanja kosmetik The Hive",
+    locales: {
+        en: {
+            name: "/buy",
+            description: "Browse catalog & start ordering The Hive cosmetics"
+        }
+    },
     execute: async ({ remoteJid, sender, isGroup, args, userLang, ctx }: CommandContext) => {
         const filterQuery = args.join(" ").trim();
 

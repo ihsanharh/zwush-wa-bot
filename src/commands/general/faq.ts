@@ -6,7 +6,14 @@ export const faqCommand: Command = {
     name: "/faq",
     aliases: ["/tanya"],
     order: 50,
-    description: "Pertanyaan yang sering diajukan seputar toko",
+    category: "general",
+    description: "Tanya jawab pembayaran QRIS & pengiriman item",
+    locales: {
+        en: {
+            name: "/faq",
+            description: "Frequently asked questions about payment & delivery"
+        }
+    },
     execute: async ({ remoteJid, sender, isGroup, userLang, ctx }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";

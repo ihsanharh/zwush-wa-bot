@@ -7,8 +7,15 @@ export const discountCommand: Command = {
     name: "/setdiskon",
     aliases: ["/setdiscount"],
     adminOnly: true,
-    order: 60,
+    order: 50,
+    category: "store",
     description: "Ubah persentase diskon toko global (0-90)",
+    locales: {
+        en: {
+            name: "/setdiscount",
+            description: "Update global store discount percentage (0-90)"
+        }
+    },
     execute: async ({ remoteJid, args, userLang, ctx }: CommandContext) => {
         const rawInput = args.join(" ").trim();
         if (!rawInput) {

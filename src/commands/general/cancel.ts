@@ -5,7 +5,14 @@ export const cancelCommand: Command = {
     name: "/batal",
     aliases: ["/cancel"],
     order: 80,
+    category: "general",
     description: "Batalkan sesi pemesanan aktif atau pesanan pending",
+    locales: {
+        en: {
+            name: "/cancel",
+            description: "Cancel active ordering session or pending order"
+        }
+    },
     execute: async ({ remoteJid, args, isAdmin, userLang, ctx }: CommandContext) => {
         const session = ctx.state.getSession(remoteJid);
 

@@ -5,7 +5,14 @@ export const supportCommand: Command = {
     name: "/support",
     aliases: ["/cs"],
     order: 70,
+    category: "general",
     description: "Minta bantuan live chat langsung dengan admin",
+    locales: {
+        en: {
+            name: "/support",
+            description: "Request live chat support directly with admin"
+        }
+    },
     execute: async ({ remoteJid, userLang, ctx }: CommandContext) => {
         const session = ctx.state.getSession(remoteJid);
         if (session.step === "LIVE_CHAT") {

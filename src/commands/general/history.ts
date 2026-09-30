@@ -7,7 +7,14 @@ export const historyCommand: Command = {
     name: "/riwayat",
     aliases: ["/history"],
     order: 40,
-    description: "Lihat riwayat pesanan kosmetik kakak",
+    category: "general",
+    description: "Lihat daftar riwayat pesanan kakak",
+    locales: {
+        en: {
+            name: "/history",
+            description: "View your order history list"
+        }
+    },
     execute: async ({ remoteJid, sender, isGroup, userLang, ctx }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";

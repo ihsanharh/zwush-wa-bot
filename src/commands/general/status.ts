@@ -2,11 +2,19 @@ import type { Command, CommandContext } from "../types";
 import { formatStatusText } from "../../utils/formatters";
 import { extractPhoneNumber } from "../../utils/messageUtils";
 import { t } from "../../i18n";
+import { normalizeOrderId } from "../orderHelper";
 
 export const statusCommand: Command = {
     name: "/status",
     order: 30,
-    description: "Cek status pesanan terbaru atau berdasarkan ID",
+    category: "general",
+    description: "Cek status pesanan aktif kakak (atau /status <ID>)",
+    locales: {
+        en: {
+            name: "/status",
+            description: "Check your active order status (or /status <ID>)"
+        }
+    },
     execute: async ({ remoteJid, sender, isGroup, args, userLang, ctx }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";
@@ -48,7 +56,7 @@ export const statusCommand: Command = {
         }
 
         try {
-            const cleanId = orderId.replace(/^#/, "");
+            const cleanId = normalizeOrderId(orderId);
             const order = await ctx.client.getOrderStatus(cleanId);
             await ctx.sendText(remoteJid, `${prefix}${formatStatusText(order, userLang)}`, mentions);
         } catch (err: unknown) {

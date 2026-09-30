@@ -5,8 +5,15 @@ import { t } from "../../i18n";
 export const setgroupCommand: Command = {
     name: "/setgroup",
     adminOnly: true,
-    order: 50,
-    description: "Daftarkan grup obrolan sebagai Admin Command Group atau Transaction Log Group",
+    order: 65,
+    category: "system",
+    description: "Daftarkan grup obrolan sebagai Admin atau Log Group",
+    locales: {
+        en: {
+            name: "/setgroup",
+            description: "Register chat group as Admin or Log Group"
+        }
+    },
     execute: async ({ remoteJid, args, isGroup, userLang, ctx }: CommandContext) => {
         const sub = args[0]?.toLowerCase();
         const targetJid = args[1]?.trim();

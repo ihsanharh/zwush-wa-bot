@@ -12,6 +12,8 @@ export interface CommandContext {
     ctx: BotContext;
 }
 
+export type CommandCategory = "order" | "store" | "system" | "support" | "general";
+
 export interface CommandLocaleInfo {
     name?: string;
     description?: string;
@@ -23,6 +25,7 @@ export interface Command {
     description: string;
     order?: number;
     adminOnly?: boolean;
+    category?: CommandCategory;
     locales?: Record<string, CommandLocaleInfo>;
     execute(cmdCtx: CommandContext): Promise<void>;
 }

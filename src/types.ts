@@ -74,6 +74,7 @@ export interface OrderNotificationPayload {
     status: OrderStatus;
     message?: string;
     timestamp?: number;
+    silent?: boolean;
 }
 
 export interface VoucherItem {

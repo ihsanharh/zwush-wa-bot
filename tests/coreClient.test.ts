@@ -249,4 +249,99 @@ describe("CoreClient", () => {
         expect(res.summary.todayRevenue).toBe(240000);
         expect(res.summary.todayCompleted).toBe(8);
     });
+
+    it("should manually complete order", async () => {
+        global.fetch = mock(() =>
+            Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                orderId: "ORD-123456",
+                status: "SUCCESS",
+                gamertag: "Wellingsun",
+                itemName: "Ultimate Rank",
+                totalNominal: 55000,
+                message: "Order marked as SUCCESS and buyer notified"
+            }), { status: 200 }))
+        ) as unknown as typeof fetch;
+
+        const res = await client.manualCompleteOrder("ORD-123456");
+        expect(res.success).toBe(true);
+        expect(res.orderId).toBe("ORD-123456");
+        expect(res.status).toBe("SUCCESS");
+        expect(res.gamertag).toBe("Wellingsun");
+    });
+
+    it("should list orders with optional status filter", async () => {
+        let calledUrl = "";
+        global.fetch = mock((url) => {
+            calledUrl = String(url);
+            return Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                count: 1,
+                orders: [{
+                    id: "ORD-999",
+                    gamertag: "Steve",
+                    itemName: "Hive+ to Ultimate Upgrade",
+                    status: "FAILED",
+                    totalNominal: 55123,
+                    createdAt: "2026-09-28T06:00:00.000Z"
+                }]
+            }), { status: 200 }));
+        }) as unknown as typeof fetch;
+
+        const res = await client.listOrders("FAILED", 5);
+        expect(calledUrl).toContain("status=FAILED");
+        expect(calledUrl).toContain("limit=5");
+        expect(res.count).toBe(1);
+        expect(res.orders[0]?.id).toBe("ORD-999");
+    });
+
+    it("should pass silent flag to manualCompleteOrder and support bulk completion", async () => {
+        let sentBody: any = null;
+        global.fetch = mock((_url, init) => {
+            sentBody = JSON.parse(init?.body as string);
+            return Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                orderId: "ORD-SILENT",
+                status: "SUCCESS",
+                silent: true
+            }), { status: 200 }));
+        }) as unknown as typeof fetch;
+
+        const res = await client.manualCompleteOrder("ORD-SILENT", { silent: true });
+        expect(res.success).toBe(true);
+        expect(sentBody.silent).toBe(true);
+
+        // Bulk complete
+        global.fetch = mock((_url, init) => {
+            sentBody = JSON.parse(init?.body as string);
+            return Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                count: 3,
+                orderIds: ["ORD-1", "ORD-2", "ORD-3"],
+                silent: true
+            }), { status: 200 }));
+        }) as unknown as typeof fetch;
+
+        const bulkRes = await client.manualCompleteAllOrders({ silent: true });
+        expect(bulkRes.count).toBe(3);
+        expect(sentBody.silent).toBe(true);
+    });
+
+    it("should support markAllOrdersAsPaid with silent option", async () => {
+        let sentBody: any = null;
+        global.fetch = mock((_url, init) => {
+            sentBody = JSON.parse(init?.body as string);
+            return Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                count: 2,
+                orderIds: ["ORD-A", "ORD-B"],
+                silent: true
+            }), { status: 200 }));
+        }) as unknown as typeof fetch;
+
+        const res = await client.markAllOrdersAsPaid({ silent: true });
+        expect(res.count).toBe(2);
+        expect(sentBody.silent).toBe(true);
+    });
 });
+

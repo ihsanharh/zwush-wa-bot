@@ -70,8 +70,8 @@ export function createWebhookApp(
                 });
             }
 
-            // 2. Delete buyer's QR code image when payment received, expired, or cancelled
-            if (body.status === "QUEUED" || body.status === "EXPIRED" || body.status === "CANCELLED") {
+            // 2. Delete buyer's QR code image when payment received, expired, cancelled, or succeeded
+            if (body.status === "QUEUED" || body.status === "EXPIRED" || body.status === "CANCELLED" || body.status === "SUCCESS") {
                 if (stateManager?.clearActiveOrderId) {
                     stateManager.clearActiveOrderId(body.platformUserId);
                 }
@@ -97,7 +97,13 @@ export function createWebhookApp(
                 }
             }
 
-            // 4. Send notification to buyer in their chosen language
+            // 4. If silent mode is requested, skip buyer notification entirely
+            if (body.silent) {
+                console.log(`[Webhook Silent] Skipping buyer notification for order #${body.orderId} (${body.status})`);
+                return c.json({ success: true, silent: true });
+            }
+
+            // 5. Send notification to buyer in their chosen language
             const buyerLang = getBuyerLanguage ? getBuyerLanguage(body.platformUserId) : "id";
 
             if (body.status === "FAILED") {
@@ -172,6 +178,23 @@ export function createWebhookApp(
 
                     await sender.sendMessage(body.platformUserId, buyerNotice);
                     return c.json({ success: true, delayedPayment: true });
+                }
+
+                const isUpgradeIneligible =
+                    msgLower.includes("requires 22 tokens") ||
+                    msgLower.includes("not eligible for upgrade") ||
+                    msgLower.includes("ineligible_for_upgrade") ||
+                    msgLower.includes("does not have hive+ rank");
+
+                if (isUpgradeIneligible) {
+                    const buyerNotice = t("notification.INELIGIBLE_UPGRADE", buyerLang, {
+                        orderId: body.orderId,
+                        gamertag: body.gamertag || "-",
+                        itemName: body.itemName || "Hive+ to Ultimate Upgrade"
+                    });
+
+                    await sender.sendMessage(body.platformUserId, buyerNotice);
+                    return c.json({ success: true, ineligibleUpgrade: true });
                 }
             }
 

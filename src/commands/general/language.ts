@@ -5,7 +5,14 @@ export const languageCommand: Command = {
     name: "/bahasa",
     aliases: ["/language", "/lang"],
     order: 60,
-    description: "Ubah pengaturan bahasa bot (id / en)",
+    category: "general",
+    description: "Ganti pilihan bahasa bot (/bahasa id atau /bahasa en)",
+    locales: {
+        en: {
+            name: "/language",
+            description: "Change bot language (/language id or /language en)"
+        }
+    },
     execute: async ({ remoteJid, args, userLang, ctx }: CommandContext) => {
         const langArg = args[0]?.toLowerCase();
         if (langArg === "en" || langArg === "english") {
