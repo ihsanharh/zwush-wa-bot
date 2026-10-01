@@ -58,7 +58,7 @@
         "confirmReminder": "Balas *YA* jika pesanan sudah sesuai untuk membuat QRIS ya kak 😊\n(Atau balas *k* untuk ganti gamertag, *b* untuk batal)",
         "voucherMatchHint": "💡 Mohon sertakan kode voucher ya kak, contoh: *voucher HEMAT*",
         "voucherProceedHint": "\n\n👉 Balas *YA* untuk lanjut ke pembayaran\n👉 Balas *k* untuk ganti gamertag, *b* untuk membatalkan",
-        "invoiceText": "🧾 *INVOICE PEMBAYARAN {{storeUpper}}*\n\nHalo kak! Pesanan kakak sudah berhasil dibuat nih 🎉\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n{{voucherLine}}💰 Total Bayar: *{{formattedAmount}}*\n\n⚠️ *PENTING YA KAK:* Mohon transfer tepat *{{formattedAmount}}* (termasuk 3 digit kode unik) agar pembayaran otomatis terverifikasi sistem!\n\n⏱️ *Batas Waktu: 15 Menit!*\nJangan transfer lewat dari 15 menit ya kak agar QRIS tidak kedaluwarsa. Terima kasih banyak sudah berbelanja di {{store}}! 🥰\n\n💡 _Lupa voucher atau ingin batalkan? Ketik */batal* atau *batal*._",
+        "invoiceText": "🧾 *INVOICE PEMBAYARAN {{storeUpper}}*\n\nHalo kak! Pesanan kakak sudah berhasil dibuat nih 🎉\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n{{voucherLine}}💰 Total Bayar: *{{formattedAmount}}*\n\n⚠️ *PENTING YA KAK:* Mohon transfer tepat *{{formattedAmount}}* (termasuk 3 digit kode unik) agar pembayaran otomatis terverifikasi sistem!\n\n⏱️ *Batas Waktu: 15 Menit!*\nJangan transfer lewat dari 15 menit ya kak agar QRIS tidak kedaluwarsa. Terima kasih banyak sudah berbelanja di {{store}}! 🥰\n\n💡 _Sudah transfer? Ketik */cek* untuk verifikasi pembayaran otomatis jika tertunda._\n💡 _Lupa voucher atau ingin batalkan? Ketik */batal* atau *batal*._",
         "invoiceVoucherLine": "🏷️ Voucher: *{{code}}* (-{{formattedDiscount}})\n",
         "orderCreateError": "❌ Waduh, gagal membuat pesanan kak: {{error}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi dengan */beli* atau */katalog* ya kak.",
         "enterGamertagPrompt": "Silakan masukkan *Gamertag Minecraft Bedrock* kakak ya:",
@@ -200,5 +200,16 @@
     "voucherDeleted": "✅ Voucher *{{code}}* berhasil dinonaktifkan!",
     "commandError": "❌ Terjadi kesalahan saat memproses perintah {{command}}. Mohon coba lagi beberapa saat lagi kak.",
     "unrecognizedCommand": "Perintah tidak dikenali: Waduh, perintah *{{command}}* tidak dikenali nih kak 😊\nKetik */beli* untuk mulai belanja atau */bantuan* untuk melihat panduan ya.",
-    "unrecognizedGroupCommand": "@{{senderPhone}} Maaf kak, perintah *{{command}}* tidak dikenali.\nKetik */help* untuk melihat perintah yang tersedia."
+    "unrecognizedGroupCommand": "@{{senderPhone}} Maaf kak, perintah *{{command}}* tidak dikenali.\nKetik */help* untuk melihat perintah yang tersedia.",
+    "checkPayment": {
+        "success": "✅ *PEMBAYARAN DIVERIFIKASI!* 🎉\n\nPembayaran sebesar *{{formattedAmount}}* untuk pesanan *#{{orderId}}* (*{{itemName}}*) berhasil diverifikasi!\n\n⏳ Pesanan kakak sekarang sedang diproses untuk pengiriman in-game ke The Hive Bedrock.",
+        "alreadyPaid": "✅ Pesanan *#{{orderId}}* sudah terverifikasi dan berstatus *{{status}}* sebelumnya kak 😊",
+        "pending": "⏳ *PEMBAYARAN BELUM TERDETEKSI*\n\nPembayaran sebesar *{{formattedAmount}}* untuk order *#{{orderId}}* belum masuk di mutasi GoPay.\n\n💡 _Jika baru saja transfer, mohon tunggu 1–2 menit lalu ketik */cek* kembali. Pastikan nominal transfer tepat hingga 3 digit terakhir ya kak!_",
+        "cooldown": "⏳ Mohon tunggu *{{seconds}} detik* lagi sebelum mengecek ulang pembayaran pesanan #{{orderId}} ya kak.",
+        "noActiveOrder": "ℹ️ Kakak tidak memiliki pesanan aktif yang sedang menunggu pembayaran.\n\nKetik */katalog* untuk melihat daftar item atau */status* untuk cek pesanan terakhir.",
+        "notFound": "❌ Pesanan *#{{orderId}}* tidak ditemukan nih kak. Mohon periksa kembali nomor ID pesanan kakak ya.",
+        "expired": "⏱️ Pesanan *#{{orderId}}* sudah kedaluwarsa atau dibatalkan.\n\nJika kakak sudah terlanjur transfer setelah kedaluwarsa, silakan ketik */support* untuk bantuan admin.",
+        "error": "❌ Terjadi kendala saat mengecek pembayaran: {{error}}"
+    }
 }
+

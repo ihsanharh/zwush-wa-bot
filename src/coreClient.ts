@@ -9,7 +9,8 @@ import type {
     VoucherItem,
     VoucherStatusResponse,
     VoucherValidationResponse,
-    BotBalanceResponse
+    BotBalanceResponse,
+    OrderCheckPaymentResponse
 } from "./types";
 import { config } from "./config";
 
@@ -452,5 +453,18 @@ export class CoreClient {
             count: data.count,
             orders: data.orders
         };
+    }
+
+    /**
+     * Checks if a pending order has been paid by querying the core GoBiz payment verifier.
+     */
+    async checkOrderPayment(orderId: string): Promise<OrderCheckPaymentResponse> {
+        const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/check-payment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(15000),
+        });
+        const data = (await res.json()) as OrderCheckPaymentResponse;
+        return data;
     }
 }

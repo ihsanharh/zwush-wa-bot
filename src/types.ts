@@ -126,3 +126,18 @@ export interface BotBalanceResponse {
         activeVouchers: number;
     };
 }
+
+export interface OrderCheckPaymentResponse {
+    success: boolean;
+    verified?: boolean;
+    alreadyProcessed?: boolean;
+    code?: string;
+    message?: string;
+    remainingSeconds?: number;
+    order?: OrderStatusResponse["order"];
+    matchedTransaction?: {
+        amount: number;
+        txId: string;
+        time?: string;
+    };
+}

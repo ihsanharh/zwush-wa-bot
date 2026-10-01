@@ -58,7 +58,7 @@
         "confirmReminder": "Please reply *YES* if the details are correct to generate your QRIS 😊\n(Or reply *b* to change gamertag, *c* to cancel)",
         "voucherMatchHint": "💡 Please include the voucher code, e.g. *voucher SAVE10*",
         "voucherProceedHint": "\n\n👉 Reply *YES* to proceed to payment\n👉 Reply *b* to change gamertag, *c* to cancel",
-        "invoiceText": "🧾 *QRIS PAYMENT INVOICE — {{storeUpper}}*\n\nHi! Your order has been successfully created 🎉\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n{{voucherLine}}💰 Total Payment: *{{formattedAmount}}*\n\n⚠️ *CRITICAL:* Transfer the *EXACT* amount *{{formattedAmount}}* (including the last 3 unique digits) so our system can verify your payment automatically!\n\n⏱️ *Time Limit: 15 Minutes!*\nPlease complete the payment within 15 minutes to avoid QRIS expiration. Thank you for shopping with {{store}}! 🥰\n\n💡 _Forgot voucher or want to cancel? Type */cancel* or *cancel*._",
+        "invoiceText": "🧾 *QRIS PAYMENT INVOICE — {{storeUpper}}*\n\nHi! Your order has been successfully created 🎉\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n{{voucherLine}}💰 Total Payment: *{{formattedAmount}}*\n\n⚠️ *CRITICAL:* Transfer the *EXACT* amount *{{formattedAmount}}* (including the last 3 unique digits) so our system can verify your payment automatically!\n\n⏱️ *Time Limit: 15 Minutes!*\nPlease complete the payment within 15 minutes to avoid QRIS expiration. Thank you for shopping with {{store}}! 🥰\n\n💡 _Already transferred? Type */check* to verify your payment if delayed._\n💡 _Forgot voucher or want to cancel? Type */cancel* or *cancel*._",
         "invoiceVoucherLine": "🏷️ Voucher: *{{code}}* (-{{formattedDiscount}})\n",
         "orderCreateError": "❌ Oops, failed to create order: {{error}}\n\n💡 Please wait a moment and try again with */buy* or */katalog*.",
         "enterGamertagPrompt": "Please enter your *Minecraft Bedrock Gamertag*:",
@@ -200,5 +200,16 @@
     "voucherDeleted": "✅ Voucher *{{code}}* has been deactivated successfully!",
     "commandError": "❌ An error occurred while executing {{command}}. Please try again later.",
     "unrecognizedCommand": "Oops, command *{{command}}* was not recognized 😊\nType */buy* to start shopping or */help* for assistance.",
-    "unrecognizedGroupCommand": "@{{senderPhone}} Sorry, command *{{command}}* is not recognized.\nType */help* to view available commands."
+    "unrecognizedGroupCommand": "@{{senderPhone}} Sorry, command *{{command}}* is not recognized.\nType */help* to view available commands.",
+    "checkPayment": {
+        "success": "✅ *PAYMENT VERIFIED!* 🎉\n\nPayment of *{{formattedAmount}}* for order *#{{orderId}}* (*{{itemName}}*) has been successfully verified!\n\n⏳ Your order is now queued for automated delivery to The Hive Bedrock.",
+        "alreadyPaid": "✅ Order *#{{orderId}}* is already verified with status *{{status}}* 😊",
+        "pending": "⏳ *PAYMENT NOT DETECTED YET*\n\nPayment of *{{formattedAmount}}* for order *#{{orderId}}* has not been recorded in our GoPay transactions yet.\n\n💡 _If you just completed the transfer, please wait 1–2 minutes and type */check* again. Please ensure you transferred the EXACT amount including the 3 unique digits!_",
+        "cooldown": "⏳ Please wait *{{seconds}}s* before checking payment for order #{{orderId}} again.",
+        "noActiveOrder": "ℹ️ You do not have an active order awaiting payment.\n\nType */catalog* to browse items or */status* to check previous orders.",
+        "notFound": "❌ Order *#{{orderId}}* was not found. Please double-check your order ID.",
+        "expired": "⏱️ Order *#{{orderId}}* has expired or was cancelled.\n\nIf you already transferred after expiration, please type */support* to connect with store admin.",
+        "error": "❌ An error occurred while checking payment: {{error}}"
+    }
 }
+
