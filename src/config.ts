@@ -14,8 +14,11 @@ export const configSchema = z.object({
         if (typeof val === "string") {
             return val.toLowerCase() === "true" || val === "1";
         }
-        return Boolean(val);
-    }, z.boolean()).default(false)
+        if (typeof val === "boolean") {
+            return val;
+        }
+        return true;
+    }, z.boolean()).default(true)
 });
 
 export type BotConfig = z.infer<typeof configSchema>;

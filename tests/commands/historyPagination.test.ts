@@ -159,6 +159,7 @@ describe("Order History Pagination", () => {
         beforeEach(() => {
             sentButtons = [];
             state = new StateManager();
+            state.setMaintenanceMode(false);
             mockContext = {
                 state,
                 client: {

@@ -10,7 +10,7 @@ describe("Configuration Parser", () => {
         expect(config.WEBHOOK_SECRET).toBe("zwush_secret_key_123");
         expect(config.LOG_GROUP_NAME).toBe("ZwushLogs");
         expect(config.ADMIN_GROUP_NAME).toBe("ZwushAdmin");
-        expect(config.MAINTENANCE_MODE).toBe(false);
+        expect(config.MAINTENANCE_MODE).toBe(true);
     });
 
     it("should accept custom environment variables", () => {
@@ -21,7 +21,7 @@ describe("Configuration Parser", () => {
             LOG_GROUP_NAME: "MyCustomLogs",
             ADMIN_GROUP_NAME: "MyCustomAdmin",
             WEBHOOK_SECRET: "custom_secret",
-            MAINTENANCE_MODE: "true"
+            MAINTENANCE_MODE: "false"
         });
         expect(config.PORT).toBe(3005);
         expect(config.CORE_API_URL).toBe("http://core:3000");
@@ -29,6 +29,6 @@ describe("Configuration Parser", () => {
         expect(config.LOG_GROUP_NAME).toBe("MyCustomLogs");
         expect(config.ADMIN_GROUP_NAME).toBe("MyCustomAdmin");
         expect(config.WEBHOOK_SECRET).toBe("custom_secret");
-        expect(config.MAINTENANCE_MODE).toBe(true);
+        expect(config.MAINTENANCE_MODE).toBe(false);
     });
 });

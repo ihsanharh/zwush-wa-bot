@@ -218,7 +218,14 @@ async function discoverGroups() {
     }
 }
 
-// 4. Paired Authentication Event
+// 4. Paired Authentication & Connection Events
+client.on("connection", async (event) => {
+    if (event.status === "open") {
+        console.log(`✅ Connection open: ${event.reason}`);
+        await discoverGroups();
+    }
+});
+
 client.on("auth_paired", async ({ credentials }) => {
     console.log(`✅ Successfully paired as: ${credentials.meJid}`);
     await discoverGroups();
@@ -316,3 +323,4 @@ console.log(`🚀 Webhook server listening on http://0.0.0.0:${config.PORT}/webh
 
 // 8. Connect to WhatsApp
 await client.connect();
+await discoverGroups();

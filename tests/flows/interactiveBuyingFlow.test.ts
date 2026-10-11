@@ -41,6 +41,7 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
 
     beforeEach(() => {
         state = new StateManager();
+        state.setMaintenanceMode(false);
         sentTexts = [];
         sentLists = [];
         sentButtons = [];
