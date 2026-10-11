@@ -1,7 +1,8 @@
 import type { Command, CommandContext } from "../types";
 import { config } from "../../config";
-import { formatRupiah, formatStatusBadge, t } from "../../i18n";
+import { t } from "../../i18n";
 import { extractPhoneNumber } from "../../utils/messageUtils";
+import { buildOrderHistoryButtons } from "../../utils/interactiveBuilders";
 
 export const historyCommand: Command = {
     name: "/riwayat",
@@ -15,7 +16,7 @@ export const historyCommand: Command = {
             description: "View your order history list"
         }
     },
-    execute: async ({ remoteJid, sender, isGroup, userLang, ctx }: CommandContext) => {
+    execute: async ({ remoteJid, sender, isGroup, userLang, ctx, args }: CommandContext) => {
         const senderPhone = isGroup && sender ? extractPhoneNumber(sender) : "";
         const prefix = senderPhone ? `@${senderPhone}\n\n` : "";
         const mentions = isGroup && sender ? [sender] : undefined;
@@ -28,18 +29,20 @@ export const historyCommand: Command = {
                 return;
             }
 
-            const recent = orders.slice(0, 5);
-            let out = `${prefix}${t("history.title", userLang, { store: config.STORE_NAME })}`;
+            const requestedPage = args && args[0] ? parseInt(args[0], 10) : 1;
+            const page = isNaN(requestedPage) || requestedPage < 1 ? 1 : requestedPage;
 
-            recent.forEach((ord, idx) => {
-                const badge = formatStatusBadge(ord.status, userLang, ord.failureReason);
-                out += `${idx + 1}. *#${ord.id}* — ${badge}\n`;
-                out += `   📦 ${ord.itemName} (${ord.gamertag})\n`;
-                out += `   💰 ${formatRupiah(ord.totalNominal)}\n\n`;
-            });
-
-            out += t("history.footer", userLang);
-            await ctx.sendText(remoteJid, out, mentions);
+            if (ctx.sendButtons) {
+                const historyPayload = buildOrderHistoryButtons(orders, page, 5, userLang);
+                if (prefix) {
+                    historyPayload.interactiveMessage.body.text = prefix + historyPayload.interactiveMessage.body.text;
+                    historyPayload.text = prefix + historyPayload.text;
+                }
+                await ctx.sendButtons(remoteJid, historyPayload);
+            } else {
+                const historyPayload = buildOrderHistoryButtons(orders, page, 5, userLang);
+                await ctx.sendText(remoteJid, prefix + historyPayload.text, mentions);
+            }
         } catch (err: unknown) {
             const errMsg = err instanceof Error ? err.message : String(err);
             await ctx.sendText(

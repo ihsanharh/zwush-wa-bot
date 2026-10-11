@@ -21,6 +21,7 @@ import {
 } from "../utils/formatters";
 import {
     extractMessageText,
+    extractQuotedMessageId,
     isPrivateChat,
     extractEventTimestampSeconds,
     isEventStale,
@@ -35,6 +36,7 @@ import { isLiveChatActive, isAwaitingSupportConfirmation, handleSupportConfirmat
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import statusCommand from "../commands/general/status";
 import cancelCommand from "../commands/general/cancel";
+import checkPaymentCommand from "../commands/general/checkPayment";
 import { isCancelKeyword } from "../i18n";
 
 // Re-exports for backward compatibility
@@ -53,6 +55,7 @@ export {
     renderCategoryItems,
     sendCategoryOrderPoster,
     extractMessageText,
+    extractQuotedMessageId,
     isPrivateChat,
     extractEventTimestampSeconds,
     isEventStale,
@@ -72,6 +75,20 @@ export interface BotContext {
     sendText(jid: string, text: string, mentions?: string[]): Promise<void>;
     sendImage(jid: string, buffer: Buffer, caption?: string): Promise<any>;
     sendPoll?(jid: string, title: string, options: string[]): Promise<void>;
+    sendList?(jid: string, payload: any): Promise<any>;
+    sendButtons?(jid: string, payload: any): Promise<any>;
+    uploadMedia?(buffer: Buffer, mimetype?: string): Promise<any>;
+}
+
+export function isBuyingFlowActive(ctx: BotContext, remoteJid: string): boolean {
+    const session = ctx.state.getSession(remoteJid);
+    const activeOrderId = ctx.state.getActiveOrderId(remoteJid);
+    return (
+        session.step === "AWAITING_GAMERTAG" ||
+        session.step === "AWAITING_CONFIRMATION" ||
+        session.step === "AWAITING_VOUCHER_CODE" ||
+        Boolean(activeOrderId)
+    );
 }
 
 export async function handleIncomingMessage(
@@ -80,13 +97,15 @@ export async function handleIncomingMessage(
     bodyText?: string,
     ctx?: BotContext,
     participant?: string,
-    timestampSeconds?: number
+    timestampSeconds?: number,
+    quotedMessageId?: string
 ): Promise<void> {
     let remoteJid: string | undefined;
     let fromMe = false;
     let text = "";
     let context: BotContext;
     let part = participant;
+    let quotedId = quotedMessageId;
 
     if (typeof remoteJidOrEvent === "string") {
         remoteJid = remoteJidOrEvent;
@@ -104,6 +123,9 @@ export async function handleIncomingMessage(
         part = ev?.key?.participant || ev?.participant;
         text = extractMessageText(ev?.message) || "";
         context = fromMeOrCtx as BotContext;
+        if (!quotedId) {
+            quotedId = extractQuotedMessageId(ev?.message);
+        }
     }
 
     if (!remoteJid || !context) return;
@@ -114,7 +136,7 @@ export async function handleIncomingMessage(
         : remoteJid;
 
     await executeUserSequential(userKey, () =>
-        handleIncomingMessageInternal(remoteJid!, fromMe, text, context, part)
+        handleIncomingMessageInternal(remoteJid!, fromMe, text, context, part, quotedId)
     );
 }
 
@@ -123,7 +145,8 @@ async function handleIncomingMessageInternal(
     fromMe: boolean,
     bodyText: string,
     ctx: BotContext,
-    participant?: string
+    participant?: string,
+    quotedMessageId?: string
 ): Promise<void> {
     const isGroup = remoteJid.endsWith("@g.us");
     if (!isPrivateChat(remoteJid) && !isGroup) {
@@ -139,13 +162,54 @@ async function handleIncomingMessageInternal(
     const userLang = ctx.state.getLanguage(effectiveSender);
     const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
 
+    // If message comes from Admin Group, register the participant as an authorized admin for private chat
+    if (isGroup && ctx.adminLogger && remoteJid === ctx.adminLogger.getAdminGroupJid() && participant) {
+        ctx.adminLogger.addAdminUser(participant);
+    }
+
+    // Maintenance Mode enforcement:
+    // If maintenance mode is active, the bot ONLY responds to admins or in the admin group.
+    // For non-admins:
+    // - In group chats: silently ignore.
+    // - In private chat: send maintenance notice with 5-second cooldown; no greetings or order flows.
+    if (ctx.state.isMaintenanceMode && ctx.state.isMaintenanceMode() && !isAdmin) {
+        if (isGroup) {
+            return;
+        }
+        const now = Date.now();
+        const lastGreeting = ctx.state.getLastGreetingAt(remoteJid) || 0;
+        if (now - lastGreeting < 5000) {
+            return; // 5-second anti-spam cooldown: drop silently
+        }
+        ctx.state.setLastGreetingAt(remoteJid, now);
+        await ctx.sendText(remoteJid, t("maintenanceNotice", userLang, { store: config.STORE_NAME }));
+        return;
+    }
+
     // 1. Group Chat Routing
     if (isGroup) {
         if (!participant) {
             return;
         }
 
+        if (isAdmin && (trimmed.startsWith("admin_") || trimmed.startsWith("cmd_"))) {
+            const handledAdminAction = await handleAdminActionClick(
+                remoteJid,
+                trimmed,
+                effectiveSender,
+                true,
+                userLang,
+                ctx
+            );
+            if (handledAdminAction) return;
+        }
+
         if (!trimmed.startsWith("/")) {
+            return;
+        }
+
+        // Non-admins have no commands in groups
+        if (!isAdmin) {
             return;
         }
 
@@ -159,7 +223,7 @@ async function handleIncomingMessageInternal(
             args,
             rawText: trimmed,
             isGroup: true,
-            isAdmin,
+            isAdmin: true,
             userLang,
             ctx
         });
@@ -204,34 +268,98 @@ async function handleIncomingMessageInternal(
         return;
     }
 
-    // Slash command execution (checked BEFORE buying flow so commands always take precedence)
-    if (trimmed.startsWith("/")) {
-        const parts = trimmed.split(/\s+/);
-        const cmd = parts[0]?.toLowerCase() || "";
-        const args = parts.slice(1);
-
-        const handled = await defaultRegistry.dispatch(cmd, {
+    // Admin action button/list clicks
+    if (isAdmin && (trimmed.startsWith("admin_") || trimmed.startsWith("cmd_"))) {
+        const handledAdminAction = await handleAdminActionClick(
             remoteJid,
-            sender: effectiveSender,
-            args,
-            rawText: trimmed,
-            isGroup: false,
-            isAdmin,
+            trimmed,
+            effectiveSender,
+            false,
             userLang,
             ctx
-        });
+        );
+        if (handledAdminAction) return;
+    }
 
-        if (!handled) {
-            await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
+    const session = ctx.state.getSession(remoteJid);
+    const activeOrderId = ctx.state.getActiveOrderId(remoteJid);
+    const buyingActive = isBuyingFlowActive(ctx, remoteJid);
+
+    // Stale quoted message drop during active buying flow
+    if (buyingActive && quotedMessageId) {
+        if (!ctx.state.isPromptMessageValid(remoteJid, quotedMessageId)) {
+            const expectedPromptId = ctx.state.getPromptMessageId(remoteJid);
+            console.log(`[BuyingFlow] Ignored interaction quoting stale message ${quotedMessageId} (expected ${expectedPromptId}) from ${remoteJid}`);
+            return;
+        }
+    }
+
+    // Slash command execution (STRICTLY FOR ADMINS ONLY - Normal users have ZERO slash commands)
+    if (trimmed.startsWith("/")) {
+        if (isAdmin) {
+            const parts = trimmed.split(/\s+/);
+            const cmd = parts[0]?.toLowerCase() || "";
+            const args = parts.slice(1);
+
+            const handled = await defaultRegistry.dispatch(cmd, {
+                remoteJid,
+                sender: effectiveSender,
+                args,
+                rawText: trimmed,
+                isGroup: false,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+
+            if (!handled) {
+                await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
+            }
+            return;
+        }
+
+        // For normal users (!isAdmin): NO COMMANDS AT ALL!
+        // In active buying flow:
+        if (buyingActive) {
+            if (session.step === "AWAITING_GAMERTAG") {
+                // Pass through to gamertag validation in handleBuyingFlow (will report invalid gamertag)
+            } else {
+                // Silently drop slash commands during confirmation, voucher, or pending payment
+                return;
+            }
+        } else {
+            // When IDLE: slash command attempts are treated as ordinary text (falls through to greeting welcome buttons)
+        }
+    }
+
+    // Quick-reply invoice button check (only allowed if there is an active pending order)
+    if (trimmed === "btn_check_payment" || trimmed === "act_check_status") {
+        if (activeOrderId) {
+            await checkPaymentCommand.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [],
+                rawText: trimmed,
+                isGroup: false,
+                isAdmin,
+                userLang,
+                ctx
+            });
         }
         return;
     }
 
-    // Bare cancel keyword check (language-driven via locale files)
-    if (isCancelKeyword(trimmed, userLang)) {
-        const pendingOrderId = ctx.state.getActiveOrderId(remoteJid);
-        const session = ctx.state.getSession(remoteJid);
-        if (pendingOrderId || (session.step !== "IDLE" && session.step !== "LIVE_CHAT" && session.step !== "AWAITING_SUPPORT_CONFIRMATION" && session.step !== "AWAITING_RETRY_GAMERTAG" && session.step !== "AWAITING_RETRY_CONFIRMATION")) {
+    // Bare cancel keyword or quick-reply cancel button check
+    if (trimmed === "btn_cancel_order" || isCancelKeyword(trimmed, userLang)) {
+        if (
+            trimmed === "btn_cancel_order" ||
+            activeOrderId ||
+            (session.step !== "IDLE" &&
+                session.step !== "LIVE_CHAT" &&
+                session.step !== "AWAITING_SUPPORT_CONFIRMATION" &&
+                session.step !== "AWAITING_RETRY_GAMERTAG" &&
+                session.step !== "AWAITING_RETRY_CONFIRMATION")
+        ) {
             await cancelCommand.execute({
                 remoteJid,
                 sender: effectiveSender,
@@ -242,6 +370,81 @@ async function handleIncomingMessageInternal(
                 userLang,
                 ctx
             });
+            return;
+        }
+    }
+
+    // Quick-entry buttons from welcome greeting (only active when session is IDLE and no active pending order)
+    if (session.step === "IDLE" && !activeOrderId) {
+        if (trimmed === "btn_start_buying") {
+            const { menuCommand } = await import("../commands/general/menu");
+            await menuCommand.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [],
+                rawText: trimmed,
+                isGroup: false,
+                isAdmin,
+                userLang,
+                ctx
+            });
+            return;
+        }
+
+        if (trimmed === "btn_history" || trimmed.startsWith("btn_hist_page_")) {
+            const pageArgs = trimmed.startsWith("btn_hist_page_") ? [trimmed.replace("btn_hist_page_", "")] : [];
+            const { historyCommand } = await import("../commands/general/history");
+            await historyCommand.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: pageArgs,
+                rawText: trimmed,
+                isGroup: false,
+                isAdmin,
+                userLang,
+                ctx
+            });
+            return;
+        }
+
+        if (trimmed === "btn_settings") {
+            if (ctx.sendList) {
+                const { buildSettingsListMenu } = await import("../utils/interactiveBuilders");
+                await ctx.sendList(remoteJid, buildSettingsListMenu(userLang));
+            }
+            return;
+        }
+
+        if (trimmed === "act_switch_lang") {
+            const nextLang: Language = userLang === "id" ? "en" : "id";
+            ctx.state.setLanguage(remoteJid, nextLang);
+            if (ctx.sendButtons) {
+                const { buildWelcomeButtons } = await import("../utils/interactiveBuilders");
+                await ctx.sendButtons(remoteJid, buildWelcomeButtons(nextLang));
+            } else {
+                await ctx.sendText(remoteJid, t("languageSwitched", nextLang));
+            }
+            return;
+        }
+
+        if (trimmed === "act_view_faq") {
+            const faqText = t("faqMessage", userLang, { storeUpper: config.STORE_NAME.toUpperCase() });
+            await ctx.sendText(remoteJid, faqText);
+            return;
+        }
+
+        if (trimmed === "btn_help") {
+            if (ctx.sendButtons) {
+                const { buildWelcomeButtons } = await import("../utils/interactiveBuilders");
+                await ctx.sendButtons(remoteJid, buildWelcomeButtons(userLang));
+            } else {
+                await ctx.sendText(remoteJid, t("greeting", userLang));
+            }
+            return;
+        }
+
+        // Stale interactive button/list clicks when session is IDLE are silently dropped
+        if (/^(btn_|act_|opt_)/.test(trimmed)) {
             return;
         }
     }
@@ -262,25 +465,189 @@ async function handleIncomingMessageInternal(
     // Bare order ID inquiry (e.g. user sends "ORD-ABC123" or "#ORD-ABC123")
     const orderMatch = trimmed.match(/^#?(ORD-[A-Z0-9]{4,10})$/i);
     if (orderMatch && orderMatch[1]) {
-        await statusCommand.execute({
-            remoteJid,
-            sender: effectiveSender,
-            args: [orderMatch[1].toUpperCase()],
-            rawText: trimmed,
-            isGroup: false,
-            isAdmin,
-            userLang,
-            ctx
-        });
+        if (!buyingActive) {
+            await statusCommand.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [orderMatch[1].toUpperCase()],
+                rawText: trimmed,
+                isGroup: false,
+                isAdmin,
+                userLang,
+                ctx
+            });
+        }
         return;
     }
 
-    // Natural greeting check (e.g. "halo", "hai", "p")
-    if (GREETINGS.includes(lower)) {
-        await ctx.sendText(remoteJid, t("greeting", userLang));
+    // When IDLE: any message received triggers the welcome interactive greeting (with 5-second anti-spam cooldown)
+    if (session.step === "IDLE" && !activeOrderId) {
+        const now = Date.now();
+        const lastGreeting = ctx.state.getLastGreetingAt(remoteJid) || 0;
+        if (now - lastGreeting < 5000) {
+            return; // 5-second anti-spam cooldown: silently drop to avoid flooding customer
+        }
+        ctx.state.setLastGreetingAt(remoteJid, now);
+
+        if (ctx.sendButtons) {
+            const { buildWelcomeButtons } = await import("../utils/interactiveBuilders");
+            await ctx.sendButtons(remoteJid, buildWelcomeButtons(userLang));
+        } else {
+            await ctx.sendText(remoteJid, t("greeting", userLang));
+        }
         return;
     }
 
     // Non-command, non-greeting messages outside active flow are ignored
     return;
+}
+
+async function handleAdminActionClick(
+    remoteJid: string,
+    actionId: string,
+    effectiveSender: string,
+    isGroup: boolean,
+    userLang: Language,
+    ctx: BotContext
+): Promise<boolean> {
+    if (actionId.startsWith("admin_reprocess_") || actionId.startsWith("btn_admin_reprocess_")) {
+        const orderId = actionId.replace(/^(btn_)?admin_reprocess_/, "");
+        const cmd = defaultRegistry.get("/reprocess");
+        if (cmd) {
+            await cmd.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [orderId],
+                rawText: `/reprocess ${orderId}`,
+                isGroup,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+        }
+        return true;
+    }
+
+    if (actionId.startsWith("admin_done_") || actionId.startsWith("btn_admin_done_")) {
+        const orderId = actionId.replace(/^(btn_)?admin_done_/, "");
+        const cmd = defaultRegistry.get("/done");
+        if (cmd) {
+            await cmd.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [orderId],
+                rawText: `/done ${orderId}`,
+                isGroup,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+        }
+        return true;
+    }
+
+    if (actionId.startsWith("admin_cancel_") || actionId.startsWith("btn_admin_cancel_")) {
+        const orderId = actionId.replace(/^(btn_)?admin_cancel_/, "");
+        const cmd = defaultRegistry.get("/batal") || defaultRegistry.get("/cancel");
+        if (cmd) {
+            await cmd.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [orderId],
+                rawText: `/cancel ${orderId}`,
+                isGroup,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+        }
+        return true;
+    }
+
+    if (actionId === "cmd_orders_pending") {
+        const cmd = defaultRegistry.get("/orders");
+        if (cmd) {
+            await cmd.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: ["pending"],
+                rawText: "/orders pending",
+                isGroup,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+        }
+        return true;
+    }
+
+    if (actionId === "cmd_reprocess_all") {
+        const cmd = defaultRegistry.get("/reprocess");
+        if (cmd) {
+            await cmd.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: ["all"],
+                rawText: "/reprocess all",
+                isGroup,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+        }
+        return true;
+    }
+
+    if (actionId === "cmd_paid_latest") {
+        const cmd = defaultRegistry.get("/paid");
+        if (cmd) {
+            await cmd.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [],
+                rawText: "/paid",
+                isGroup,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+        }
+        return true;
+    }
+
+    if (actionId === "cmd_done_latest") {
+        const cmd = defaultRegistry.get("/done");
+        if (cmd) {
+            await cmd.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [],
+                rawText: "/done",
+                isGroup,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+        }
+        return true;
+    }
+
+    if (actionId === "cmd_livechats") {
+        const cmd = defaultRegistry.get("/livechats");
+        if (cmd) {
+            await cmd.execute({
+                remoteJid,
+                sender: effectiveSender,
+                args: [],
+                rawText: "/livechats",
+                isGroup,
+                isAdmin: true,
+                userLang,
+                ctx
+            });
+        }
+        return true;
+    }
+
+    return false;
 }

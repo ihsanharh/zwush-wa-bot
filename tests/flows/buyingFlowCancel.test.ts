@@ -23,6 +23,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
                         name: "Wolfy",
                         category: "Regular Costume",
                         tokenCost: 1,
+                        minecoins: 0,
                         rupiahPrice: 8500,
                         originalPrice: 17000,
                         discountPercent: 50,
@@ -48,6 +49,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
                 name: "Wolfy",
                 category: "Regular Costume",
                 tokenCost: 1,
+                minecoins: 0,
                 rupiahPrice: 8500,
                 originalPrice: 17000,
                 discountPercent: 50,
@@ -64,7 +66,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
             const session = state.getSession(testJid);
             expect(session.step).toBe("IDLE");
             expect(sentTexts.length).toBe(1);
-            expect(sentTexts[0].text).toBe(t("cancelSuccess", "id"));
+            expect(sentTexts[0]!.text).toBe(t("cancelSuccess", "id"));
         });
 
         it("typing 'B' (uppercase) should cancel the order session", async () => {
@@ -73,7 +75,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
 
             const session = state.getSession(testJid);
             expect(session.step).toBe("IDLE");
-            expect(sentTexts[0].text).toBe(t("cancelSuccess", "id"));
+            expect(sentTexts[0]!.text).toBe(t("cancelSuccess", "id"));
         });
 
         it("typing 'batal' should cancel the order session", async () => {
@@ -82,15 +84,15 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
 
             const session = state.getSession(testJid);
             expect(session.step).toBe("IDLE");
-            expect(sentTexts[0].text).toBe(t("cancelSuccess", "id"));
+            expect(sentTexts[0]!.text).toBe(t("cancelSuccess", "id"));
         });
 
-        it("typing 'k' should go back to item selection (AWAITING_ITEM)", async () => {
+        it("typing 'k' should go back to item selection", async () => {
             const handled = await handleBuyingFlow(testJid, false, "k", mockContext, "id");
             expect(handled).toBe(true);
 
             const session = state.getSession(testJid);
-            expect(session.step).toBe("AWAITING_ITEM");
+            expect(session.step).toBe("IDLE");
         });
     });
 
@@ -103,6 +105,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
                 name: "Wolfy",
                 category: "Regular Costume",
                 tokenCost: 1,
+                minecoins: 0,
                 rupiahPrice: 8500,
                 originalPrice: 17000,
                 discountPercent: 50,
@@ -119,7 +122,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
 
             const session = state.getSession(testJid);
             expect(session.step).toBe("IDLE");
-            expect(sentTexts[0].text).toBe(t("cancelSuccess", "id"));
+            expect(sentTexts[0]!.text).toBe(t("cancelSuccess", "id"));
         });
 
         it("typing 'batal' should cancel the order session", async () => {
@@ -128,7 +131,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
 
             const session = state.getSession(testJid);
             expect(session.step).toBe("IDLE");
-            expect(sentTexts[0].text).toBe(t("cancelSuccess", "id"));
+            expect(sentTexts[0]!.text).toBe(t("cancelSuccess", "id"));
         });
 
         it("typing 'k' should go back to gamertag input (AWAITING_GAMERTAG)", async () => {
@@ -137,7 +140,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
 
             const session = state.getSession(testJid);
             expect(session.step).toBe("AWAITING_GAMERTAG");
-            expect(sentTexts[0].text).toContain("Gamertag Minecraft");
+            expect(sentTexts[0]!.text).toContain("Gamertag Minecraft");
         });
     });
 
@@ -159,7 +162,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
 
             const session = state.getSession(testJid);
             expect(session.retryOrder).toBeUndefined();
-            expect(sentTexts[0].text).toBe(t("buying.retryCancelled", "id"));
+            expect(sentTexts[0]!.text).toBe(t("buying.retryCancelled", "id"));
         });
 
         it("typing 'k' should return to AWAITING_RETRY_GAMERTAG", async () => {
@@ -180,6 +183,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
                 name: "Wolfy",
                 category: "Regular Costume",
                 tokenCost: 1,
+                minecoins: 0,
                 rupiahPrice: 8500,
                 originalPrice: 17000,
                 discountPercent: 50,
@@ -194,7 +198,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
             expect(handled).toBe(true);
 
             const session = state.getSession(testJid);
-            expect(session.step).toBe("AWAITING_ITEM");
+            expect(session.step).toBe("IDLE");
         });
 
         it("typing 'back' in English should go BACK to item selection", async () => {
@@ -202,7 +206,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
             expect(handled).toBe(true);
 
             const session = state.getSession(testJid);
-            expect(session.step).toBe("AWAITING_ITEM");
+            expect(session.step).toBe("IDLE");
         });
 
         it("typing 'c' in English should CANCEL the session", async () => {
@@ -211,7 +215,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
 
             const session = state.getSession(testJid);
             expect(session.step).toBe("IDLE");
-            expect(sentTexts[0].text).toBe(t("cancelSuccess", "en"));
+            expect(sentTexts[0]!.text).toBe(t("cancelSuccess", "en"));
         });
 
         it("typing 'cancel' in English should CANCEL the session", async () => {
@@ -220,7 +224,7 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
 
             const session = state.getSession(testJid);
             expect(session.step).toBe("IDLE");
-            expect(sentTexts[0].text).toBe(t("cancelSuccess", "en"));
+            expect(sentTexts[0]!.text).toBe(t("cancelSuccess", "en"));
         });
     });
 });

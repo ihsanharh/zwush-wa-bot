@@ -89,7 +89,13 @@ export const catalogCommand: Command = {
                 }
             }
 
-            await ctx.sendText(targetJid, t("catalog.instruction", userLang));
+            if (ctx.sendList) {
+                ctx.state.startBuyingFlow(targetJid);
+                const { buildCategoryListMenu } = await import("../../utils/interactiveBuilders");
+                await ctx.sendList(targetJid, buildCategoryListMenu(CATEGORIES, userLang));
+            } else {
+                await ctx.sendText(targetJid, t("catalog.instruction", userLang));
+            }
 
         } catch (err: unknown) {
             const errMsg = err instanceof Error ? err.message : String(err);

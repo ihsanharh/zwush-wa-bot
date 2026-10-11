@@ -71,8 +71,11 @@ export const helpCommand: Command = {
             out += `• *${displayName}* : ${desc}\n`;
         }
 
-        // Navigation shortcuts (b / k or c / b)
-        out += "\n" + t("help.navigationShortcuts", userLang);
+        // Navigation shortcuts (if defined)
+        const navShortcuts = t("help.navigationShortcuts", userLang);
+        if (navShortcuts && navShortcuts.trim()) {
+            out += "\n" + navShortcuts;
+        }
 
         // Format admin commands dynamically if caller is admin
         if (isAdmin && adminCmds.length > 0) {

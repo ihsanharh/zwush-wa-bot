@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { ConsoleLogger, createStore, WaClient } from "zapo-js";
 import { createSqliteStore } from "@zapo-js/store-sqlite";
 import qrcodeTerminal from "qrcode-terminal";
@@ -8,6 +10,7 @@ import { createWebhookApp, type BotMessageSender } from "./handlers/webhook";
 import {
     handleIncomingMessage,
     extractMessageText,
+    extractQuotedMessageId,
     extractEventTimestampSeconds,
     isEventStale,
     type BotContext
@@ -16,10 +19,16 @@ import { AdminGroupLogger } from "./handlers/adminLogger";
 
 console.log(`⚡ Starting ${config.STORE_NAME} WhatsApp Bot...`);
 
+// Ensure auth directory exists
+const authDir = path.dirname(config.AUTH_PATH);
+if (!fs.existsSync(authDir)) {
+    fs.mkdirSync(authDir, { recursive: true });
+}
+
 // 1. Initialize SQLite Session Store for zapo-js
 const store = createStore({
     backends: {
-        sqlite: createSqliteStore({ path: "./.auth/state.sqlite" })
+        sqlite: createSqliteStore({ path: config.AUTH_PATH })
     },
     providers: {
         auth: "sqlite",
@@ -62,6 +71,14 @@ const adminLogger = new AdminGroupLogger(
                 console.warn(`[Admin Logger] Failed to fetch participants for ${jid}:`, err);
                 return [];
             }
+        },
+        async getGroupMetadata(jid: string) {
+            try {
+                return await client.group.queryGroupMetadata(jid);
+            } catch (err: unknown) {
+                console.warn(`[Admin Logger] Failed to fetch group metadata for ${jid}:`, err);
+                return null;
+            }
         }
     }
 );
@@ -102,6 +119,51 @@ const botContext: BotContext = {
             name: title,
             options,
             selectableCount: 1
+        });
+    },
+    async sendList(jid: string, payload: { listMessage: any }) {
+        console.log(`[WhatsApp Sending List to ${jid}]: ${payload.listMessage?.title}`);
+        return await client.message.send(jid, payload);
+    },
+    async sendButtons(jid: string, payload: { interactiveMessage?: any; buttonsMessage?: any; headerImage?: Buffer }) {
+        if (payload.headerImage && payload.interactiveMessage && !payload.interactiveMessage.header) {
+            try {
+                const uploaded = await client.message.upload(payload.headerImage, {
+                    type: "image",
+                    mimetype: "image/png"
+                });
+                payload.interactiveMessage.header = {
+                    hasMediaAttachment: true,
+                    imageMessage: {
+                        url: uploaded.url,
+                        directPath: uploaded.directPath,
+                        mediaKey: uploaded.mediaKey,
+                        fileSha256: uploaded.fileSha256,
+                        fileEncSha256: uploaded.fileEncSha256,
+                        fileLength: uploaded.fileLength,
+                        mimetype: "image/png"
+                    }
+                };
+            } catch (err) {
+                console.warn(`[WhatsApp sendButtons] Failed to upload header image, sending without image header:`, err);
+            }
+        }
+
+        const text =
+            payload.interactiveMessage?.body?.text ||
+            payload.buttonsMessage?.text ||
+            payload.buttonsMessage?.contentText ||
+            "";
+        console.log(`[WhatsApp Sending Buttons to ${jid}]:\n${text ? text.slice(0, 100) + "..." : "(buttons)"}`);
+        return await client.message.send(jid, {
+            interactiveMessage: payload.interactiveMessage,
+            ...(payload.buttonsMessage ? { buttonsMessage: payload.buttonsMessage } : {})
+        });
+    },
+    async uploadMedia(buffer: Buffer, mimetype: string = "image/png") {
+        return await client.message.upload(buffer, {
+            type: "image",
+            mimetype
         });
     }
 };
@@ -145,6 +207,11 @@ async function discoverGroups() {
             }
         } else {
             console.log(`[Groups] Admin Group already configured: ${adminLogger.getAdminGroupJid()}`);
+        }
+
+        if (adminLogger.getAdminGroupJid()) {
+            await adminLogger.syncAdminParticipants();
+            console.log(`[Groups] Synced admin participants (total identities: ${adminLogger.getAllAdminIdentities().length})`);
         }
     } catch (err: unknown) {
         console.error("[Groups] Failed to auto-discover groups:", err);
@@ -200,9 +267,10 @@ client.on("message", async (event) => {
         }
 
         const tsSec = extractEventTimestampSeconds(event) ?? undefined;
-        console.log(`[WhatsApp Message Event] from: ${remoteJid}, participant: ${participant}, fromMe: ${fromMe}, text: "${text}"`);
+        const quotedId = extractQuotedMessageId(event.message);
+        console.log(`[WhatsApp Message Event] from: ${remoteJid}, participant: ${participant}, fromMe: ${fromMe}, text: "${text}"${quotedId ? `, quotedId: ${quotedId}` : ""}`);
 
-        await handleIncomingMessage(remoteJid, fromMe, text, botContext, participant, tsSec);
+        await handleIncomingMessage(remoteJid, fromMe, text, botContext, participant, tsSec, quotedId);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[Message Event Error]:", msg);
@@ -248,4 +316,3 @@ console.log(`🚀 Webhook server listening on http://0.0.0.0:${config.PORT}/webh
 
 // 8. Connect to WhatsApp
 await client.connect();
-await discoverGroups();

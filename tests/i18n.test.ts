@@ -16,14 +16,14 @@ describe("i18n Module", () => {
     it("should provide Indonesian texts by default", () => {
         const text = t("helpMessage", "id");
         expect(text).toContain("BANTUAN ZWUSH STORE");
-        expect(text).toContain("/beli");
+        expect(text).toContain("Beli Kosmetik");
         expect(text).toContain("admin");
     });
 
     it("should provide English texts when lang is en", () => {
         const text = t("helpMessage", "en");
         expect(text).toContain("ZWUSH STORE HELP");
-        expect(text).toContain("/buy");
+        expect(text).toContain("Buy Cosmetics");
         expect(text).toContain("admin team");
     });
 
@@ -41,12 +41,10 @@ describe("i18n Module", () => {
 
     it("should provide cross-language hints", () => {
         const idHint = t("crossLanguageHint", "id");
-        expect(idHint).toContain("*/beli*");
-        expect(idHint).toContain("*/bahasa en*");
+        expect(idHint).toContain("Bahasa Indonesia");
 
         const enHint = t("crossLanguageHint", "en");
-        expect(enHint).toContain("*/buy*");
-        expect(enHint).toContain("*/language id*");
+        expect(enHint).toContain("English");
     });
 
     it("should provide group checkout redirection text with mention", () => {

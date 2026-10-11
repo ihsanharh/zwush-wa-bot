@@ -1,10 +1,11 @@
 import { t, type Language } from "../i18n";
+import { config } from "../config";
 import type { AdminGroupLogger } from "../handlers/adminLogger";
 import type { BotContext } from "../handlers/message";
 
 export const GREETINGS = [
-    "halo", "halo kak", "halo min", "hai", "hai kak", "hi", "hi kak", "hey",
-    "p", "tes", "test", "assalamualaikum", "assalamu'alaikum",
+    "halo", "halo kak", "halo min", "hai", "hai kak", "hi", "hi kak", "hey", "hello", "hei",
+    "p", "tes", "test", "min", "bot", "assalamualaikum", "assalamu'alaikum",
     "selamat pagi", "pagi", "selamat siang", "siang", "selamat sore", "sore", "selamat malam", "malam"
 ];
 
@@ -46,7 +47,75 @@ export function extractMessageText(message: unknown): string {
         return video.caption;
     }
 
+    // 1. List Response (Single select drawer rowId)
+    const listResponse = innerObj.listResponseMessage as Record<string, any> | undefined;
+    if (listResponse?.singleSelectReply?.selectedRowId) {
+        return String(listResponse.singleSelectReply.selectedRowId);
+    }
+
+    // 2. Buttons Response (Quick reply buttonId)
+    const buttonsResponse = innerObj.buttonsResponseMessage as Record<string, any> | undefined;
+    if (buttonsResponse?.selectedButtonId) {
+        return String(buttonsResponse.selectedButtonId);
+    }
+    if (buttonsResponse?.selectedDisplayText) {
+        return String(buttonsResponse.selectedDisplayText);
+    }
+
+    // 3. Interactive Response (Native flow paramsJson)
+    const interactiveResponse = innerObj.interactiveResponseMessage as Record<string, any> | undefined;
+    const nativeFlowResponse = interactiveResponse?.nativeFlowResponseMessage as Record<string, any> | undefined;
+    if (nativeFlowResponse?.paramsJson) {
+        try {
+            const parsed = typeof nativeFlowResponse.paramsJson === "string"
+                ? JSON.parse(nativeFlowResponse.paramsJson)
+                : nativeFlowResponse.paramsJson;
+            if (parsed?.id) return String(parsed.id);
+            if (parsed?.selected_row_id) return String(parsed.selected_row_id);
+            if (parsed?.selectedRowId) return String(parsed.selectedRowId);
+        } catch {
+            // ignore JSON parse error
+        }
+    }
+
+    // 4. Template Button Reply (selectedId)
+    const templateButtonReply = innerObj.templateButtonReplyMessage as Record<string, any> | undefined;
+    if (templateButtonReply?.selectedId) {
+        return String(templateButtonReply.selectedId);
+    }
+    if (templateButtonReply?.selectedDisplayText) {
+        return String(templateButtonReply.selectedDisplayText);
+    }
+
     return "";
+}
+
+/**
+ * Safely extracts the quoted stanza ID (message ID) from an incoming WhatsApp message payload.
+ */
+export function extractQuotedMessageId(message: unknown): string | undefined {
+    if (!message || typeof message !== "object") return undefined;
+    const msgObj = message as Record<string, any>;
+
+    const innerMsg =
+        msgObj.ephemeralMessage?.message ??
+        msgObj.viewOnceMessage?.message ??
+        msgObj.viewOnceMessageV2?.message ??
+        msgObj.documentWithCaptionMessage?.message ??
+        msgObj;
+
+    if (!innerMsg || typeof innerMsg !== "object") return undefined;
+
+    const stanzaId =
+        innerMsg.interactiveResponseMessage?.contextInfo?.stanzaId ||
+        innerMsg.buttonsResponseMessage?.contextInfo?.stanzaId ||
+        innerMsg.listResponseMessage?.contextInfo?.stanzaId ||
+        innerMsg.templateButtonReplyMessage?.contextInfo?.stanzaId ||
+        innerMsg.extendedTextMessage?.contextInfo?.stanzaId ||
+        innerMsg.contextInfo?.stanzaId ||
+        msgObj.contextInfo?.stanzaId;
+
+    return stanzaId ? String(stanzaId) : undefined;
 }
 
 /**
@@ -129,6 +198,10 @@ export function extractPhoneNumber(jidOrPhone: string): string {
 
 /**
  * Checks if the message sender is an authorized administrator.
+ * Recognizes:
+ * - Bot self messages (fromMe)
+ * - Any sender inside the Admin Command Group
+ * - Any registered admin group participant (in group or private 1:1 chat)
  */
 export function isUserAdmin(
     remoteJid: string,
@@ -138,13 +211,19 @@ export function isUserAdmin(
 ): boolean {
     if (fromMe) return true;
 
-    // Anyone inside the Admin Command Group is authorized ("superpower")
+    // Anyone inside the Admin Command Group or tracked admin participants
     if (adminLogger) {
         if (adminLogger.getAdminGroupJid && adminLogger.getAdminGroupJid() && remoteJid === adminLogger.getAdminGroupJid()) {
             return true;
         }
         // Fallback for mocks where only getGroupJid is implemented
         if (!adminLogger.getAdminGroupJid && adminLogger.getGroupJid && remoteJid === adminLogger.getGroupJid()) {
+            return true;
+        }
+        if (effectiveSender && adminLogger.isAdminUser && adminLogger.isAdminUser(effectiveSender)) {
+            return true;
+        }
+        if (remoteJid && adminLogger.isAdminUser && adminLogger.isAdminUser(remoteJid)) {
             return true;
         }
     }

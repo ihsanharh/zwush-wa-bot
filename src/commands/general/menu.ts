@@ -31,17 +31,28 @@ export const menuCommand: Command = {
             const groupNotice = t("groupCheckoutRedirection", userLang, { phone: senderPhone });
             await ctx.sendText(remoteJid, groupNotice, [sender]);
 
-            ctx.state.startBuyingFlow(sender);
-            const dmMenu = renderOrderCategoryMenu(userLang);
-            await ctx.sendText(sender, dmMenu);
+            if (ctx.sendList) {
+                const { buildCategoryListMenu } = await import("../../utils/interactiveBuilders");
+                await ctx.sendList(sender, buildCategoryListMenu(CATEGORIES, userLang));
+            } else {
+                const dmMenu = renderOrderCategoryMenu(userLang);
+                await ctx.sendText(sender, dmMenu);
+            }
             return;
         }
 
         if (filterQuery) {
             const cat = resolveCategory(filterQuery, CATEGORIES);
             if (cat) {
-                ctx.state.setCategory(remoteJid, cat.dbCategory);
+                const session = ctx.state.getSession(remoteJid);
+                session.selectedCategory = cat.dbCategory;
+                session.catalogPage = 1;
                 await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
+                if (ctx.sendList) {
+                    const { buildPaginatedItemListMenu } = await import("../../utils/interactiveBuilders");
+                    const catalog = await ctx.client.getCatalog();
+                    await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, 1, 8, userLang));
+                }
                 return;
             }
 
@@ -55,8 +66,12 @@ export const menuCommand: Command = {
             return;
         }
 
-        ctx.state.startBuyingFlow(remoteJid);
-        await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+        if (ctx.sendList) {
+            const { buildCategoryListMenu } = await import("../../utils/interactiveBuilders");
+            await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
+        } else {
+            await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+        }
     },
 };
 

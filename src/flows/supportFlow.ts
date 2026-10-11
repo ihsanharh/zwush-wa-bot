@@ -24,9 +24,11 @@ export async function handleSupportConfirmation(
         return false;
     }
 
-    const lower = text.trim().toLowerCase();
+    const trimmed = text.trim();
+    const lower = trimmed.toLowerCase();
 
     const isYes =
+        trimmed === "btn_support_confirm" ||
         lower === "ya" ||
         lower === "yes" ||
         lower === "y" ||
@@ -37,6 +39,7 @@ export async function handleSupportConfirmation(
         lower === "siap";
 
     const isCancel =
+        trimmed === "btn_support_cancel" ||
         lower === "batal" ||
         lower === "cancel" ||
         lower === "tidak" ||
@@ -64,7 +67,7 @@ export async function handleSupportConfirmation(
                 platformUserId: effectiveSender || remoteJid,
                 reason: retry?.attempts && retry.attempts >= 3
                     ? `Gamertag tidak ditemukan di The Hive setelah ${retry.attempts}x percobaan`
-                    : "Pelanggan menyetujui masuk ke mode Live Chat Support via /support"
+                    : "Pelanggan menyetujui masuk ke mode Live Chat Support"
             });
         }
         return true;

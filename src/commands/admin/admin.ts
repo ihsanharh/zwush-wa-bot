@@ -51,7 +51,13 @@ export const adminCommand: Command = {
         out += `👤 Status: *${statusText}*\n`;
         if (phoneLine) out += phoneLine;
         out += `👥 Admin Group: *${adminStatus}*\n`;
-        out += `📋 Log Group: *${logStatus}*\n\n`;
+        out += `📋 Log Group: *${logStatus}*\n`;
+
+        const isMaint = ctx.state.isMaintenanceMode ? ctx.state.isMaintenanceMode() : false;
+        const maintStatus = isMaint
+            ? (isEnglish ? "🔴 Active (Restricted to Admins)" : "🔴 Aktif (Khusus Admin)")
+            : (isEnglish ? "🟢 Normal (Public Open)" : "🟢 Nonaktif (Normal)");
+        out += `🔧 Mode: *${maintStatus}*\n\n`;
 
         const adminCmds = defaultRegistry.getAll().filter((c) => c.adminOnly && c.name !== "/admin");
         adminCmds.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
@@ -74,6 +80,10 @@ export const adminCommand: Command = {
         }
 
         await ctx.sendText(remoteJid, out.trim());
+        if (ctx.sendList) {
+            const { buildAdminPanelMenu } = await import("../../utils/interactiveBuilders");
+            await ctx.sendList(remoteJid, buildAdminPanelMenu(userLang));
+        }
     },
 };
 

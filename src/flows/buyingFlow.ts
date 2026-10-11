@@ -6,7 +6,15 @@ import { generateQrisBuffer } from "../qr";
 import { getItemImageBuffer, resolveItemImageUrl } from "../poster";
 import { CATEGORIES, resolveCategory } from "../utils/categories";
 import { sendCategoryOrderPoster, renderOrderCategoryMenu } from "../utils/formatters";
-import { supportCommand } from "../commands/general/support";
+import { GREETINGS } from "../utils/messageUtils";
+import {
+    buildCategoryListMenu,
+    buildPaginatedItemListMenu,
+    buildGamertagPromptButtons,
+    buildOrderConfirmationButtons,
+    buildModifyOrderListMenu,
+    buildInvoiceButtons
+} from "../utils/interactiveBuilders";
 
 export async function handleBuyingFlow(
     remoteJid: string,
@@ -21,41 +29,217 @@ export async function handleBuyingFlow(
     const lower = trimmed.toLowerCase();
     const session = ctx.state.getSession(remoteJid);
 
-    // If IDLE, buying flow is not active; user must use /beli to start ordering
-    if (session.step === "IDLE") {
+    // 0. Stateless Catalog Browsing (only handled when session is IDLE and no active pending order)
+    if (session.step === "IDLE" && !ctx.state.getActiveOrderId(remoteJid)) {
+        if (trimmed.startsWith("cat_")) {
+            const catId = trimmed.replace(/^cat_/, "");
+            const cat =
+                CATEGORIES.find(
+                    (c) => c.dbCategory.toLowerCase() === catId.toLowerCase() || String(c.id) === catId
+                ) || resolveCategory(catId, CATEGORIES);
+
+            if (cat) {
+                session.selectedCategory = cat.dbCategory;
+                session.catalogPage = 1;
+                await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
+                const catalog = await ctx.client.getCatalog();
+                if (ctx.sendList) {
+                    await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, 1, 8, userLang));
+                }
+                return true;
+            }
+            return true;
+        }
+
+        if (trimmed === "nav_change_cat") {
+            if (ctx.sendList) {
+                await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
+            } else {
+                await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+            }
+            return true;
+        }
+
+        if (trimmed.startsWith("nav_page_")) {
+            const pageNum = parseInt(trimmed.replace(/^nav_page_/, ""), 10) || 1;
+            ctx.state.setCatalogPage(remoteJid, pageNum);
+            const cat = CATEGORIES.find((c) => c.dbCategory === session.selectedCategory);
+            if (cat) {
+                const catalog = await ctx.client.getCatalog();
+                if (ctx.sendList) {
+                    await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, pageNum, 8, userLang));
+                }
+            }
+            return true;
+        }
+
+        if (trimmed.startsWith("item_")) {
+            const itemId = trimmed.replace(/^item_/, "");
+            const catalog = await ctx.client.getCatalog();
+            const selectedCat = session.selectedCategory;
+            const categoryItems = selectedCat
+                ? catalog.filter((i) => i.active && i.category === selectedCat)
+                : catalog.filter((i) => i.active);
+
+            const selected =
+                categoryItems.find(
+                    (i) =>
+                        String(i.id) === itemId ||
+                        i.name.toLowerCase() === itemId.toLowerCase() ||
+                        (i.sku && i.sku.toLowerCase() === itemId.toLowerCase())
+                ) ||
+                catalog.find(
+                    (i) =>
+                        String(i.id) === itemId ||
+                        i.name.toLowerCase() === itemId.toLowerCase() ||
+                        (i.sku && i.sku.toLowerCase() === itemId.toLowerCase())
+                );
+
+            if (selected) {
+                ctx.state.setItem(remoteJid, selected);
+                if (selected.category) {
+                    session.selectedCategory = selected.category;
+                    const catItems = catalog.filter((i) => i.active && i.category === selected.category);
+                    const idx = catItems.findIndex((i) => i.id === selected.id || i.name === selected.name);
+                    if (idx >= 0) {
+                        ctx.state.setCatalogPage(remoteJid, Math.floor(idx / 8) + 1);
+                    }
+                }
+
+                // Auto-revalidate applied voucher if user changed item
+                if (session.appliedVoucherCode) {
+                    try {
+                        const res = await ctx.client.validateVoucher(session.appliedVoucherCode, selected.name);
+                        ctx.state.setAppliedVoucher(remoteJid, {
+                            code: res.code,
+                            discountNominal: res.discountNominal,
+                            finalPrice: res.finalPrice
+                        });
+                    } catch {
+                        ctx.state.clearAppliedVoucher(remoteJid);
+                    }
+                }
+
+                // If user already entered gamertag previously, skip gamertag prompt and go directly to confirmation
+                if (session.gamertag) {
+                    session.step = "AWAITING_CONFIRMATION";
+                    const appliedVoucher = session.appliedVoucher;
+                    let voucherLine = "";
+                    if (appliedVoucher) {
+                        voucherLine = t("buying.invoiceVoucherLine", userLang, {
+                            code: appliedVoucher.code,
+                            formattedDiscount: formatRupiah(appliedVoucher.discountNominal)
+                        });
+                    }
+
+                    const summaryText = t("buying.confirmPrompt", userLang, {
+                        itemName: selected.name,
+                        gamertag: session.gamertag,
+                        formattedPrice: formatRupiah(appliedVoucher ? appliedVoucher.finalPrice : selected.rupiahPrice),
+                        voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
+                    });
+
+                    if (ctx.sendButtons) {
+                        const sent = await ctx.sendButtons(
+                            remoteJid,
+                            buildOrderConfirmationButtons(summaryText, Boolean(appliedVoucher), userLang)
+                        );
+                        const msgId = sent?.key?.id || sent?.id;
+                        if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+                    } else {
+                        await ctx.sendText(remoteJid, summaryText);
+                    }
+                    return true;
+                }
+
+                const promptText = t("buying.gamertagPrompt", userLang, {
+                    itemName: selected.name,
+                    rupiahPrice: formatRupiah(selected.rupiahPrice),
+                    discountPercent: selected.discountPercent,
+                    originalPrice: formatRupiah(selected.originalPrice)
+                });
+
+                const imgUrl = resolveItemImageUrl(selected);
+                let previewBuffer: Buffer | null = null;
+                try {
+                    previewBuffer = await getItemImageBuffer(imgUrl);
+                } catch {
+                    previewBuffer = null;
+                }
+
+                if (ctx.sendButtons) {
+                    const sent = await ctx.sendButtons(
+                        remoteJid,
+                        buildGamertagPromptButtons(promptText, userLang, previewBuffer || undefined)
+                    );
+                    const msgId = sent?.key?.id || sent?.id;
+                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+                } else if (previewBuffer) {
+                    await ctx.sendImage(remoteJid, previewBuffer, promptText);
+                } else {
+                    await ctx.sendText(remoteJid, promptText);
+                }
+                return true;
+            }
+            return true;
+        }
+
         return false;
     }
 
-    // Navigation keywords: back or cancel
+    // 1. AWAITING_CATEGORY (Legacy text compatibility)
     if (session.step === "AWAITING_CATEGORY") {
-        if (isCancelKeyword(trimmed, userLang)) {
+        if (
+            isCancelKeyword(trimmed, userLang) ||
+            trimmed === "act_cancel" ||
+            trimmed === "btn_cancel_order" ||
+            trimmed === "opt_cancel_order"
+        ) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
         }
 
-        const cat = resolveCategory(trimmed, CATEGORIES);
-        if (!cat) {
-            if (fromMe) return true;
-            await ctx.sendText(remoteJid, t("invalidCategory", userLang));
+        const catId = trimmed;
+        const cat =
+            CATEGORIES.find(
+                (c) => c.dbCategory.toLowerCase() === catId.toLowerCase() || String(c.id) === catId
+            ) || resolveCategory(catId, CATEGORIES);
+
+        if (cat) {
+            session.selectedCategory = cat.dbCategory;
+            session.catalogPage = 1;
+            await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
+            const catalog = await ctx.client.getCatalog();
+            if (ctx.sendList) {
+                await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, 1, 8, userLang));
+            }
             return true;
         }
 
-        ctx.state.setCategory(remoteJid, cat.dbCategory);
-        await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
         return true;
     }
 
+    // 2. AWAITING_ITEM (Legacy text compatibility)
     if (session.step === "AWAITING_ITEM") {
-        if (isBackKeyword(trimmed, userLang)) {
-            ctx.state.startBuyingFlow(remoteJid);
-            await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+        if (
+            isCancelKeyword(trimmed, userLang) ||
+            trimmed === "act_cancel" ||
+            trimmed === "btn_cancel_order" ||
+            trimmed === "opt_cancel_order"
+        ) {
+            ctx.state.clear(remoteJid);
+            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
         }
 
-        if (isCancelKeyword(trimmed, userLang)) {
-            ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+        if (isBackKeyword(trimmed, userLang)) {
+            session.step = "IDLE";
+            if (ctx.sendList) {
+                await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
+            } else {
+                await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+            }
             return true;
         }
 
@@ -66,62 +250,126 @@ export async function handleBuyingFlow(
             : catalog.filter((i) => i.active);
 
         let selected: CatalogItem | undefined;
-        const num = parseInt(trimmed, 10);
-        if (!isNaN(num) && num >= 1 && num <= categoryItems.length) {
-            selected = categoryItems[num - 1];
+        if (trimmed.startsWith("item_")) {
+            const itemId = trimmed.replace(/^item_/, "");
+            selected =
+                categoryItems.find(
+                    (i) =>
+                        String(i.id) === itemId ||
+                        i.name.toLowerCase() === itemId.toLowerCase() ||
+                        (i.sku && i.sku.toLowerCase() === itemId.toLowerCase())
+                ) ||
+                catalog.find(
+                    (i) =>
+                        String(i.id) === itemId ||
+                        i.name.toLowerCase() === itemId.toLowerCase() ||
+                        (i.sku && i.sku.toLowerCase() === itemId.toLowerCase())
+                );
         } else {
-            selected = categoryItems.find(
-                (i) => i.name.toLowerCase() === lower || (lower.length >= 3 && i.name.toLowerCase().includes(lower))
-            );
+            const num = parseInt(trimmed, 10);
+            if (!isNaN(num) && num >= 1 && num <= categoryItems.length) {
+                selected = categoryItems[num - 1];
+            } else {
+                selected = categoryItems.find(
+                    (i) =>
+                        i.name.toLowerCase() === lower ||
+                        (lower.length >= 3 && i.name.toLowerCase().includes(lower))
+                );
+            }
         }
 
-        if (!selected) {
-            if (fromMe) return true;
-            await ctx.sendText(remoteJid, t("invalidItem", userLang));
+        if (selected) {
+            ctx.state.setItem(remoteJid, selected);
+            if (selected.category) {
+                session.selectedCategory = selected.category;
+                const catItems = catalog.filter((i) => i.active && i.category === selected.category);
+                const idx = catItems.findIndex((i) => i.id === selected.id || i.name === selected.name);
+                if (idx >= 0) {
+                    ctx.state.setCatalogPage(remoteJid, Math.floor(idx / 8) + 1);
+                }
+            }
+
+            if (session.appliedVoucherCode) {
+                try {
+                    const res = await ctx.client.validateVoucher(session.appliedVoucherCode, selected.name);
+                    ctx.state.setAppliedVoucher(remoteJid, {
+                        code: res.code,
+                        discountNominal: res.discountNominal,
+                        finalPrice: res.finalPrice
+                    });
+                } catch {
+                    ctx.state.clearAppliedVoucher(remoteJid);
+                }
+            }
+
+            // If user already entered gamertag previously, skip gamertag prompt and go directly to confirmation
+            if (session.gamertag) {
+                session.step = "AWAITING_CONFIRMATION";
+                const appliedVoucher = session.appliedVoucher;
+                let voucherLine = "";
+                if (appliedVoucher) {
+                    voucherLine = t("buying.invoiceVoucherLine", userLang, {
+                        code: appliedVoucher.code,
+                        formattedDiscount: formatRupiah(appliedVoucher.discountNominal)
+                    });
+                }
+
+                const summaryText = t("buying.confirmPrompt", userLang, {
+                    itemName: selected.name,
+                    gamertag: session.gamertag,
+                    formattedPrice: formatRupiah(appliedVoucher ? appliedVoucher.finalPrice : selected.rupiahPrice),
+                    voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
+                });
+
+                if (ctx.sendButtons) {
+                    const sent = await ctx.sendButtons(
+                        remoteJid,
+                        buildOrderConfirmationButtons(summaryText, Boolean(appliedVoucher), userLang)
+                    );
+                    const msgId = sent?.key?.id || sent?.id;
+                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+                } else {
+                    await ctx.sendText(remoteJid, summaryText);
+                }
+                return true;
+            }
+
+            const promptText = t("buying.gamertagPrompt", userLang, {
+                itemName: selected.name,
+                rupiahPrice: formatRupiah(selected.rupiahPrice),
+                discountPercent: selected.discountPercent,
+                originalPrice: formatRupiah(selected.originalPrice)
+            });
+
+            const imgUrl = resolveItemImageUrl(selected);
+            let previewBuffer: Buffer | null = null;
+            try {
+                previewBuffer = await getItemImageBuffer(imgUrl);
+            } catch {
+                previewBuffer = null;
+            }
+
+            if (ctx.sendButtons) {
+                const sent = await ctx.sendButtons(
+                    remoteJid,
+                    buildGamertagPromptButtons(promptText, userLang, previewBuffer || undefined)
+                );
+                const msgId = sent?.key?.id || sent?.id;
+                if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+            } else if (previewBuffer) {
+                await ctx.sendImage(remoteJid, previewBuffer, promptText);
+            } else {
+                await ctx.sendText(remoteJid, promptText);
+            }
             return true;
         }
 
-        ctx.state.setItem(remoteJid, selected);
-
-        const promptText = t("buying.gamertagPrompt", userLang, {
-            itemName: selected.name,
-            rupiahPrice: formatRupiah(selected.rupiahPrice),
-            discountPercent: selected.discountPercent,
-            originalPrice: formatRupiah(selected.originalPrice)
-        });
-
-        const imgUrl = resolveItemImageUrl(selected);
-        let previewBuffer: Buffer | null = null;
-        try {
-            previewBuffer = await getItemImageBuffer(imgUrl);
-        } catch {
-            previewBuffer = null;
-        }
-
-        if (previewBuffer) {
-            await ctx.sendImage(remoteJid, previewBuffer, promptText);
-        } else {
-            await ctx.sendText(remoteJid, promptText);
-        }
         return true;
     }
 
+    // 3. AWAITING_RETRY_GAMERTAG
     if (session.step === "AWAITING_RETRY_GAMERTAG") {
-        if (lower === "/support" || lower.startsWith("/support ")) {
-            await supportCommand.execute({
-                remoteJid,
-                sender: effectiveSender || remoteJid,
-                args: [],
-                rawText: text,
-                isGroup: false,
-                isAdmin: false,
-                userLang,
-                ctx,
-            });
-            return true;
-        }
-
-        if (isCancelKeyword(trimmed, userLang)) {
+        if (isCancelKeyword(trimmed, userLang) || trimmed === "act_cancel") {
             ctx.state.clearRetryOrder(remoteJid);
             await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
             return true;
@@ -154,22 +402,16 @@ export async function handleBuyingFlow(
         return true;
     }
 
+    // 4. AWAITING_RETRY_CONFIRMATION
     if (session.step === "AWAITING_RETRY_CONFIRMATION") {
-        if (lower === "/support" || lower.startsWith("/support ")) {
-            await supportCommand.execute({
-                remoteJid,
-                sender: effectiveSender || remoteJid,
-                args: [],
-                rawText: text,
-                isGroup: false,
-                isAdmin: false,
-                userLang,
-                ctx,
-            });
-            return true;
-        }
 
-        const isYes = lower === "ya" || lower === "yes" || lower === "y" || lower === "deal" || lower === "ok";
+        const isYes =
+            trimmed === "act_retry_yes" ||
+            lower === "ya" ||
+            lower === "yes" ||
+            lower === "y" ||
+            lower === "deal" ||
+            lower === "ok";
         const retry = session.retryOrder;
         if (!retry) {
             ctx.state.clearRetryOrder(remoteJid);
@@ -194,7 +436,7 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        if (isCancelKeyword(trimmed, userLang)) {
+        if (isCancelKeyword(trimmed, userLang) || trimmed === "act_cancel") {
             ctx.state.clearRetryOrder(remoteJid);
             await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
             return true;
@@ -209,21 +451,59 @@ export async function handleBuyingFlow(
         return true;
     }
 
+    // 5. AWAITING_GAMERTAG
     if (session.step === "AWAITING_GAMERTAG") {
-        if (isCancelKeyword(trimmed, userLang)) {
+        if (
+            isCancelKeyword(trimmed, userLang) ||
+            trimmed === "act_cancel" ||
+            trimmed === "btn_cancel_order" ||
+            trimmed === "opt_cancel_order"
+        ) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
         }
 
-        if (isBackKeyword(trimmed, userLang)) {
-            const cat = CATEGORIES.find((c) => c.dbCategory === session.selectedCategory);
+        if (
+            isBackKeyword(trimmed, userLang) ||
+            trimmed === "btn_modify_change_item" ||
+            trimmed === "opt_change_item"
+        ) {
+            session.step = "IDLE";
+            ctx.state.setPromptMessageId(remoteJid, undefined);
+            session.lastUpdated = Date.now();
+            const cat =
+                CATEGORIES.find((c) => c.dbCategory.toLowerCase() === session.selectedCategory?.toLowerCase()) ||
+                CATEGORIES.find((c) => c.displayName.toLowerCase().includes(session.selectedCategory?.toLowerCase() || ""));
             if (cat) {
-                session.step = "AWAITING_ITEM";
-                session.lastUpdated = Date.now();
-                await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
-                return true;
+                const catalog = await ctx.client.getCatalog();
+                if (ctx.sendList) {
+                    await ctx.sendList(
+                        remoteJid,
+                        buildPaginatedItemListMenu(catalog, cat, ctx.state.getCatalogPage(remoteJid), 8, userLang)
+                    );
+                } else {
+                    await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
+                }
+            } else {
+                if (ctx.sendList) {
+                    await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
+                } else {
+                    await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+                }
             }
+            return true;
+        }
+
+        // Drop any stale button / interactive payload that wasn't handled above
+        if (/^(cat_|item_|nav_|btn_|act_|opt_|cmd_|admin_)/i.test(trimmed)) {
+            return true;
+        }
+
+        const cleanGreeting = lower.replace(/[!.,?]+$/, "").trim();
+        if (GREETINGS.includes(cleanGreeting)) {
+            await ctx.sendText(remoteJid, t("invalidGamertag", userLang));
+            return true;
         }
 
         const gamertag = trimmed;
@@ -235,22 +515,60 @@ export async function handleBuyingFlow(
         }
 
         ctx.state.setGamertag(remoteJid, gamertag);
-        const item = session.selectedItem!;
-        const voucherHint = t("voucherPrompt", userLang);
 
-        const confirmText = t("buying.confirmPrompt", userLang, {
+        // Auto-revalidate voucher if previously applied
+        if (session.appliedVoucherCode && session.selectedItem) {
+            try {
+                const res = await ctx.client.validateVoucher(session.appliedVoucherCode, session.selectedItem.name);
+                ctx.state.setAppliedVoucher(remoteJid, {
+                    code: res.code,
+                    discountNominal: res.discountNominal,
+                    finalPrice: res.finalPrice
+                });
+            } catch {
+                ctx.state.clearAppliedVoucher(remoteJid);
+            }
+        }
+
+        const item = session.selectedItem!;
+        const appliedVoucher = session.appliedVoucher;
+        let voucherLine = "";
+        if (appliedVoucher) {
+            voucherLine = t("buying.invoiceVoucherLine", userLang, {
+                code: appliedVoucher.code,
+                formattedDiscount: formatRupiah(appliedVoucher.discountNominal)
+            });
+        }
+
+        const summaryText = t("buying.confirmPrompt", userLang, {
             itemName: item.name,
             gamertag,
-            formattedPrice: formatRupiah(item.rupiahPrice),
-            voucherHint
+            formattedPrice: formatRupiah(appliedVoucher ? appliedVoucher.finalPrice : item.rupiahPrice),
+            voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
         });
 
-        await ctx.sendText(remoteJid, confirmText);
+        if (ctx.sendButtons) {
+            const sent = await ctx.sendButtons(
+                remoteJid,
+                buildOrderConfirmationButtons(summaryText, Boolean(appliedVoucher), userLang)
+            );
+            const msgId = sent?.key?.id || sent?.id;
+            if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+        } else {
+            await ctx.sendText(remoteJid, summaryText);
+        }
         return true;
     }
 
+    // 6. AWAITING_CONFIRMATION
     if (session.step === "AWAITING_CONFIRMATION") {
-        if (isCancelKeyword(trimmed, userLang)) {
+        if (
+            isCancelKeyword(trimmed, userLang) ||
+            trimmed === "btn_modify_cancel" ||
+            trimmed === "opt_cancel_order" ||
+            trimmed === "act_cancel" ||
+            trimmed === "btn_cancel_order"
+        ) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
@@ -263,7 +581,107 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        // Check if user inputs voucher code
+        if (trimmed === "btn_open_voucher") {
+            ctx.state.setAwaitingVoucher(remoteJid);
+            const promptText = t("interactive.voucherInputPrompt", userLang);
+            if (ctx.sendButtons) {
+                const sent = await ctx.sendButtons(remoteJid, {
+                    buttonsMessage: {
+                        contentText: promptText,
+                        footerText: config.STORE_NAME,
+                        headerType: 1,
+                        text: promptText,
+                        buttons: [
+                            {
+                                buttonId: "btn_cancel_voucher",
+                                buttonText: { displayText: t("buttons.cancel", userLang) },
+                                type: 1
+                            }
+                        ]
+                    }
+                });
+                const msgId = sent?.key?.id || sent?.id;
+                if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+            } else {
+                await ctx.sendText(remoteJid, promptText);
+            }
+            return true;
+        }
+
+        if (trimmed === "btn_remove_voucher") {
+            ctx.state.clearAppliedVoucher(remoteJid);
+            const item = session.selectedItem!;
+            const summaryText = t("buying.confirmPrompt", userLang, {
+                itemName: item.name,
+                gamertag: session.gamertag!,
+                formattedPrice: formatRupiah(item.rupiahPrice),
+                voucherLine: ""
+            });
+            if (ctx.sendButtons) {
+                const sent = await ctx.sendButtons(
+                    remoteJid,
+                    buildOrderConfirmationButtons(summaryText, false, userLang)
+                );
+                const msgId = sent?.key?.id || sent?.id;
+                if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+            } else {
+                await ctx.sendText(remoteJid, t("voucherRemoved", userLang));
+            }
+            return true;
+        }
+
+        if (trimmed === "btn_modify_menu") {
+            if (ctx.sendList) {
+                const sent = await ctx.sendList(remoteJid, buildModifyOrderListMenu(userLang));
+                const msgId = sent?.key?.id || sent?.id;
+                if (msgId) ctx.state.addPromptMessageId(remoteJid, String(msgId));
+            }
+            return true;
+        }
+
+        if (trimmed === "btn_modify_change_gt" || trimmed === "opt_change_gamertag") {
+            session.step = "AWAITING_GAMERTAG";
+            session.gamertag = undefined;
+            session.lastUpdated = Date.now();
+            const prompt = t("buying.enterGamertagPrompt", userLang);
+            if (ctx.sendButtons) {
+                const sent = await ctx.sendButtons(remoteJid, buildGamertagPromptButtons(prompt, userLang));
+                const msgId = sent?.key?.id || sent?.id;
+                if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+            } else {
+                await ctx.sendText(remoteJid, prompt);
+            }
+            return true;
+        }
+
+        if (trimmed === "btn_modify_change_item" || trimmed === "opt_change_item") {
+            session.step = "IDLE";
+            ctx.state.setPromptMessageId(remoteJid, undefined);
+            session.lastUpdated = Date.now();
+            const cat =
+                CATEGORIES.find((c) => c.dbCategory.toLowerCase() === session.selectedCategory?.toLowerCase()) ||
+                CATEGORIES.find((c) => c.displayName.toLowerCase().includes(session.selectedCategory?.toLowerCase() || ""));
+            if (cat) {
+                const catalog = await ctx.client.getCatalog();
+                if (ctx.sendList) {
+                    await ctx.sendList(
+                        remoteJid,
+                        buildPaginatedItemListMenu(catalog, cat, ctx.state.getCatalogPage(remoteJid), 8, userLang)
+                    );
+                } else {
+                    await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
+                }
+            } else {
+                if (ctx.sendList) {
+                    await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
+                } else {
+                    await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+                }
+            }
+            return true;
+        }
+
+        // Check if user inputs voucher code directly in confirmation
         const voucherMatch = trimmed.match(/^(?:voucher|kupon)\s*(.*)$/i);
         if (voucherMatch) {
             const code = voucherMatch[1]?.trim().toUpperCase();
@@ -281,13 +699,32 @@ export async function handleBuyingFlow(
                     finalPrice: res.finalPrice
                 });
 
-                let msg = t("voucherApplied", userLang, {
-                    code: res.code,
-                    discountNominal: res.discountNominal,
-                    finalPrice: res.finalPrice
+                const summaryText = t("buying.confirmPrompt", userLang, {
+                    itemName: item.name,
+                    gamertag: session.gamertag!,
+                    formattedPrice: formatRupiah(res.finalPrice),
+                    voucherLine: "\n" + t("buying.invoiceVoucherLine", userLang, {
+                        code: res.code,
+                        formattedDiscount: formatRupiah(res.discountNominal)
+                    })
                 });
-                msg += t("buying.voucherProceedHint", userLang);
-                await ctx.sendText(remoteJid, msg);
+
+                if (ctx.sendButtons) {
+                    const sent = await ctx.sendButtons(
+                        remoteJid,
+                        buildOrderConfirmationButtons(summaryText, true, userLang)
+                    );
+                    const msgId = sent?.key?.id || sent?.id;
+                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+                } else {
+                    let msg = t("voucherApplied", userLang, {
+                        code: res.code,
+                        discountNominal: res.discountNominal,
+                        finalPrice: res.finalPrice
+                    });
+                    msg += t("buying.voucherProceedHint", userLang);
+                    await ctx.sendText(remoteJid, msg);
+                }
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err);
                 if (errMsg.includes("EXHAUSTED") || errMsg.toLowerCase().includes("kuota")) {
@@ -302,6 +739,7 @@ export async function handleBuyingFlow(
         }
 
         const isConfirmed =
+            trimmed === "btn_confirm_order" ||
             trimmed.toUpperCase() === "YES" ||
             trimmed.toUpperCase() === "YA" ||
             trimmed.toUpperCase() === "Y" ||
@@ -354,6 +792,13 @@ export async function handleBuyingFlow(
                 }
                 ctx.state.setActiveOrderId(remoteJid, order.orderId);
 
+                // Send 2 invoice quick-reply buttons below QR
+                if (ctx.sendButtons) {
+                    const sent = await ctx.sendButtons(remoteJid, buildInvoiceButtons(invoice, userLang));
+                    const msgId = sent?.key?.id || sent?.id;
+                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+                }
+
                 if (ctx.adminLogger) {
                     await ctx.adminLogger.logNewOrder({
                         orderId: order.orderId,
@@ -371,8 +816,121 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        if (fromMe) return true;
-        await ctx.sendText(remoteJid, t("buying.confirmReminder", userLang));
+        // Zero-text policy: Silently drop any other text in AWAITING_CONFIRMATION
+        return true;
+    }
+
+    // 7. AWAITING_VOUCHER_CODE
+    if (session.step === "AWAITING_VOUCHER_CODE") {
+        if (
+            trimmed === "btn_cancel_voucher" ||
+            trimmed === "btn_cancel_order" ||
+            trimmed === "opt_cancel_order" ||
+            isCancelKeyword(trimmed, userLang) ||
+            isBackKeyword(trimmed, userLang)
+        ) {
+            session.step = "AWAITING_CONFIRMATION";
+            session.lastUpdated = Date.now();
+            const item = session.selectedItem!;
+            const summaryText = t("buying.confirmPrompt", userLang, {
+                itemName: item.name,
+                gamertag: session.gamertag!,
+                formattedPrice: formatRupiah(session.appliedVoucher ? session.appliedVoucher.finalPrice : item.rupiahPrice),
+                voucherLine: session.appliedVoucher
+                    ? "\n" + t("buying.invoiceVoucherLine", userLang, {
+                        code: session.appliedVoucher.code,
+                        formattedDiscount: formatRupiah(session.appliedVoucher.discountNominal)
+                    })
+                    : ""
+            });
+            if (ctx.sendButtons) {
+                const sent = await ctx.sendButtons(
+                    remoteJid,
+                    buildOrderConfirmationButtons(summaryText, Boolean(session.appliedVoucher), userLang)
+                );
+                const msgId = sent?.key?.id || sent?.id;
+                if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+            }
+            return true;
+        }
+
+        // Drop any stale button / interactive payload that wasn't handled above
+        if (/^(cat_|item_|nav_|btn_|act_|opt_|cmd_|admin_)/i.test(trimmed)) {
+            return true;
+        }
+
+        const code = trimmed.replace(/^(?:voucher|kupon)\s*/i, "").trim().toUpperCase();
+        const item = session.selectedItem!;
+
+        try {
+            const res = await ctx.client.validateVoucher(code, item.name);
+            ctx.state.setAppliedVoucher(remoteJid, {
+                code: res.code,
+                discountNominal: res.discountNominal,
+                finalPrice: res.finalPrice
+            });
+            session.step = "AWAITING_CONFIRMATION";
+            session.lastUpdated = Date.now();
+
+            const summaryText = t("buying.confirmPrompt", userLang, {
+                itemName: item.name,
+                gamertag: session.gamertag!,
+                formattedPrice: formatRupiah(res.finalPrice),
+                voucherLine: "\n" + t("buying.invoiceVoucherLine", userLang, {
+                    code: res.code,
+                    formattedDiscount: formatRupiah(res.discountNominal)
+                })
+            });
+
+            if (ctx.sendButtons) {
+                const sent = await ctx.sendButtons(
+                    remoteJid,
+                    buildOrderConfirmationButtons(summaryText, true, userLang)
+                );
+                const msgId = sent?.key?.id || sent?.id;
+                if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+            } else {
+                let msg = t("voucherApplied", userLang, {
+                    code: res.code,
+                    discountNominal: res.discountNominal,
+                    finalPrice: res.finalPrice
+                });
+                msg += t("buying.voucherProceedHint", userLang);
+                await ctx.sendText(remoteJid, msg);
+            }
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            let errText = "";
+            if (errMsg.includes("EXHAUSTED") || errMsg.toLowerCase().includes("kuota")) {
+                errText = t("voucherExhausted", userLang, { code });
+            } else if (errMsg.includes("EXPIRED") || errMsg.toLowerCase().includes("kedaluwarsa")) {
+                errText = t("voucherExpired", userLang, { code });
+            } else {
+                errText = t("voucherInvalid", userLang, { code });
+            }
+
+            if (ctx.sendButtons) {
+                const sent = await ctx.sendButtons(remoteJid, {
+                    buttonsMessage: {
+                        contentText: errText,
+                        footerText: config.STORE_NAME,
+                        headerType: 1,
+                        text: errText,
+                        buttons: [
+                            {
+                                buttonId: "btn_cancel_voucher",
+                                buttonText: { displayText: t("buttons.cancel", userLang) },
+                                type: 1
+                            }
+                        ]
+                    }
+                });
+                const msgId = sent?.key?.id || sent?.id;
+                if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+            } else {
+                await ctx.sendText(remoteJid, errText);
+            }
+        }
         return true;
     }
 

@@ -44,7 +44,7 @@ describe("StateManager", () => {
         expect(mgr.getSession(jid).step).toBe("IDLE");
     });
 
-    it("should reset state if session expired (> 15 minutes)", () => {
+    it("should reset state if session expired (> 5 minutes)", () => {
         const mgr = new StateManager(100); // 100ms TTL for testing
         const jid = "user3@s.whatsapp.net";
         mgr.startBuyingFlow(jid);
@@ -54,6 +54,20 @@ describe("StateManager", () => {
         const session = mgr.getSession(jid);
         session.lastUpdated = Date.now() - 200;
 
+        expect(mgr.getSession(jid).step).toBe("IDLE");
+    });
+
+    it("should default to 5-minute TTL", () => {
+        const mgr = new StateManager();
+        const jid = "ttl_user@s.whatsapp.net";
+        mgr.startBuyingFlow(jid);
+        const session = mgr.getSession(jid);
+        // Not expired at 4 minutes 59 seconds
+        session.lastUpdated = Date.now() - (4 * 60 * 1000 + 59 * 1000);
+        expect(mgr.getSession(jid).step).toBe("AWAITING_CATEGORY");
+
+        // Expired at 5 minutes 1 second
+        session.lastUpdated = Date.now() - (5 * 60 * 1000 + 1000);
         expect(mgr.getSession(jid).step).toBe("IDLE");
     });
 
@@ -107,5 +121,35 @@ describe("StateManager", () => {
         // Stale session entry should be purged, fresh preserved
         const freshSession = mgr.getSession(jid2);
         expect(freshSession.step).toBe("IDLE");
+    });
+
+    it("should handle catalogPage navigation correctly", () => {
+        const mgr = new StateManager();
+        const jid = "page_user@s.whatsapp.net";
+
+        expect(mgr.getCatalogPage(jid)).toBe(1);
+        mgr.setCatalogPage(jid, 3);
+        expect(mgr.getCatalogPage(jid)).toBe(3);
+        expect(mgr.getSession(jid).catalogPage).toBe(3);
+    });
+
+    it("should handle AWAITING_VOUCHER_CODE state and clear voucher correctly", () => {
+        const mgr = new StateManager();
+        const jid = "voucher_state@s.whatsapp.net";
+
+        mgr.setAwaitingVoucher(jid);
+        expect(mgr.getSession(jid).step).toBe("AWAITING_VOUCHER_CODE");
+
+        mgr.setAppliedVoucher(jid, {
+            code: "DISKON20",
+            discountNominal: 2000,
+            finalPrice: 8000
+        });
+        expect(mgr.getSession(jid).appliedVoucher?.code).toBe("DISKON20");
+        expect(mgr.getSession(jid).appliedVoucherCode).toBe("DISKON20");
+
+        mgr.clearAppliedVoucher(jid);
+        expect(mgr.getSession(jid).appliedVoucher).toBeUndefined();
+        expect(mgr.getSession(jid).appliedVoucherCode).toBeUndefined();
     });
 });

@@ -2,6 +2,7 @@ export interface CategoryDefinition {
     id: string;
     displayName: string;
     dbCategory: string;
+    displayPrice?: string;
 }
 
 export const CATEGORIES: CategoryDefinition[] = [

@@ -65,6 +65,8 @@ describe("General Command: /cek (Check Payment)", () => {
             remoteJid: "62812345678@s.whatsapp.net",
             sender: "62812345678@s.whatsapp.net",
             isGroup: false,
+            isAdmin: false,
+            rawText: "/cek",
             args: [],
             userLang: "id",
             ctx: {
@@ -81,9 +83,9 @@ describe("General Command: /cek (Check Payment)", () => {
         await checkPaymentCommand.execute(mockContext);
 
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0].text).toContain("PEMBAYARAN DIVERIFIKASI");
-        expect(sentMessages[0].text).toContain("ORD-PENDING-1");
-        expect(sentMessages[0].text).toContain("25.123");
+        expect(sentMessages[0]!.text).toContain("PEMBAYARAN DIVERIFIKASI");
+        expect(sentMessages[0]!.text).toContain("ORD-PENDING-1");
+        expect(sentMessages[0]!.text).toContain("25.123");
     });
 
     it("should send pending message when transaction not found in GoBiz yet", async () => {
@@ -100,8 +102,8 @@ describe("General Command: /cek (Check Payment)", () => {
         await checkPaymentCommand.execute(mockContext);
 
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0].text).toContain("PEMBAYARAN BELUM TERDETEKSI");
-        expect(sentMessages[0].text).toContain("ORD-NOT-PAID");
+        expect(sentMessages[0]!.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
+        expect(sentMessages[0]!.text).toContain("ORD-NOT-PAID");
     });
 
     it("should warn user about cooldown if checked too quickly", async () => {
@@ -109,7 +111,7 @@ describe("General Command: /cek (Check Payment)", () => {
         await checkPaymentCommand.execute(mockContext);
 
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0].text).toContain("25 detik");
+        expect(sentMessages[0]!.text).toContain("25 detik");
     });
 
     it("should notice user if no active pending order exists", async () => {
@@ -117,6 +119,6 @@ describe("General Command: /cek (Check Payment)", () => {
         await checkPaymentCommand.execute(mockContext);
 
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0].text).toContain("tidak memiliki pesanan aktif");
+        expect(sentMessages[0]!.text).toContain("tidak memiliki pesanan aktif");
     });
 });

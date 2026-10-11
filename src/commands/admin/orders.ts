@@ -84,7 +84,7 @@ export const ordersCommand: Command = {
 
             for (const order of res.orders) {
                 const badge = getStatusBadge(order.status);
-                const time = formatDate(order.createdAt);
+                const time = formatDate((order as any).createdAt);
                 const price = formatRupiah(order.totalNominal);
                 const reason = order.failureReason ? `\n   _⚠️ Alasan: ${order.failureReason}_` : "";
 

@@ -149,7 +149,7 @@ describe("Webhook Server", () => {
         expect(sentMessages.length).toBe(1);
         expect(sentMessages[0]?.jid).toBe("628999@s.whatsapp.net");
         expect(sentMessages[0]?.text).toContain("antre restock");
-        expect(sentMessages[0]?.text).toContain("/support");
+        expect(sentMessages[0]?.text).toContain("admin");
     });
 
     it("should send buyer notification in English when getBuyerLanguage returns en", async () => {
@@ -219,7 +219,7 @@ describe("Webhook Server", () => {
         expect(state.getSession("628111@s.whatsapp.net").step).toBe("AWAITING_RETRY_GAMERTAG");
     });
 
-    it("should prompt buyer to contact admin via /support when 3 attempts fail", async () => {
+    it("should prompt buyer to contact admin when 3 attempts fail", async () => {
         const sentMessages: Array<{ jid: string; text: string }> = [];
         const mockSender = {
             sendMessage: mock(async (jid: string, text: string) => {
@@ -252,7 +252,7 @@ describe("Webhook Server", () => {
         expect(res.status).toBe(200);
         expect(sentMessages.length).toBe(1);
         expect(sentMessages[0]?.text).toContain("SUDAH 3 KALI PERCOBAAN");
-        expect(sentMessages[0]?.text).toContain("/support");
+        expect(sentMessages[0]?.text).toContain("admin");
         expect(state.getSession("628111@s.whatsapp.net").step).toBe("IDLE");
     });
 

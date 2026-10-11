@@ -52,8 +52,13 @@ export const supportCommand: Command = {
         // Set state to AWAITING_SUPPORT_CONFIRMATION to ask user consent first
         ctx.state.requestSupportConsent(remoteJid, orderInfo.orderId);
 
-        const consentPrompt = t("support.consentPrompt", userLang);
-        await ctx.sendText(remoteJid, consentPrompt);
+        if (ctx.sendButtons) {
+            const { buildSupportPromptButtons } = await import("../../utils/interactiveBuilders");
+            await ctx.sendButtons(remoteJid, buildSupportPromptButtons(userLang));
+        } else {
+            const consentPrompt = t("support.consentPrompt", userLang);
+            await ctx.sendText(remoteJid, consentPrompt);
+        }
     },
 };
 

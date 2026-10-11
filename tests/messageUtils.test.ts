@@ -40,6 +40,61 @@ describe("Message Utilities", () => {
             expect(extractMessageText(null)).toBe("");
             expect(extractMessageText({})).toBe("");
         });
+
+        it("should extract listResponseMessage selectedRowId", () => {
+            const msg = {
+                listResponseMessage: {
+                    singleSelectReply: {
+                        selectedRowId: "cat_minecoins"
+                    }
+                }
+            };
+            expect(extractMessageText(msg)).toBe("cat_minecoins");
+        });
+
+        it("should extract buttonsResponseMessage selectedButtonId", () => {
+            const msg = {
+                buttonsResponseMessage: {
+                    selectedButtonId: "btn_confirm_order"
+                }
+            };
+            expect(extractMessageText(msg)).toBe("btn_confirm_order");
+        });
+
+        it("should extract nativeFlowResponseMessage paramsJson id", () => {
+            const msg = {
+                interactiveResponseMessage: {
+                    nativeFlowResponseMessage: {
+                        paramsJson: JSON.stringify({ id: "btn_apply_voucher" })
+                    }
+                }
+            };
+            expect(extractMessageText(msg)).toBe("btn_apply_voucher");
+        });
+
+        it("should extract templateButtonReplyMessage selectedId", () => {
+            const msg = {
+                templateButtonReplyMessage: {
+                    selectedId: "btn_cancel_order"
+                }
+            };
+            expect(extractMessageText(msg)).toBe("btn_cancel_order");
+        });
+
+        it("should unwrap interactiveResponseMessage inside ephemeralMessage", () => {
+            const msg = {
+                ephemeralMessage: {
+                    message: {
+                        interactiveResponseMessage: {
+                            nativeFlowResponseMessage: {
+                                paramsJson: JSON.stringify({ id: "btn_confirm_order" })
+                            }
+                        }
+                    }
+                }
+            };
+            expect(extractMessageText(msg)).toBe("btn_confirm_order");
+        });
     });
 
     describe("extractPhoneNumber", () => {

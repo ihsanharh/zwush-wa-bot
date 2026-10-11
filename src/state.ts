@@ -1,5 +1,6 @@
 import type { CatalogItem } from "./types";
 import type { Language } from "./i18n";
+import { config } from "./config";
 
 export type StepStatus =
     | "IDLE"
@@ -7,6 +8,7 @@ export type StepStatus =
     | "AWAITING_ITEM"
     | "AWAITING_GAMERTAG"
     | "AWAITING_CONFIRMATION"
+    | "AWAITING_VOUCHER_CODE"
     | "AWAITING_RETRY_GAMERTAG"
     | "AWAITING_RETRY_CONFIRMATION"
     | "AWAITING_SUPPORT_CONFIRMATION"
@@ -30,8 +32,10 @@ export interface UserSession {
     step: StepStatus;
     selectedCategory?: string;
     selectedItem?: CatalogItem;
+    catalogPage?: number;
     gamertag?: string;
     appliedVoucher?: AppliedVoucherInfo;
+    appliedVoucherCode?: string;
     lastQrKey?: any;
     activeOrderId?: string;
     language?: Language;
@@ -47,6 +51,9 @@ export interface UserSession {
     };
     liveChatOrderId?: string;
     pendingSupportOrderId?: string;
+    lastGreetingAt?: number;
+    promptMessageId?: string;
+    promptMessageIds?: string[];
 }
 
 export class StateManager {
@@ -54,9 +61,24 @@ export class StateManager {
     private readonly userLanguages = new Map<string, Language>();
     private readonly orderRetryAttempts = new Map<string, number>();
     private readonly ttlMs: number;
+    private maintenanceMode: boolean = config.MAINTENANCE_MODE;
 
-    constructor(ttlMs = 15 * 60 * 1000) {
+    constructor(ttlMs = 5 * 60 * 1000) {
         this.ttlMs = ttlMs;
+    }
+
+    /**
+     * Checks whether maintenance mode is enabled.
+     */
+    isMaintenanceMode(): boolean {
+        return this.maintenanceMode;
+    }
+
+    /**
+     * Toggles maintenance mode.
+     */
+    setMaintenanceMode(enabled: boolean): void {
+        this.maintenanceMode = enabled;
     }
 
     /**
@@ -146,8 +168,26 @@ export class StateManager {
         const current = this.getSession(jid);
         current.step = "AWAITING_ITEM";
         current.selectedCategory = category;
+        current.catalogPage = 1;
         current.lastUpdated = Date.now();
         this.sessions.set(jid, current);
+    }
+
+    /**
+     * Sets current catalog page number.
+     */
+    setCatalogPage(jid: string, page: number): void {
+        const current = this.getSession(jid);
+        current.catalogPage = page;
+        current.lastUpdated = Date.now();
+        this.sessions.set(jid, current);
+    }
+
+    /**
+     * Gets current catalog page number, defaulting to 1.
+     */
+    getCatalogPage(jid: string): number {
+        return this.sessions.get(jid)?.catalogPage ?? 1;
     }
 
     /**
@@ -155,8 +195,13 @@ export class StateManager {
      */
     setItem(jid: string, item: CatalogItem): void {
         const current = this.getSession(jid);
-        current.step = "AWAITING_GAMERTAG";
+        current.step = current.gamertag ? "AWAITING_CONFIRMATION" : "AWAITING_GAMERTAG";
         current.selectedItem = item;
+        if (item.category) {
+            current.selectedCategory = item.category;
+        }
+        current.promptMessageId = undefined;
+        current.promptMessageIds = [];
         current.lastUpdated = Date.now();
         this.sessions.set(jid, current);
     }
@@ -168,6 +213,20 @@ export class StateManager {
         const current = this.getSession(jid);
         current.step = "AWAITING_CONFIRMATION";
         current.gamertag = gamertag.trim();
+        current.promptMessageId = undefined;
+        current.promptMessageIds = [];
+        current.lastUpdated = Date.now();
+        this.sessions.set(jid, current);
+    }
+
+    /**
+     * Sets session to AWAITING_VOUCHER_CODE state.
+     */
+    setAwaitingVoucher(jid: string): void {
+        const current = this.getSession(jid);
+        current.step = "AWAITING_VOUCHER_CODE";
+        current.promptMessageId = undefined;
+        current.promptMessageIds = [];
         current.lastUpdated = Date.now();
         this.sessions.set(jid, current);
     }
@@ -178,6 +237,7 @@ export class StateManager {
     setAppliedVoucher(jid: string, voucher?: AppliedVoucherInfo): void {
         const current = this.getSession(jid);
         current.appliedVoucher = voucher;
+        current.appliedVoucherCode = voucher ? voucher.code : undefined;
         current.lastUpdated = Date.now();
         this.sessions.set(jid, current);
     }
@@ -189,6 +249,7 @@ export class StateManager {
         const current = this.sessions.get(jid);
         if (current) {
             current.appliedVoucher = undefined;
+            current.appliedVoucherCode = undefined;
         }
     }
 
@@ -243,6 +304,8 @@ export class StateManager {
         const current = this.sessions.get(jid);
         if (current) {
             current.activeOrderId = undefined;
+            current.promptMessageId = undefined;
+            current.promptMessageIds = [];
         }
     }
 
@@ -251,12 +314,30 @@ export class StateManager {
      */
     clear(jid: string): void {
         const lang = this.getLanguage(jid);
+        const existing = this.sessions.get(jid);
         this.sessions.set(jid, {
             step: "IDLE",
             language: lang,
             lastUpdated: Date.now(),
-            lastCancelledAt: Date.now()
+            lastCancelledAt: Date.now(),
+            lastGreetingAt: existing?.lastGreetingAt,
+            promptMessageIds: []
         });
+    }
+
+    /**
+     * Gets timestamp of when greeting was last sent to user.
+     */
+    getLastGreetingAt(jid: string): number | undefined {
+        return this.sessions.get(jid)?.lastGreetingAt;
+    }
+
+    /**
+     * Sets timestamp of when greeting was last sent to user.
+     */
+    setLastGreetingAt(jid: string, timestamp: number = Date.now()): void {
+        const session = this.getSession(jid);
+        session.lastGreetingAt = timestamp;
     }
 
     /**
@@ -280,6 +361,53 @@ export class StateManager {
     setLastBackAt(jid: string): void {
         const session = this.getSession(jid);
         session.lastBackAt = Date.now();
+    }
+
+    /**
+     * Sets the primary message ID for the active flow, clearing previous sub-prompt IDs.
+     */
+    setPromptMessageId(jid: string, messageId?: string): void {
+        const session = this.getSession(jid);
+        session.promptMessageId = messageId;
+        session.promptMessageIds = messageId ? [messageId] : [];
+        session.lastUpdated = Date.now();
+    }
+
+    /**
+     * Adds an auxiliary prompt message ID (e.g. modify drawer menu) while keeping existing prompts valid.
+     */
+    addPromptMessageId(jid: string, messageId: string): void {
+        const session = this.getSession(jid);
+        session.promptMessageId = messageId;
+        if (!session.promptMessageIds) {
+            session.promptMessageIds = [];
+        }
+        if (!session.promptMessageIds.includes(messageId)) {
+            session.promptMessageIds.push(messageId);
+        }
+        if (session.promptMessageIds.length > 5) {
+            session.promptMessageIds = session.promptMessageIds.slice(-5);
+        }
+        session.lastUpdated = Date.now();
+    }
+
+    /**
+     * Checks if a quoted message ID matches any active prompt message for the user's current step.
+     */
+    isPromptMessageValid(jid: string, quotedMessageId: string): boolean {
+        const session = this.sessions.get(jid);
+        if (!session) return false;
+        if (session.promptMessageIds && session.promptMessageIds.length > 0) {
+            return session.promptMessageIds.includes(quotedMessageId);
+        }
+        return session.promptMessageId === quotedMessageId;
+    }
+
+    /**
+     * Gets the latest prompt message ID for the active flow.
+     */
+    getPromptMessageId(jid: string): string | undefined {
+        return this.sessions.get(jid)?.promptMessageId;
     }
 
     /**

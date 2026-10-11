@@ -9,6 +9,7 @@ export interface CatalogItem {
     discountPercent: number;
     imageUrl?: string | null;
     active: boolean;
+    sku?: string;
 }
 
 export interface CatalogResponse {
@@ -45,8 +46,11 @@ export interface OrderStatusResponse {
         totalNominal: number;
         platformUserId?: string;
         failureReason?: string | null;
+        createdAt?: string;
     };
 }
+
+export type OrderInfo = OrderStatusResponse["order"];
 
 export interface UserOrdersResponse {
     success: boolean;

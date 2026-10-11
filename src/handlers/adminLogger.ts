@@ -1,11 +1,19 @@
 import type { OrderStatus } from "../types";
 import { config } from "../config";
 import { formatStatusBadge } from "../i18n";
+import { extractPhoneNumber } from "../utils/messageUtils";
+
+export interface GroupParticipantInfo {
+    jid: string;
+    lid?: string;
+    phoneNumber?: string;
+}
 
 export interface GroupMessageSender {
-    sendMessage(jid: string, content: string | { type: string; text: string; contextInfo?: any }): Promise<any>;
+    sendMessage(jid: string, content: any): Promise<any>;
     editMessage(jid: string, key: any, newText: string): Promise<any>;
     getGroupParticipants?: (jid: string) => Promise<string[]>;
+    getGroupMetadata?: (jid: string) => Promise<any>;
 }
 
 export interface OrderLogEntry {
@@ -29,6 +37,7 @@ export class AdminGroupLogger {
     private adminGroupJid: string;
     private readonly sender: GroupMessageSender;
     private readonly orders = new Map<string, OrderLogEntry>();
+    private readonly adminIdentities = new Set<string>();
 
     constructor(
         logOrConfig: string | AdminGroupLoggerOptions,
@@ -45,6 +54,71 @@ export class AdminGroupLogger {
         this.sender = sender;
     }
 
+    addAdminUser(identity: string): void {
+        if (!identity) return;
+        const trimmed = identity.trim();
+        this.adminIdentities.add(trimmed.toLowerCase());
+        const userPart = trimmed.split("@")[0]?.split(":")[0];
+        if (userPart) {
+            this.adminIdentities.add(userPart.toLowerCase());
+        }
+        const cleanDigits = extractPhoneNumber(trimmed);
+        if (cleanDigits) {
+            this.adminIdentities.add(cleanDigits);
+        }
+    }
+
+    addAdminParticipants(participants: Array<string | { jid: string; lid?: string; phoneNumber?: string }>): void {
+        for (const p of participants) {
+            if (typeof p === "string") {
+                this.addAdminUser(p);
+            } else if (p && typeof p === "object") {
+                if (p.jid) this.addAdminUser(p.jid);
+                if (p.lid) this.addAdminUser(p.lid);
+                if (p.phoneNumber) this.addAdminUser(p.phoneNumber);
+            }
+        }
+    }
+
+    isAdminUser(jidOrPhone: string): boolean {
+        if (!jidOrPhone) return false;
+        const trimmed = jidOrPhone.trim().toLowerCase();
+        if (this.adminIdentities.has(trimmed)) {
+            return true;
+        }
+        const userPart = trimmed.split("@")[0]?.split(":")[0];
+        if (userPart && this.adminIdentities.has(userPart)) {
+            return true;
+        }
+        const cleanDigits = extractPhoneNumber(trimmed);
+        if (cleanDigits && this.adminIdentities.has(cleanDigits)) {
+            return true;
+        }
+        return false;
+    }
+
+    getAllAdminIdentities(): string[] {
+        return Array.from(this.adminIdentities);
+    }
+
+    async syncAdminParticipants(groupJid?: string): Promise<void> {
+        const target = groupJid || this.adminGroupJid;
+        if (!target) return;
+        try {
+            if (this.sender.getGroupMetadata) {
+                const meta = await this.sender.getGroupMetadata(target);
+                if (meta?.participants) {
+                    this.addAdminParticipants(meta.participants);
+                }
+            } else if (this.sender.getGroupParticipants) {
+                const list = await this.sender.getGroupParticipants(target);
+                this.addAdminParticipants(list);
+            }
+        } catch (err: unknown) {
+            console.warn(`[AdminGroupLogger] Could not sync admin participants for ${target}:`, err);
+        }
+    }
+
     setLogGroupJid(jid: string): void {
         this.logGroupJid = jid;
     }
@@ -55,6 +129,7 @@ export class AdminGroupLogger {
 
     setAdminGroupJid(jid: string): void {
         this.adminGroupJid = jid;
+        this.syncAdminParticipants(jid).catch(() => {});
     }
 
     getAdminGroupJid(): string {
@@ -300,6 +375,11 @@ export class AdminGroupLogger {
                 });
             } else {
                 await this.sender.sendMessage(targetJid, alertText);
+            }
+
+            if (info.orderId) {
+                const { buildAdminOrderActionButtons } = await import("../utils/interactiveBuilders");
+                await this.sender.sendMessage(targetJid, buildAdminOrderActionButtons(info.orderId, "id"));
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
