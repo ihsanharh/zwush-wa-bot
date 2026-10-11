@@ -34,9 +34,7 @@ import {
 import { defaultRegistry } from "../commands";
 import { isLiveChatActive, isAwaitingSupportConfirmation, handleSupportConfirmation } from "../flows/supportFlow";
 import { handleBuyingFlow } from "../flows/buyingFlow";
-import statusCommand from "../commands/general/status";
-import cancelCommand from "../commands/general/cancel";
-import checkPaymentCommand from "../commands/general/checkPayment";
+import { handleAdminAction } from "./adminActions";
 import { isCancelKeyword } from "../i18n";
 
 // Re-exports for backward compatibility
@@ -64,8 +62,6 @@ export {
     executeUserSequential,
     sendUnrecognizedCommand
 };
-
-export { catalogCommand as handleKatalogCommand } from "../commands/general/catalog";
 
 export interface BotContext {
     client: CoreClient;
@@ -189,8 +185,15 @@ async function handleIncomingMessageInternal(
     // 1. Group Chat Routing
     if (isGroup) {
         const adminGroupJid = ctx.adminLogger?.getAdminGroupJid();
-        // Commands and admin interactions are strictly for the Admin Group
-        if (adminGroupJid && remoteJid !== adminGroupJid) {
+        const logGroupJid = ctx.adminLogger?.getLogGroupJid();
+
+        // Admin action buttons (btn_admin_* or admin_*) are valid in either Admin Group or Log Group
+        const isAuthorizedGroup =
+            (!adminGroupJid && !logGroupJid) ||
+            remoteJid === adminGroupJid ||
+            remoteJid === logGroupJid;
+
+        if (!isAuthorizedGroup) {
             return;
         }
 
@@ -198,8 +201,9 @@ async function handleIncomingMessageInternal(
             return;
         }
 
-        if (isAdmin && (trimmed.startsWith("admin_") || trimmed.startsWith("cmd_"))) {
-            const handledAdminAction = await handleAdminActionClick(
+        // Admin action button clicks
+        if (isAdmin && (trimmed.startsWith("admin_") || trimmed.startsWith("btn_admin_") || trimmed.startsWith("cmd_"))) {
+            const handledAdminAction = await handleAdminAction(
                 remoteJid,
                 trimmed,
                 effectiveSender,
@@ -210,7 +214,12 @@ async function handleIncomingMessageInternal(
             if (handledAdminAction) return;
         }
 
+        // Slash commands are STRICTLY EXCLUSIVE to the Admin Group
         if (!trimmed.startsWith("/")) {
+            return;
+        }
+
+        if (adminGroupJid && remoteJid !== adminGroupJid) {
             return;
         }
 
@@ -222,6 +231,12 @@ async function handleIncomingMessageInternal(
         const parts = trimmed.split(/\s+/);
         const cmd = parts[0]?.toLowerCase() || "";
         const args = parts.slice(1);
+
+        // Only the 3 essential administrative commands are allowed:
+        const ALLOWED_ADMIN_COMMANDS = new Set(["/maintenance", "/sync", "/saldo", "/balance"]);
+        if (!ALLOWED_ADMIN_COMMANDS.has(cmd)) {
+            return;
+        }
 
         const handled = await defaultRegistry.dispatch(cmd, {
             remoteJid,
@@ -290,16 +305,7 @@ async function handleIncomingMessageInternal(
     // Quick-reply invoice button check (only allowed if there is an active pending order)
     if (trimmed === "btn_check_payment" || trimmed === "act_check_status") {
         if (activeOrderId) {
-            await checkPaymentCommand.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [],
-                rawText: trimmed,
-                isGroup: false,
-                isAdmin,
-                userLang,
-                ctx
-            });
+            await handleCustomerCheckPayment(remoteJid, activeOrderId, userLang, ctx);
         }
         return;
     }
@@ -315,16 +321,7 @@ async function handleIncomingMessageInternal(
                 session.step !== "AWAITING_RETRY_GAMERTAG" &&
                 session.step !== "AWAITING_RETRY_CONFIRMATION")
         ) {
-            await cancelCommand.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [],
-                rawText: trimmed,
-                isGroup: false,
-                isAdmin,
-                userLang,
-                ctx
-            });
+            await handleCustomerCancel(remoteJid, activeOrderId, session, userLang, ctx);
             return;
         }
     }
@@ -332,33 +329,37 @@ async function handleIncomingMessageInternal(
     // Quick-entry buttons from welcome greeting (only active when session is IDLE and no active pending order)
     if (session.step === "IDLE" && !activeOrderId) {
         if (trimmed === "btn_start_buying") {
-            const { menuCommand } = await import("../commands/general/menu");
-            await menuCommand.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [],
-                rawText: trimmed,
-                isGroup: false,
-                isAdmin,
-                userLang,
-                ctx
-            });
+            if (ctx.sendList) {
+                const { buildCategoryListMenu } = await import("../utils/interactiveBuilders");
+                await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
+            } else {
+                await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+            }
             return;
         }
 
         if (trimmed === "btn_history" || trimmed.startsWith("btn_hist_page_")) {
-            const pageArgs = trimmed.startsWith("btn_hist_page_") ? [trimmed.replace("btn_hist_page_", "")] : [];
-            const { historyCommand } = await import("../commands/general/history");
-            await historyCommand.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: pageArgs,
-                rawText: trimmed,
-                isGroup: false,
-                isAdmin,
-                userLang,
-                ctx
-            });
+            const requestedPage = trimmed.startsWith("btn_hist_page_")
+                ? parseInt(trimmed.replace("btn_hist_page_", ""), 10)
+                : 1;
+            const page = isNaN(requestedPage) || requestedPage < 1 ? 1 : requestedPage;
+            try {
+                const orders = await ctx.client.getUserOrders(remoteJid);
+                if (!orders || orders.length === 0) {
+                    await ctx.sendText(remoteJid, t("history.empty", userLang));
+                    return;
+                }
+                const { buildOrderHistoryButtons } = await import("../utils/interactiveBuilders");
+                const historyPayload = buildOrderHistoryButtons(orders, page, 5, userLang);
+                if (ctx.sendButtons) {
+                    await ctx.sendButtons(remoteJid, historyPayload);
+                } else {
+                    await ctx.sendText(remoteJid, historyPayload.text);
+                }
+            } catch (err: unknown) {
+                const errMsg = err instanceof Error ? err.message : String(err);
+                await ctx.sendText(remoteJid, t("history.fetchError", userLang, { error: errMsg }));
+            }
             return;
         }
 
@@ -421,16 +422,17 @@ async function handleIncomingMessageInternal(
     const orderMatch = trimmed.match(/^#?(ORD-[A-Z0-9]{4,10})$/i);
     if (orderMatch && orderMatch[1]) {
         if (!buyingActive) {
-            await statusCommand.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [orderMatch[1].toUpperCase()],
-                rawText: trimmed,
-                isGroup: false,
-                isAdmin,
-                userLang,
-                ctx
-            });
+            try {
+                const cleanId = orderMatch[1].toUpperCase();
+                const order = await ctx.client.getOrderStatus(cleanId);
+                await ctx.sendText(remoteJid, formatStatusText(order, userLang));
+            } catch (err: unknown) {
+                const errMsg = err instanceof Error ? err.message : String(err);
+                await ctx.sendText(
+                    remoteJid,
+                    t("status.notFound", userLang, { orderId: orderMatch[1].toUpperCase(), error: errMsg })
+                );
+            }
         }
         return;
     }
@@ -457,152 +459,140 @@ async function handleIncomingMessageInternal(
     return;
 }
 
-async function handleAdminActionClick(
+async function handleCustomerCheckPayment(
     remoteJid: string,
-    actionId: string,
-    effectiveSender: string,
-    isGroup: boolean,
+    orderId: string,
     userLang: Language,
     ctx: BotContext
-): Promise<boolean> {
-    if (actionId.startsWith("admin_reprocess_") || actionId.startsWith("btn_admin_reprocess_")) {
-        const orderId = actionId.replace(/^(btn_)?admin_reprocess_/, "");
-        const cmd = defaultRegistry.get("/reprocess");
-        if (cmd) {
-            await cmd.execute({
+): Promise<void> {
+    try {
+        const res = await ctx.client.checkOrderPayment(orderId);
+        if (!res.success) {
+            if (res.code === "COOLDOWN") {
+                await ctx.sendText(
+                    remoteJid,
+                    t("checkPayment.cooldown", userLang, {
+                        seconds: res.remainingSeconds ?? 30,
+                        orderId,
+                    })
+                );
+                return;
+            }
+            if (res.code === "ORDER_NOT_PAYABLE") {
+                await ctx.sendText(remoteJid, t("checkPayment.expired", userLang, { orderId }));
+                return;
+            }
+            if (res.code === "NOT_FOUND") {
+                await ctx.sendText(remoteJid, t("checkPayment.notFound", userLang, { orderId }));
+                return;
+            }
+            await ctx.sendText(
                 remoteJid,
-                sender: effectiveSender,
-                args: [orderId],
-                rawText: `/reprocess ${orderId}`,
-                isGroup,
-                isAdmin: true,
-                userLang,
-                ctx
-            });
+                t("checkPayment.error", userLang, { error: res.message || "Unknown error" })
+            );
+            return;
         }
-        return true;
+
+        if (res.alreadyProcessed) {
+            await ctx.sendText(
+                remoteJid,
+                t("checkPayment.alreadyPaid", userLang, {
+                    orderId,
+                    status: res.order?.status || "QUEUED",
+                })
+            );
+            return;
+        }
+
+        if (res.verified) {
+            await ctx.sendText(
+                remoteJid,
+                t("checkPayment.success", userLang, {
+                    orderId,
+                    itemName: res.order?.itemName || "",
+                    formattedAmount: formatRupiah(res.order?.totalNominal || 0),
+                })
+            );
+            return;
+        }
+
+        await ctx.sendText(
+            remoteJid,
+            t("checkPayment.pending", userLang, {
+                orderId,
+                formattedAmount: formatRupiah(res.order?.totalNominal || 0),
+            })
+        );
+    } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await ctx.sendText(remoteJid, t("checkPayment.error", userLang, { error: errMsg }));
+    }
+}
+
+async function handleCustomerCancel(
+    remoteJid: string,
+    activeOrderId: string | null,
+    session: any,
+    userLang: Language,
+    ctx: BotContext
+): Promise<void> {
+    let pendingOrderId = activeOrderId || ctx.state.getActiveOrderId(remoteJid);
+    let pendingItemName: string | undefined;
+
+    if (!pendingOrderId) {
+        try {
+            const userOrders = await ctx.client.getUserOrders(remoteJid);
+            const found = userOrders?.find((o) => o.status === "PENDING_PAYMENT");
+            if (found) {
+                pendingOrderId = found.id;
+                pendingItemName = found.itemName;
+            }
+        } catch {}
     }
 
-    if (actionId.startsWith("admin_done_") || actionId.startsWith("btn_admin_done_")) {
-        const orderId = actionId.replace(/^(btn_)?admin_done_/, "");
-        const cmd = defaultRegistry.get("/done");
-        if (cmd) {
-            await cmd.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [orderId],
-                rawText: `/done ${orderId}`,
-                isGroup,
-                isAdmin: true,
-                userLang,
-                ctx
+    if (pendingOrderId) {
+        try {
+            const res = await ctx.client.cancelOrder(pendingOrderId, "Cancelled by buyer");
+            if (ctx.adminLogger) {
+                await ctx.adminLogger.updateOrderStatus(res.orderId, "CANCELLED", {
+                    failureReason: "Cancelled by buyer",
+                    itemName: res.itemName || pendingItemName,
+                    gamertag: res.gamertag,
+                    platformUserId: remoteJid,
+                });
+            }
+            if (ctx.qrDeleter) {
+                try {
+                    await ctx.qrDeleter(remoteJid);
+                } catch {}
+            }
+            ctx.state.clearActiveOrderId(remoteJid);
+            ctx.state.clearQrMessageKey(remoteJid);
+            ctx.state.clear(remoteJid);
+
+            const msg = t("cancel.orderCancelled", userLang, {
+                orderId: res.orderId,
+                itemName: res.itemName || pendingItemName || "Item",
             });
+            await ctx.sendText(remoteJid, msg);
+            return;
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            const failMsg = t("cancel.failed", userLang, { orderId: pendingOrderId, error: errMsg });
+            await ctx.sendText(remoteJid, failMsg);
+            return;
         }
-        return true;
     }
 
-    if (actionId.startsWith("admin_cancel_") || actionId.startsWith("btn_admin_cancel_")) {
-        const orderId = actionId.replace(/^(btn_)?admin_cancel_/, "");
-        const cmd = defaultRegistry.get("/batal") || defaultRegistry.get("/cancel");
-        if (cmd) {
-            await cmd.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [orderId],
-                rawText: `/cancel ${orderId}`,
-                isGroup,
-                isAdmin: true,
-                userLang,
-                ctx
-            });
-        }
-        return true;
+    if (
+        session.step !== "IDLE" &&
+        session.step !== "LIVE_CHAT" &&
+        session.step !== "AWAITING_SUPPORT_CONFIRMATION"
+    ) {
+        ctx.state.clear(remoteJid);
+        await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+        return;
     }
 
-    if (actionId === "cmd_orders_pending") {
-        const cmd = defaultRegistry.get("/orders");
-        if (cmd) {
-            await cmd.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: ["pending"],
-                rawText: "/orders pending",
-                isGroup,
-                isAdmin: true,
-                userLang,
-                ctx
-            });
-        }
-        return true;
-    }
-
-    if (actionId === "cmd_reprocess_all") {
-        const cmd = defaultRegistry.get("/reprocess");
-        if (cmd) {
-            await cmd.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: ["all"],
-                rawText: "/reprocess all",
-                isGroup,
-                isAdmin: true,
-                userLang,
-                ctx
-            });
-        }
-        return true;
-    }
-
-    if (actionId === "cmd_paid_latest") {
-        const cmd = defaultRegistry.get("/paid");
-        if (cmd) {
-            await cmd.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [],
-                rawText: "/paid",
-                isGroup,
-                isAdmin: true,
-                userLang,
-                ctx
-            });
-        }
-        return true;
-    }
-
-    if (actionId === "cmd_done_latest") {
-        const cmd = defaultRegistry.get("/done");
-        if (cmd) {
-            await cmd.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [],
-                rawText: "/done",
-                isGroup,
-                isAdmin: true,
-                userLang,
-                ctx
-            });
-        }
-        return true;
-    }
-
-    if (actionId === "cmd_livechats") {
-        const cmd = defaultRegistry.get("/livechats");
-        if (cmd) {
-            await cmd.execute({
-                remoteJid,
-                sender: effectiveSender,
-                args: [],
-                rawText: "/livechats",
-                isGroup,
-                isAdmin: true,
-                userLang,
-                ctx
-            });
-        }
-        return true;
-    }
-
-    return false;
+    await ctx.sendText(remoteJid, t("cancel.noPending", userLang));
 }

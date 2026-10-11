@@ -216,6 +216,9 @@ export function isUserAdmin(
         if (adminLogger.getAdminGroupJid && adminLogger.getAdminGroupJid() && remoteJid === adminLogger.getAdminGroupJid()) {
             return true;
         }
+        if (adminLogger.getLogGroupJid && adminLogger.getLogGroupJid() && remoteJid === adminLogger.getLogGroupJid()) {
+            return true;
+        }
         // Fallback for mocks where only getGroupJid is implemented
         if (!adminLogger.getAdminGroupJid && adminLogger.getGroupJid && remoteJid === adminLogger.getGroupJid()) {
             return true;

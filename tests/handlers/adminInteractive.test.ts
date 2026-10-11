@@ -29,9 +29,10 @@ describe("Admin Interactive Buttons & Action Handlers", () => {
             state,
             adminLogger,
             client: {
-                reprocessHeldOrder: async (id: string) => ({ orderId: id, status: "QUEUED" }),
-                manualCompleteOrder: async (id: string) => ({ orderId: id, status: "SUCCESS" }),
-                cancelOrder: async (id: string) => ({ orderId: id, status: "CANCELLED" }),
+                reprocessOrder: mock(async (id: string) => ({ success: true, orderId: id })),
+                updateOrderStatus: mock(async (id: string, status: string) => ({ success: true, orderId: id, status })),
+                markOrderPaid: mock(async (id: string) => ({ success: true, orderId: id })),
+                cancelOrder: mock(async (id: string) => ({ orderId: id, status: "CANCELLED" })),
                 getOrders: async () => [],
                 getUnfinishedOrders: async () => []
             } as any,
@@ -42,95 +43,51 @@ describe("Admin Interactive Buttons & Action Handlers", () => {
         };
     });
 
-    it("should reprocess order when admin clicks admin_reprocess_ORD-12345 in group", async () => {
-        const reprocessCmd = defaultRegistry.get("/reprocess")!;
-        const originalExecute = reprocessCmd.execute;
-        let executedOrderId = "";
-        reprocessCmd.execute = mock(async ({ args }) => {
-            executedOrderId = args[0] || "";
-        });
-
-        try {
-            await handleIncomingMessage(
-                adminGroupJid,
-                false,
-                "admin_reprocess_ORD-12345",
-                mockContext,
-                adminUser
-            );
-            expect(executedOrderId).toBe("ORD-12345");
-        } finally {
-            reprocessCmd.execute = originalExecute;
-        }
+    it("should reprocess order when admin clicks btn_admin_reprocess_ORD-12345 in group", async () => {
+        await handleIncomingMessage(
+            adminGroupJid,
+            false,
+            "btn_admin_reprocess_ORD-12345",
+            mockContext,
+            adminUser
+        );
+        expect(mockContext.client.reprocessOrder).toHaveBeenCalledWith("ORD-12345");
     });
 
-    it("should complete order when admin clicks admin_done_ORD-999 in group", async () => {
-        const doneCmd = defaultRegistry.get("/done")!;
-        const originalExecute = doneCmd.execute;
-        let executedOrderId = "";
-        doneCmd.execute = mock(async ({ args }) => {
-            executedOrderId = args[0] || "";
-        });
-
-        try {
-            await handleIncomingMessage(
-                adminGroupJid,
-                false,
-                "admin_done_ORD-999",
-                mockContext,
-                adminUser
-            );
-            expect(executedOrderId).toBe("ORD-999");
-        } finally {
-            doneCmd.execute = originalExecute;
-        }
+    it("should complete order when admin clicks btn_admin_done_ORD-999 in group", async () => {
+        await handleIncomingMessage(
+            adminGroupJid,
+            false,
+            "btn_admin_done_ORD-999",
+            mockContext,
+            adminUser
+        );
+        expect(mockContext.client.updateOrderStatus).toHaveBeenCalledWith("ORD-999", "COMPLETED");
     });
 
-    it("should cancel order when admin clicks admin_cancel_ORD-777 in group", async () => {
-        const cancelCmd = defaultRegistry.get("/batal")!;
-        const originalExecute = cancelCmd.execute;
-        let executedOrderId = "";
-        cancelCmd.execute = mock(async ({ args }) => {
-            executedOrderId = args[0] || "";
-        });
-
-        try {
-            await handleIncomingMessage(
-                adminGroupJid,
-                false,
-                "admin_cancel_ORD-777",
-                mockContext,
-                adminUser
-            );
-            expect(executedOrderId).toBe("ORD-777");
-        } finally {
-            cancelCmd.execute = originalExecute;
-        }
+    it("should refund order when admin clicks btn_admin_cancel_ORD-777 in group", async () => {
+        await handleIncomingMessage(
+            adminGroupJid,
+            false,
+            "btn_admin_cancel_ORD-777",
+            mockContext,
+            adminUser
+        );
+        expect(mockContext.client.updateOrderStatus).toHaveBeenCalledWith("ORD-777", "REFUNDED");
     });
 
-    it("should ignore admin action clicks from non-admins in group", async () => {
-        const reprocessCmd = defaultRegistry.get("/reprocess")!;
-        const originalExecute = reprocessCmd.execute;
-        let called = false;
-        reprocessCmd.execute = mock(async () => {
-            called = true;
-        });
-
-        try {
-            await handleIncomingMessage(
-                "1203999999@g.us",
-                false,
-                "admin_reprocess_ORD-12345",
-                mockContext,
-                nonAdminUser
-            );
-            expect(called).toBe(false);
-        } finally {
-            reprocessCmd.execute = originalExecute;
-        }
+    it("should ignore admin action clicks from non-authorized groups", async () => {
+        await handleIncomingMessage(
+            "1203999999@g.us",
+            false,
+            "btn_admin_reprocess_ORD-12345",
+            mockContext,
+            nonAdminUser
+        );
+        expect(mockContext.client.reprocessOrder).not.toHaveBeenCalled();
     });
 
-    it("notifySupportRequest should send action buttons if orderId is provided", async () => {
+    it("notifySupportRequest should send interactive solved button", async () => {
         let sentMessagePayload: any = null;
         const logger = new AdminGroupLogger(
             { adminGroupJid: "12036304@g.us" },
@@ -152,8 +109,8 @@ describe("Admin Interactive Buttons & Action Handlers", () => {
         expect(sentMessagePayload).toBeDefined();
         expect(sentMessagePayload.interactiveMessage).toBeDefined();
         const buttons = sentMessagePayload.interactiveMessage.nativeFlowMessage.buttons;
-        expect(buttons.length).toBe(3);
+        expect(buttons.length).toBe(1);
         const b0 = JSON.parse(buttons[0].buttonParamsJson);
-        expect(b0.id).toBe("btn_admin_reprocess_ORD-FAIL1");
+        expect(b0.id).toBe("btn_admin_solved_628123456@s.whatsapp.net");
     });
 });

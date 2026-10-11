@@ -5,7 +5,6 @@ import { AdminGroupLogger, type GroupMessageSender } from "../../src/handlers/ad
 import { CoreClient } from "../../src/coreClient";
 import { defaultRegistry } from "../../src/commands/registry";
 import { maintenanceCommand } from "../../src/commands/admin/maintenance";
-import { adminCommand } from "../../src/commands/admin/admin";
 
 describe("Maintenance Mode & Admin Recognition", () => {
     let sentTexts: Array<{ jid: string; text: string }> = [];
@@ -20,7 +19,6 @@ describe("Maintenance Mode & Admin Recognition", () => {
         state = new StateManager();
 
         defaultRegistry.register(maintenanceCommand);
-        defaultRegistry.register(adminCommand);
 
         const mockSender: GroupMessageSender = {
             sendMessage: mock(async () => ({ key: { id: "test" } })),

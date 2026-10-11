@@ -19,3 +19,6 @@ export const allCommands: Command[] = defaultRegistry.getAll();
 export * from "./types";
 export * from "./registry";
 export * from "./orderHelper";
+export { maintenanceCommand } from "./admin/maintenance";
+export { syncCatalogCommand, syncCommand } from "./admin/sync";
+export { balanceCommand } from "./admin/balance";

@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { historyCommand } from "../../src/commands/general/history";
 import { buildOrderHistoryButtons } from "../../src/utils/interactiveBuilders";
 import { handleIncomingMessage } from "../../src/handlers/message";
 import { StateManager } from "../../src/state";
@@ -75,89 +74,15 @@ describe("Order History Pagination", () => {
         });
     });
 
-    describe("historyCommand execution", () => {
-        let sentButtons: Array<{ jid: string; content: any }>;
-        let sentTexts: Array<{ jid: string; text: string }>;
-        let mockCtx: any;
-
-        beforeEach(() => {
-            sentButtons = [];
-            sentTexts = [];
-            mockCtx = {
-                client: {
-                    getUserOrders: async () => createMockOrders(12)
-                },
-                sendButtons: async (jid: string, content: any) => {
-                    sentButtons.push({ jid, content });
-                },
-                sendText: async (jid: string, text: string) => {
-                    sentTexts.push({ jid, text });
-                }
-            };
-        });
-
-        it("should send page 1 buttons by default when orders exist", async () => {
-            await historyCommand.execute({
-                remoteJid: "628111@s.whatsapp.net",
-                sender: "628111@s.whatsapp.net",
-                args: [],
-                rawText: "btn_history",
-                isGroup: false,
-                isAdmin: false,
-                userLang: "id",
-                ctx: mockCtx
-            });
-
-            expect(sentButtons.length).toBe(1);
-            const content = sentButtons[0]!.content;
-            expect(content.text).toContain("(Hal 1/3)");
-            expect(content.buttons.some((b: any) => b.id === "btn_hist_page_2")).toBe(true);
-        });
-
-        it("should send requested page when page argument is provided", async () => {
-            await historyCommand.execute({
-                remoteJid: "628111@s.whatsapp.net",
-                sender: "628111@s.whatsapp.net",
-                args: ["2"],
-                rawText: "btn_hist_page_2",
-                isGroup: false,
-                isAdmin: false,
-                userLang: "id",
-                ctx: mockCtx
-            });
-
-            expect(sentButtons.length).toBe(1);
-            const content = sentButtons[0]!.content;
-            expect(content.text).toContain("(Hal 2/3)");
-            expect(content.buttons.some((b: any) => b.id === "btn_hist_page_1")).toBe(true);
-            expect(content.buttons.some((b: any) => b.id === "btn_hist_page_3")).toBe(true);
-        });
-
-        it("should send empty message text if user has no orders", async () => {
-            mockCtx.client.getUserOrders = async () => [];
-            await historyCommand.execute({
-                remoteJid: "628111@s.whatsapp.net",
-                sender: "628111@s.whatsapp.net",
-                args: [],
-                rawText: "btn_history",
-                isGroup: false,
-                isAdmin: false,
-                userLang: "id",
-                ctx: mockCtx
-            });
-
-            expect(sentTexts.length).toBe(1);
-            expect(sentTexts[0]!.text).toContain("Belum ada riwayat pesanan");
-        });
-    });
-
     describe("handleIncomingMessage with btn_hist_page_<N>", () => {
         let sentButtons: Array<{ jid: string; content: any }>;
+        let sentTexts: Array<{ jid: string; text: string }>;
         let mockContext: any;
         let state: StateManager;
 
         beforeEach(() => {
             sentButtons = [];
+            sentTexts = [];
             state = new StateManager();
             state.setMaintenanceMode(false);
             mockContext = {
@@ -168,15 +93,30 @@ describe("Order History Pagination", () => {
                 sendButtons: async (jid: string, content: any) => {
                     sentButtons.push({ jid, content });
                 },
-                sendText: async () => {},
+                sendText: async (jid: string, text: string) => {
+                    sentTexts.push({ jid, text });
+                },
                 sendList: async () => {}
             };
+        });
+
+        it("should handle btn_history and send page 1", async () => {
+            await handleIncomingMessage("628111@s.whatsapp.net", false, "btn_history", mockContext);
+            expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]!.content.text).toContain("(Hal 1/3)");
         });
 
         it("should handle btn_hist_page_2 and send page 2", async () => {
             await handleIncomingMessage("628111@s.whatsapp.net", false, "btn_hist_page_2", mockContext);
             expect(sentButtons.length).toBe(1);
             expect(sentButtons[0]!.content.text).toContain("(Hal 2/3)");
+        });
+
+        it("should send empty message text if user has no orders", async () => {
+            mockContext.client.getUserOrders = async () => [];
+            await handleIncomingMessage("628111@s.whatsapp.net", false, "btn_history", mockContext);
+            expect(sentTexts.length).toBe(1);
+            expect(sentTexts[0]!.text).toContain("Belum ada riwayat pesanan");
         });
     });
 });

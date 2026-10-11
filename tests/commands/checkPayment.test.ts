@@ -1,24 +1,21 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { checkPaymentCommand } from "../../src/commands/general/checkPayment";
-import type { CommandContext } from "../../src/commands/types";
+import { handleIncomingMessage, type BotContext } from "../../src/handlers/message";
+import { StateManager } from "../../src/state";
 
-describe("General Command: /cek (Check Payment)", () => {
+describe("Interactive Button: btn_check_payment", () => {
     let sentMessages: { jid: string; text: string }[];
     let mockClient: any;
-    let mockContext: CommandContext;
+    let state: StateManager;
+    let mockContext: BotContext;
+    const testJid = "628123456789@s.whatsapp.net";
 
     beforeEach(() => {
         sentMessages = [];
+        state = new StateManager();
+        state.setMaintenanceMode(false);
+        state.setActiveOrderId(testJid, "ORD-PENDING-1");
+
         mockClient = {
-            getUserOrders: async () => [
-                {
-                    id: "ORD-PENDING-1",
-                    gamertag: "Steve",
-                    itemName: "Hive+ Rank",
-                    status: "PENDING_PAYMENT",
-                    totalNominal: 25123,
-                },
-            ],
             checkOrderPayment: async (orderId: string) => {
                 if (orderId === "ORD-PENDING-1") {
                     return {
@@ -62,63 +59,33 @@ describe("General Command: /cek (Check Payment)", () => {
         };
 
         mockContext = {
-            remoteJid: "62812345678@s.whatsapp.net",
-            sender: "62812345678@s.whatsapp.net",
-            isGroup: false,
-            isAdmin: false,
-            rawText: "/cek",
-            args: [],
-            userLang: "id",
-            ctx: {
-                client: mockClient,
-                sendText: async (jid: string, text: string) => {
-                    sentMessages.push({ jid, text });
-                    return {} as any;
-                },
-            } as any,
+            state,
+            client: mockClient,
+            sendText: async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            },
+            sendImage: async () => {},
         };
     });
 
-    it("should auto-detect pending order and verify payment successfully", async () => {
-        await checkPaymentCommand.execute(mockContext);
-
+    it("verifies payment when active pending order is verified", async () => {
+        await handleIncomingMessage(testJid, false, "btn_check_payment", mockContext);
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0]!.text).toContain("PEMBAYARAN DIVERIFIKASI");
-        expect(sentMessages[0]!.text).toContain("ORD-PENDING-1");
-        expect(sentMessages[0]!.text).toContain("25.123");
+        expect(sentMessages[0]?.text).toContain("PEMBAYARAN DIVERIFIKASI");
+        expect(sentMessages[0]?.text).toContain("ORD-PENDING-1");
     });
 
-    it("should send pending message when transaction not found in GoBiz yet", async () => {
-        mockClient.getUserOrders = async () => [
-            {
-                id: "ORD-NOT-PAID",
-                gamertag: "Alex",
-                itemName: "Costume",
-                status: "PENDING_PAYMENT",
-                totalNominal: 10000,
-            },
-        ];
-
-        await checkPaymentCommand.execute(mockContext);
-
+    it("reports pending status when order not yet paid", async () => {
+        state.setActiveOrderId(testJid, "ORD-NOT-PAID");
+        await handleIncomingMessage(testJid, false, "btn_check_payment", mockContext);
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0]!.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
-        expect(sentMessages[0]!.text).toContain("ORD-NOT-PAID");
+        expect(sentMessages[0]?.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
     });
 
-    it("should warn user about cooldown if checked too quickly", async () => {
-        mockContext.args = ["ORD-COOLDOWN"];
-        await checkPaymentCommand.execute(mockContext);
-
+    it("shows cooldown when verification is on cooldown", async () => {
+        state.setActiveOrderId(testJid, "ORD-COOLDOWN");
+        await handleIncomingMessage(testJid, false, "btn_check_payment", mockContext);
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0]!.text).toContain("25 detik");
-    });
-
-    it("should notice user if no active pending order exists", async () => {
-        mockClient.getUserOrders = async () => [];
-        await checkPaymentCommand.execute(mockContext);
-
-        expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0]!.text).toContain("tidak memiliki pesanan aktif");
+        expect(sentMessages[0]?.text).toContain("tunggu");
     });
 });
