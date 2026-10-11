@@ -140,13 +140,14 @@ describe("Maintenance Mode & Admin Recognition", () => {
         expect(sentTexts.length).toBe(0);
     });
 
-    it("should allow admins to toggle maintenance mode on and off via /maintenance", async () => {
+    it("should allow admins to toggle maintenance mode on and off via /maintenance in admin group", async () => {
+        const adminGroupJid = "12345-admin@g.us";
         const adminLid = "28948566155371@lid";
         adminLogger.addAdminParticipants([adminLid]);
         const normalUserJid = "628999888777@s.whatsapp.net";
 
-        // 1. Turn ON maintenance mode
-        await handleIncomingMessage(adminLid, false, "/maintenance on", ctx);
+        // 1. Turn ON maintenance mode in admin group
+        await handleIncomingMessage(adminGroupJid, false, "/maintenance on", ctx, adminLid);
         expect(state.isMaintenanceMode()).toBe(true);
         expect(sentTexts[0]?.text).toContain("DIAKTIFKAN");
 
@@ -155,9 +156,9 @@ describe("Maintenance Mode & Admin Recognition", () => {
         await handleIncomingMessage(normalUserJid, false, "Halo", ctx);
         expect(sentTexts[0]?.text).toContain("PEMELIHARAAN");
 
-        // 3. Turn OFF maintenance mode
+        // 3. Turn OFF maintenance mode in admin group
         sentTexts = [];
-        await handleIncomingMessage(adminLid, false, "/maintenance off", ctx);
+        await handleIncomingMessage(adminGroupJid, false, "/maintenance off", ctx, adminLid);
         expect(state.isMaintenanceMode()).toBe(false);
         expect(sentTexts[0]?.text).toContain("DINONAKTIFKAN");
 
@@ -168,5 +169,22 @@ describe("Maintenance Mode & Admin Recognition", () => {
         state.setLastGreetingAt(normalUserJid, 0);
         await handleIncomingMessage(normalUserJid, false, "Halo", ctx);
         expect(sentButtons.length).toBe(1);
+    });
+
+    it("should NOT execute slash commands in private chat even when sent by admin (treated as normal user)", async () => {
+        const adminLid = "28948566155371@lid";
+        adminLogger.addAdminParticipants([adminLid]);
+
+        // When admin sends /bantuan or /menu in private chat:
+        // It must NOT execute command (no command text sent), but sends welcome buttons because session is IDLE!
+        await handleIncomingMessage(adminLid, false, "/bantuan", ctx);
+        expect(sentButtons.length).toBe(1);
+        expect(sentTexts.length).toBe(0);
+
+        // If sent again within 5s cooldown, it is dropped silently (not executing command)
+        sentButtons = [];
+        await handleIncomingMessage(adminLid, false, "/menu", ctx);
+        expect(sentButtons.length).toBe(0);
+        expect(sentTexts.length).toBe(0);
     });
 });

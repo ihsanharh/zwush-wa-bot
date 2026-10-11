@@ -188,6 +188,12 @@ async function handleIncomingMessageInternal(
 
     // 1. Group Chat Routing
     if (isGroup) {
+        const adminGroupJid = ctx.adminLogger?.getAdminGroupJid();
+        // Commands and admin interactions are strictly for the Admin Group
+        if (adminGroupJid && remoteJid !== adminGroupJid) {
+            return;
+        }
+
         if (!participant) {
             return;
         }
@@ -237,23 +243,6 @@ async function handleIncomingMessageInternal(
     // 2. Private 1:1 Chat Routing
     // Live chat active: bot is paused so admin can chat directly with customer via WhatsApp web/app
     if (isLiveChatActive(remoteJid, ctx)) {
-        // Only allow /solved command from admin to end the session
-        if (lower === "/solved" || lower.startsWith("/solved ") || lower === "/solve" || lower.startsWith("/solve ")) {
-            if (isAdmin) {
-                const parts = trimmed.split(/\s+/);
-                const cmdPart = parts[0]?.toLowerCase() || "";
-                await defaultRegistry.dispatch(cmdPart, {
-                    remoteJid,
-                    sender: effectiveSender,
-                    args: parts.slice(1),
-                    rawText: trimmed,
-                    isGroup: false,
-                    isAdmin,
-                    userLang,
-                    ctx
-                });
-            }
-        }
         return;
     }
 
@@ -263,22 +252,9 @@ async function handleIncomingMessageInternal(
         return;
     }
 
-    // Prevent bot self-reply loops: ignore messages fromMe unless it is an explicit slash command
-    if (fromMe && !trimmed.startsWith("/")) {
+    // Prevent bot self-reply loops: ignore messages fromMe in private chat
+    if (fromMe) {
         return;
-    }
-
-    // Admin action button/list clicks
-    if (isAdmin && (trimmed.startsWith("admin_") || trimmed.startsWith("cmd_"))) {
-        const handledAdminAction = await handleAdminActionClick(
-            remoteJid,
-            trimmed,
-            effectiveSender,
-            false,
-            userLang,
-            ctx
-        );
-        if (handledAdminAction) return;
     }
 
     const session = ctx.state.getSession(remoteJid);
@@ -294,35 +270,14 @@ async function handleIncomingMessageInternal(
         }
     }
 
-    // Slash command execution (STRICTLY FOR ADMINS ONLY - Normal users have ZERO slash commands)
+    // In private chat: NO SLASH COMMANDS AT ALL! (Commands are strictly exclusive to the admin group)
+    // Both normal users and admins are treated identically here (buttons-only, interactive UI).
+    // Admin only bypasses maintenance mode.
     if (trimmed.startsWith("/")) {
-        if (isAdmin) {
-            const parts = trimmed.split(/\s+/);
-            const cmd = parts[0]?.toLowerCase() || "";
-            const args = parts.slice(1);
-
-            const handled = await defaultRegistry.dispatch(cmd, {
-                remoteJid,
-                sender: effectiveSender,
-                args,
-                rawText: trimmed,
-                isGroup: false,
-                isAdmin: true,
-                userLang,
-                ctx
-            });
-
-            if (!handled) {
-                await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx);
-            }
-            return;
-        }
-
-        // For normal users (!isAdmin): NO COMMANDS AT ALL!
         // In active buying flow:
         if (buyingActive) {
             if (session.step === "AWAITING_GAMERTAG") {
-                // Pass through to gamertag validation in handleBuyingFlow (will report invalid gamertag)
+                // Pass through to gamertag validation in handleBuyingFlow (will report invalid gamertag format)
             } else {
                 // Silently drop slash commands during confirmation, voucher, or pending payment
                 return;
