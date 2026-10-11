@@ -13,7 +13,8 @@ import {
     buildGamertagPromptButtons,
     buildOrderConfirmationButtons,
     buildModifyOrderListMenu,
-    buildInvoiceButtons
+    buildInvoiceButtons,
+    buildVoucherPromptButtons
 } from "../utils/interactiveBuilders";
 
 async function sendItemSelectionAndGamertagPrompt(
@@ -579,21 +580,10 @@ export async function handleBuyingFlow(
             ctx.state.setAwaitingVoucher(remoteJid);
             const promptText = t("interactive.voucherInputPrompt", userLang);
             if (ctx.sendButtons) {
-                const sent = await ctx.sendButtons(remoteJid, {
-                    buttonsMessage: {
-                        contentText: promptText,
-                        footerText: config.STORE_NAME,
-                        headerType: 1,
-                        text: promptText,
-                        buttons: [
-                            {
-                                buttonId: "btn_cancel_voucher",
-                                buttonText: { displayText: t("buttons.cancel", userLang) },
-                                type: 1
-                            }
-                        ]
-                    }
-                });
+                const sent = await ctx.sendButtons(
+                    remoteJid,
+                    buildVoucherPromptButtons(promptText, userLang)
+                );
                 const msgId = sent?.key?.id || sent?.id;
                 if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
             } else {
@@ -904,21 +894,10 @@ export async function handleBuyingFlow(
             }
 
             if (ctx.sendButtons) {
-                const sent = await ctx.sendButtons(remoteJid, {
-                    buttonsMessage: {
-                        contentText: errText,
-                        footerText: config.STORE_NAME,
-                        headerType: 1,
-                        text: errText,
-                        buttons: [
-                            {
-                                buttonId: "btn_cancel_voucher",
-                                buttonText: { displayText: t("buttons.cancel", userLang) },
-                                type: 1
-                            }
-                        ]
-                    }
-                });
+                const sent = await ctx.sendButtons(
+                    remoteJid,
+                    buildVoucherPromptButtons(errText, userLang)
+                );
                 const msgId = sent?.key?.id || sent?.id;
                 if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
             } else {

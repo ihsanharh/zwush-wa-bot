@@ -260,6 +260,60 @@ export function buildModifyOrderListMenu(lang: Language = "id"): { listMessage: 
 }
 
 /**
+ * Builds Voucher Prompt Buttons (Native quick reply button: [ Batal ])
+ */
+export function buildVoucherPromptButtons(
+    promptText: string,
+    lang: Language = "id"
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+    buttonsMessage?: any;
+} {
+    const store = config.STORE_NAME;
+    const cancelText = t("buttons.cancel", lang);
+    const buttons = [
+        {
+            id: "btn_cancel_voucher",
+            text: cancelText
+        }
+    ];
+
+    return {
+        text: promptText,
+        buttons,
+        interactiveMessage: {
+            body: { text: promptText },
+            footer: { text: store },
+            nativeFlowMessage: {
+                messageVersion: 1,
+                buttons: buttons.map((btn) => ({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text,
+                        id: btn.id
+                    })
+                }))
+            }
+        },
+        buttonsMessage: {
+            contentText: promptText,
+            footerText: store,
+            headerType: 1,
+            text: promptText,
+            buttons: [
+                {
+                    buttonId: "btn_cancel_voucher",
+                    buttonText: { displayText: cancelText },
+                    type: 1
+                }
+            ]
+        }
+    };
+}
+
+/**
  * Builds Invoice Buttons (QRIS payment card)
  */
 export function buildInvoiceButtons(

@@ -240,7 +240,8 @@
         "nextPage": "Next Page ({{nextPage}}/{{totalPages}})",
         "nextPageShort": "Next Page",
         "prevPage": "Previous Page",
-        "changeItem": "Change Item"
+        "changeItem": "Change Item",
+        "cancel": "Cancel"
     },
     "interactive": {
         "categoryListTitle": "{{store}} Catalog",

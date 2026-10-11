@@ -240,7 +240,8 @@
         "nextPage": "Hal Berikutnya ({{nextPage}}/{{totalPages}})",
         "nextPageShort": "Hal Berikutnya",
         "prevPage": "Hal Sebelumnya",
-        "changeItem": "Ganti Item"
+        "changeItem": "Ganti Item",
+        "cancel": "Batal"
     },
     "interactive": {
         "categoryListTitle": "Katalog {{store}}",
