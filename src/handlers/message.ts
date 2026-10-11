@@ -226,8 +226,8 @@ async function handleIncomingMessageInternal(
         return;
     }
 
-    // Bare cancel keyword check (e.g. user sends "batal", "cancel", "c" as instructed in the invoice)
-    if (lower === "batal" || lower === "cancel" || lower === "c") {
+    // Bare cancel keyword check (e.g. user sends "batal", "cancel", "c", "b" as instructed in prompts and invoice)
+    if (lower === "batal" || lower === "cancel" || lower === "c" || lower === "b") {
         const pendingOrderId = ctx.state.getActiveOrderId(remoteJid);
         const session = ctx.state.getSession(remoteJid);
         if (pendingOrderId || (session.step !== "IDLE" && session.step !== "LIVE_CHAT" && session.step !== "AWAITING_SUPPORT_CONFIRMATION")) {

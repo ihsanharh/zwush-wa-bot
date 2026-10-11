@@ -124,7 +124,8 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        if (lower === "c" || lower === "cancel" || lower === "batal") {
+        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
+        if (isCancel) {
             ctx.state.clearRetryOrder(remoteJid);
             await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
             return true;
@@ -197,25 +198,32 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        const isChange = lower === "k" || lower === "b" || lower === "kembali" || lower === "back";
+        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
+        if (isCancel) {
+            ctx.state.clearRetryOrder(remoteJid);
+            await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
+            return true;
+        }
+
+        const isChange = lower === "k" || lower === "kembali" || lower === "back";
         if (isChange) {
             session.step = "AWAITING_RETRY_GAMERTAG";
             session.lastUpdated = Date.now();
             await ctx.sendText(remoteJid, t("buying.enterCorrectGamertag", userLang));
             return true;
         }
-
-        const isCancel = lower === "c" || lower === "cancel" || lower === "batal";
-        if (isCancel) {
-            ctx.state.clearRetryOrder(remoteJid);
-            await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
-            return true;
-        }
         return true;
     }
 
     if (session.step === "AWAITING_GAMERTAG") {
-        const isBack = lower === "k" || lower === "b" || lower === "kembali" || lower === "back";
+        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
+        if (isCancel) {
+            ctx.state.clear(remoteJid);
+            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            return true;
+        }
+
+        const isBack = lower === "k" || lower === "kembali" || lower === "back";
         if (isBack) {
             const cat = CATEGORIES.find((c) => c.dbCategory === session.selectedCategory);
             if (cat) {
@@ -224,13 +232,6 @@ export async function handleBuyingFlow(
                 await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
                 return true;
             }
-        }
-
-        const isCancel = lower === "c" || lower === "cancel" || lower === "batal";
-        if (isCancel) {
-            ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
-            return true;
         }
 
         const gamertag = trimmed;
@@ -257,18 +258,18 @@ export async function handleBuyingFlow(
     }
 
     if (session.step === "AWAITING_CONFIRMATION") {
-        const isBack = lower === "k" || lower === "b" || lower === "kembali" || lower === "back";
+        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
+        if (isCancel) {
+            ctx.state.clear(remoteJid);
+            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            return true;
+        }
+
+        const isBack = lower === "k" || lower === "kembali" || lower === "back";
         if (isBack) {
             session.step = "AWAITING_GAMERTAG";
             session.lastUpdated = Date.now();
             await ctx.sendText(remoteJid, t("buying.enterGamertagPrompt", userLang));
-            return true;
-        }
-
-        const isCancel = lower === "c" || lower === "cancel" || lower === "batal";
-        if (isCancel) {
-            ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
         }
 
