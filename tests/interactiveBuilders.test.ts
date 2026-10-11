@@ -9,6 +9,8 @@ import {
     buildSupportPromptButtons,
     buildAdminPanelMenu,
     buildAdminOrderActionButtons,
+    buildAdminOrderFailureButtons,
+    buildAdminSupportSolvedButtons,
     buildWelcomeButtons,
     buildSettingsListMenu
 } from "../src/utils/interactiveBuilders";
@@ -132,12 +134,35 @@ describe("interactiveBuilders", () => {
         expect(payload.listMessage.sections[0].rows[1].rowId).toBe("admin_cmd_orders");
     });
 
-    it("should build admin order action buttons", () => {
+    it("should build admin order action buttons for new orders (paid and done)", () => {
         const payload = buildAdminOrderActionButtons("ORD-12345", "id");
         const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
-        expect(buttons.length).toBe(3);
+        expect(buttons.length).toBe(2);
+        const p0 = JSON.parse(buttons[0].buttonParamsJson);
+        const p1 = JSON.parse(buttons[1].buttonParamsJson);
+        expect(p0.id).toBe("btn_admin_paid_ORD-12345");
+        expect(p0.display_text).toContain("Paid");
+        expect(p1.id).toBe("btn_admin_done_ORD-12345");
+        expect(p1.display_text).toContain("Done");
+    });
+
+    it("should build admin order failure retry buttons", () => {
+        const payload = buildAdminOrderFailureButtons("ORD-12345", "Token Gibot habis", "id");
+        const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
+        expect(buttons.length).toBe(1);
         const p0 = JSON.parse(buttons[0].buttonParamsJson);
         expect(p0.id).toBe("btn_admin_reprocess_ORD-12345");
+        expect(p0.display_text).toContain("Retry");
+        expect(payload.text).toContain("Token Gibot habis");
+    });
+
+    it("should build admin support solved button", () => {
+        const payload = buildAdminSupportSolvedButtons("628123456789@s.whatsapp.net", "id");
+        const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
+        expect(buttons.length).toBe(1);
+        const p0 = JSON.parse(buttons[0].buttonParamsJson);
+        expect(p0.id).toBe("btn_admin_solved_628123456789@s.whatsapp.net");
+        expect(p0.display_text).toContain("Solved");
     });
 
     it("should build welcome buttons with 3 quick-reply options (Catalog, History, Settings)", () => {

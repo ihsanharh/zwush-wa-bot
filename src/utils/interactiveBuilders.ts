@@ -375,42 +375,95 @@ export function buildAdminPanelMenu(
 }
 
 /**
- * Builds Quick Action Buttons for Admin Log Group
+ * Builds Quick Action Buttons for New Orders in Admin Log Group (Paid & Done)
  */
 export function buildAdminOrderActionButtons(
     orderId: string,
     lang: Language = "id"
-): { interactiveMessage: any } {
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const text = `Aksi Cepat Admin — Order #${orderId}:`;
+    const buttons = [
+        { id: `btn_admin_paid_${orderId}`, text: "✅ Tandai Paid" },
+        { id: `btn_admin_done_${orderId}`, text: "🚀 Proses / Done" }
+    ];
     return {
         interactiveMessage: {
-            body: { text: `Aksi Cepat Order #${orderId}:` },
+            body: { text },
             nativeFlowMessage: {
                 messageVersion: 1,
-                buttons: [
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: "Reprocess",
-                            id: `btn_admin_reprocess_${orderId}`
-                        })
-                    },
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: "Manual Done",
-                            id: `btn_admin_done_${orderId}`
-                        })
-                    },
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: "Batalkan",
-                            id: `btn_admin_cancel_${orderId}`
-                        })
-                    }
-                ]
+                buttons: buttons.map((btn) => ({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text,
+                        id: btn.id
+                    })
+                }))
             }
-        }
+        },
+        text,
+        buttons
+    };
+}
+
+/**
+ * Builds Quick Retry Buttons for Failed or Held Orders in Admin Log Group
+ */
+export function buildAdminOrderFailureButtons(
+    orderId: string,
+    failureReason?: string,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const reason = failureReason || "Kendala pemrosesan The Hive";
+    const text = `⚠️ *KENDALA PESANAN #${orderId}*\nAlasan: *${reason}*\n\n👉 Silakan periksa kendala di atas, lalu klik tombol di bawah untuk mencoba memproses kembali:`;
+    const buttons = [
+        { id: `btn_admin_reprocess_${orderId}`, text: "🔄 Retry Order" }
+    ];
+    return {
+        interactiveMessage: {
+            body: { text },
+            nativeFlowMessage: {
+                messageVersion: 1,
+                buttons: buttons.map((btn) => ({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text,
+                        id: btn.id
+                    })
+                }))
+            }
+        },
+        text,
+        buttons
+    };
+}
+
+/**
+ * Builds Live Chat Ticket Solved Button for Admin Group
+ */
+export function buildAdminSupportSolvedButtons(
+    target: string,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const text = `💡 *Setelah selesai membantu pelanggan, klik tombol di bawah untuk mengaktifkan bot kembali:*`;
+    const buttons = [
+        { id: `btn_admin_solved_${target}`, text: "✅ Selesai / Solved" }
+    ];
+    return {
+        interactiveMessage: {
+            body: { text },
+            nativeFlowMessage: {
+                messageVersion: 1,
+                buttons: buttons.map((btn) => ({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text,
+                        id: btn.id
+                    })
+                }))
+            }
+        },
+        text,
+        buttons
     };
 }
 
