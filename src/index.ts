@@ -55,8 +55,8 @@ const adminLogger = new AdminGroupLogger(
         adminGroupJid: config.ADMIN_GROUP_JID || ""
     },
     {
-        async sendMessage(jid: string, content: any) {
-            return await client.message.send(jid, content);
+        async sendMessage(jid: string, content: any, options?: any) {
+            return await client.message.send(jid, content, options);
         },
         async editMessage(jid: string, key: any, newText: string) {
             const editKey = key?.id ? key : { id: key, remoteJid: jid, fromMe: true };

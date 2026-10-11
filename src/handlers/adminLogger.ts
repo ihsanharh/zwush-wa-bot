@@ -10,7 +10,7 @@ export interface GroupParticipantInfo {
 }
 
 export interface GroupMessageSender {
-    sendMessage(jid: string, content: any): Promise<any>;
+    sendMessage(jid: string, content: any, options?: any): Promise<any>;
     editMessage(jid: string, key: any, newText: string): Promise<any>;
     getGroupParticipants?: (jid: string) => Promise<string[]>;
     getGroupMetadata?: (jid: string) => Promise<any>;
@@ -208,6 +208,17 @@ export class AdminGroupLogger {
                 entry.messageKey = messageKey;
             }
             this.orders.set(order.orderId, entry);
+
+            // Follow-up: send action buttons (Paid & Done) quoting the original order log message
+            if (messageKey) {
+                try {
+                    const { buildAdminOrderActionButtons } = await import("../utils/interactiveBuilders");
+                    const buttonPayload = buildAdminOrderActionButtons(order.orderId, "id");
+                    await this.sender.sendMessage(this.logGroupJid, buttonPayload, { quote: messageKey });
+                } catch (btnErr) {
+                    console.warn(`[AdminGroupLogger] Failed to send follow-up action buttons for #${order.orderId}:`, btnErr);
+                }
+            }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error(`[AdminGroupLogger] Error sending log for order #${order.orderId}:`, msg);
@@ -252,22 +263,48 @@ export class AdminGroupLogger {
 
         const updatedText = this.formatLogMessage(entry);
 
+        let editSucceeded = false;
         if (entry.messageKey) {
             try {
                 await this.sender.editMessage(this.logGroupJid, entry.messageKey, updatedText);
-                return;
+                editSucceeded = true;
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : String(err);
                 console.warn(`[AdminGroupLogger] Edit failed for order #${orderId}, falling back to new message:`, msg);
             }
         }
 
-        // Fallback: send as new message if no messageKey or if editMessage failed
-        try {
-            await this.sender.sendMessage(this.logGroupJid, updatedText);
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            console.error(`[AdminGroupLogger] Error sending fallback log for order #${orderId}:`, msg);
+        if (!editSucceeded) {
+            // Fallback: send as new message if no messageKey or if editMessage failed
+            try {
+                const sent = await this.sender.sendMessage(this.logGroupJid, updatedText);
+                const newKey =
+                    sent?.key ??
+                    (sent?.id ? { id: sent.id, remoteJid: this.logGroupJid, fromMe: true } : undefined);
+                if (newKey) {
+                    entry.messageKey = newKey;
+                }
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.error(`[AdminGroupLogger] Error sending fallback log for order #${orderId}:`, msg);
+            }
+        }
+
+        // If order failed or held: send follow-up message quoting the order log with retry button
+        const isFailedOrHeld =
+            status === "FAILED" ||
+            status === "HELD" ||
+            status === "INSUFFICIENT_TOKENS" ||
+            status === "DELAYED_PAYMENT";
+
+        if (isFailedOrHeld && entry.messageKey) {
+            try {
+                const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                const failPayload = buildAdminOrderFailureButtons(orderId, extra?.failureReason, "id");
+                await this.sender.sendMessage(this.logGroupJid, failPayload, { quote: entry.messageKey });
+            } catch (failErr) {
+                console.warn(`[AdminGroupLogger] Failed to send failure retry buttons for #${orderId}:`, failErr);
+            }
         }
     }
 
@@ -352,8 +389,7 @@ export class AdminGroupLogger {
         alertText += `👉 *INSTRUKSI ADMIN:*\n`;
         alertText += `• Mode *Live Chat* saat ini AKTIF untuk pelanggan ini (perintah otomatis bot dinonaktifkan).\n`;
         alertText += `• Silakan buka WhatsApp di HP Anda dan balas chat pelanggan secara langsung.\n\n`;
-        alertText += `💡 *Setelah selesai membantu pelanggan, ketik perintah berikut di grup ini:*\n`;
-        alertText += `👉 */solved ${info.orderId || cleanPhone}* (untuk mengaktifkan bot kembali)`;
+        alertText += `💡 *Setelah selesai membantu pelanggan, klik tombol di bawah untuk mengaktifkan bot kembali:*`;
 
         try {
             let participantJids: string[] = [];
@@ -377,10 +413,9 @@ export class AdminGroupLogger {
                 await this.sender.sendMessage(targetJid, alertText);
             }
 
-            if (info.orderId) {
-                const { buildAdminOrderActionButtons } = await import("../utils/interactiveBuilders");
-                await this.sender.sendMessage(targetJid, buildAdminOrderActionButtons(info.orderId, "id"));
-            }
+            const { buildAdminSupportSolvedButtons } = await import("../utils/interactiveBuilders");
+            const solvedPayload = buildAdminSupportSolvedButtons(info.platformUserId, "id");
+            await this.sender.sendMessage(targetJid, solvedPayload);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error(`[AdminGroupLogger] Error sending support alert to ${targetJid}:`, msg);

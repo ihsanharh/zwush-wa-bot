@@ -3,14 +3,12 @@ import { AdminGroupLogger, type GroupMessageSender } from "../src/handlers/admin
 
 describe("AdminGroupLogger", () => {
     it("should send log message on new order and store message key", async () => {
-        let sentJid = "";
-        let sentText = "";
+        const sentCalls: Array<{ jid: string; content: any; options?: any }> = [];
         const mockKey = { id: "msg_123", remoteJid: "group@g.us", fromMe: true };
 
         const mockSender: GroupMessageSender = {
-            sendMessage: mock(async (jid: string, text: string) => {
-                sentJid = jid;
-                sentText = text;
+            sendMessage: mock(async (jid: string, content: any, options?: any) => {
+                sentCalls.push({ jid, content, options });
                 return { key: mockKey };
             }),
             editMessage: mock(async () => {})
@@ -26,13 +24,23 @@ describe("AdminGroupLogger", () => {
             platformUserId: "628999@s.whatsapp.net"
         });
 
-        expect(sentJid).toBe("group@g.us");
-        expect(sentText).toContain("ORDER BARU");
-        expect(sentText).toContain("#ORD-123");
-        expect(sentText).toContain("Dragon Pet");
-        expect(sentText).toContain("Steve123");
-        expect(sentText).toContain("25.012");
-        expect(sentText).toContain("Menunggu Pembayaran");
+        expect(sentCalls.length).toBe(2);
+        // 1. First call: Main Order Log Message
+        expect(sentCalls[0]?.jid).toBe("group@g.us");
+        expect(sentCalls[0]?.content).toContain("ORDER BARU");
+        expect(sentCalls[0]?.content).toContain("#ORD-123");
+        expect(sentCalls[0]?.content).toContain("Dragon Pet");
+        expect(sentCalls[0]?.content).toContain("Steve123");
+        expect(sentCalls[0]?.content).toContain("25.012");
+        expect(sentCalls[0]?.content).toContain("Menunggu Pembayaran");
+
+        // 2. Second call: Follow-up message quoting the log message with Paid and Done action buttons
+        expect(sentCalls[1]?.jid).toBe("group@g.us");
+        expect(sentCalls[1]?.options?.quote).toEqual(mockKey);
+        const buttons = sentCalls[1]?.content?.interactiveMessage?.nativeFlowMessage?.buttons;
+        expect(buttons.length).toBe(2);
+        expect(buttons[0]?.buttonParamsJson).toContain("btn_admin_paid_ORD-123");
+        expect(buttons[1]?.buttonParamsJson).toContain("btn_admin_done_ORD-123");
     });
 
     it("should edit group message when order status changes", async () => {
@@ -142,10 +150,11 @@ describe("AdminGroupLogger", () => {
     });
 
     it("should fallback to sending new message if editMessage throws", async () => {
-        let fallbackSentText = "";
+        const fallbackSentMessages: string[] = [];
         const mockSender: GroupMessageSender = {
             sendMessage: mock(async (_jid: string, content: any) => {
-                fallbackSentText = typeof content === "string" ? content : content.text;
+                const text = typeof content === "string" ? content : (content?.text || "");
+                fallbackSentMessages.push(text);
                 return { id: "msg_init" };
             }),
             editMessage: mock(async () => {
@@ -163,8 +172,8 @@ describe("AdminGroupLogger", () => {
         });
 
         await logger.updateOrderStatus("ORD-FALLBACK-1", "SUCCESS");
-        expect(fallbackSentText).toContain("Selesai Dikirim (COMPLETED)");
-        expect(fallbackSentText).toContain("#ORD-FALLBACK-1");
+        expect(fallbackSentMessages.some(m => typeof m === "string" && m.includes("Selesai Dikirim (COMPLETED)"))).toBe(true);
+        expect(fallbackSentMessages.some(m => typeof m === "string" && m.includes("#ORD-FALLBACK-1"))).toBe(true);
     });
 
     it("should send status update to group if order was not in memory (e.g. after bot restart)", async () => {
@@ -210,7 +219,7 @@ describe("AdminGroupLogger", () => {
         expect(logger.getLogGroupJid()).toBe("logs@g.us");
         expect(logger.getAdminGroupJid()).toBe("admins@g.us");
 
-        // Order logs go to log group only
+        // Order logs go to log group only (log card + quoted buttons)
         await logger.logNewOrder({
             orderId: "ORD-SPLIT-1",
             itemName: "Dragon Pet",
@@ -218,7 +227,7 @@ describe("AdminGroupLogger", () => {
             totalNominal: 25012,
             platformUserId: "628999@s.whatsapp.net"
         });
-        expect(sentJids).toEqual(["logs@g.us"]);
+        expect(sentJids).toEqual(["logs@g.us", "logs@g.us"]);
 
         // Insufficient tokens alert broadcasts to both admin and log groups
         sentJids.length = 0;
@@ -229,6 +238,60 @@ describe("AdminGroupLogger", () => {
         });
         expect(sentJids).toContain("admins@g.us");
         expect(sentJids).toContain("logs@g.us");
+    });
+
+    it("should send quoted retry button when order fails or is held", async () => {
+        const sentCalls: Array<{ jid: string; content: any; options?: any }> = [];
+        const mockKey = { id: "msg_log_fail", remoteJid: "log@g.us", fromMe: true };
+        const mockSender: GroupMessageSender = {
+            sendMessage: mock(async (jid: string, content: any, options?: any) => {
+                sentCalls.push({ jid, content, options });
+                return { key: mockKey };
+            }),
+            editMessage: mock(async () => {})
+        };
+
+        const logger = new AdminGroupLogger("log@g.us", mockSender);
+        await logger.logNewOrder({
+            orderId: "ORD-FAIL-1",
+            itemName: "XP Boost",
+            gamertag: "Steve",
+            totalNominal: 8000,
+            platformUserId: "628111@s.whatsapp.net"
+        });
+
+        sentCalls.length = 0;
+        await logger.updateOrderStatus("ORD-FAIL-1", "FAILED", { failureReason: "Gagal menghubungkan ke Hive" });
+
+        expect(sentCalls.length).toBe(1);
+        expect(sentCalls[0]?.options?.quote).toEqual(mockKey);
+        const btn = sentCalls[0]?.content?.interactiveMessage?.nativeFlowMessage?.buttons[0];
+        expect(btn?.buttonParamsJson).toContain("btn_admin_reprocess_ORD-FAIL-1");
+    });
+
+    it("should send support request with solved button", async () => {
+        const sentCalls: Array<{ jid: string; content: any; options?: any }> = [];
+        const mockSender: GroupMessageSender = {
+            sendMessage: mock(async (jid: string, content: any, options?: any) => {
+                sentCalls.push({ jid, content, options });
+                return { id: "msg_support" };
+            }),
+            editMessage: mock(async () => {})
+        };
+
+        const logger = new AdminGroupLogger({ logGroupJid: "logs@g.us", adminGroupJid: "admins@g.us" }, mockSender);
+        await logger.notifySupportRequest({
+            orderId: "ORD-TICKET-1",
+            platformUserId: "628999888777@s.whatsapp.net",
+            reason: "User minta bantuan admin"
+        });
+
+        expect(sentCalls.length).toBe(2);
+        // Call 1: Alert text with @everyone
+        expect(sentCalls[0]?.content?.text || sentCalls[0]?.content).toContain("SUPPORT TICKET");
+        // Call 2: Solved interactive button
+        const btn = sentCalls[1]?.content?.interactiveMessage?.nativeFlowMessage?.buttons[0];
+        expect(btn?.buttonParamsJson).toContain("btn_admin_solved_628999888777@s.whatsapp.net");
     });
 });
 
