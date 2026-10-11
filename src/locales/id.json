@@ -1,4 +1,8 @@
 {
+    "navigation": {
+        "backKeywords": ["k", "kembali", "back"],
+        "cancelKeywords": ["b", "batal", "c", "cancel"]
+    },
     "status": {
         "card": "🔍 *STATUS PESANAN #{{orderId}}*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n📊 Status: *{{badge}}*\n💰 Total: *{{totalFormatted}}*\n\nAda pertanyaan kak? Hubungi tim admin kami di grup toko atau ketik */support* atau */cs* ya!",
         "fetchError": "❌ Gagal mengambil status pesanan kak: {{error}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak.",

@@ -1,6 +1,6 @@
 import type { BotContext } from "../handlers/message";
 import type { CatalogItem } from "../types";
-import { formatRupiah, t, type Language } from "../i18n";
+import { formatRupiah, t, isBackKeyword, isCancelKeyword, type Language } from "../i18n";
 import { config } from "../config";
 import { generateQrisBuffer } from "../qr";
 import { getItemImageBuffer, resolveItemImageUrl } from "../poster";
@@ -26,10 +26,9 @@ export async function handleBuyingFlow(
         return false;
     }
 
-    // Navigation keywords: back (k/b) or cancel (c/b)
+    // Navigation keywords: back or cancel
     if (session.step === "AWAITING_CATEGORY") {
-        const isCancel = lower === "c" || lower === "cancel" || lower === "b" || lower === "batal";
-        if (isCancel) {
+        if (isCancelKeyword(trimmed, userLang)) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
@@ -48,15 +47,13 @@ export async function handleBuyingFlow(
     }
 
     if (session.step === "AWAITING_ITEM") {
-        const isBack = lower === "k" || lower === "kembali" || lower === "back";
-        if (isBack) {
+        if (isBackKeyword(trimmed, userLang)) {
             ctx.state.startBuyingFlow(remoteJid);
             await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
             return true;
         }
 
-        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
-        if (isCancel) {
+        if (isCancelKeyword(trimmed, userLang)) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
@@ -124,8 +121,7 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
-        if (isCancel) {
+        if (isCancelKeyword(trimmed, userLang)) {
             ctx.state.clearRetryOrder(remoteJid);
             await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
             return true;
@@ -198,15 +194,13 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
-        if (isCancel) {
+        if (isCancelKeyword(trimmed, userLang)) {
             ctx.state.clearRetryOrder(remoteJid);
             await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
             return true;
         }
 
-        const isChange = lower === "k" || lower === "kembali" || lower === "back";
-        if (isChange) {
+        if (isBackKeyword(trimmed, userLang)) {
             session.step = "AWAITING_RETRY_GAMERTAG";
             session.lastUpdated = Date.now();
             await ctx.sendText(remoteJid, t("buying.enterCorrectGamertag", userLang));
@@ -216,15 +210,13 @@ export async function handleBuyingFlow(
     }
 
     if (session.step === "AWAITING_GAMERTAG") {
-        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
-        if (isCancel) {
+        if (isCancelKeyword(trimmed, userLang)) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
         }
 
-        const isBack = lower === "k" || lower === "kembali" || lower === "back";
-        if (isBack) {
+        if (isBackKeyword(trimmed, userLang)) {
             const cat = CATEGORIES.find((c) => c.dbCategory === session.selectedCategory);
             if (cat) {
                 session.step = "AWAITING_ITEM";
@@ -258,15 +250,13 @@ export async function handleBuyingFlow(
     }
 
     if (session.step === "AWAITING_CONFIRMATION") {
-        const isCancel = lower === "b" || lower === "batal" || lower === "c" || lower === "cancel";
-        if (isCancel) {
+        if (isCancelKeyword(trimmed, userLang)) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
             return true;
         }
 
-        const isBack = lower === "k" || lower === "kembali" || lower === "back";
-        if (isBack) {
+        if (isBackKeyword(trimmed, userLang)) {
             session.step = "AWAITING_GAMERTAG";
             session.lastUpdated = Date.now();
             await ctx.sendText(remoteJid, t("buying.enterGamertagPrompt", userLang));

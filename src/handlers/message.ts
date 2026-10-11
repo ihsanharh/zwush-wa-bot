@@ -35,6 +35,7 @@ import { isLiveChatActive, isAwaitingSupportConfirmation, handleSupportConfirmat
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import statusCommand from "../commands/general/status";
 import cancelCommand from "../commands/general/cancel";
+import { isCancelKeyword } from "../i18n";
 
 // Re-exports for backward compatibility
 export {
@@ -226,11 +227,11 @@ async function handleIncomingMessageInternal(
         return;
     }
 
-    // Bare cancel keyword check (e.g. user sends "batal", "cancel", "c", "b" as instructed in prompts and invoice)
-    if (lower === "batal" || lower === "cancel" || lower === "c" || lower === "b") {
+    // Bare cancel keyword check (language-driven via locale files)
+    if (isCancelKeyword(trimmed, userLang)) {
         const pendingOrderId = ctx.state.getActiveOrderId(remoteJid);
         const session = ctx.state.getSession(remoteJid);
-        if (pendingOrderId || (session.step !== "IDLE" && session.step !== "LIVE_CHAT" && session.step !== "AWAITING_SUPPORT_CONFIRMATION")) {
+        if (pendingOrderId || (session.step !== "IDLE" && session.step !== "LIVE_CHAT" && session.step !== "AWAITING_SUPPORT_CONFIRMATION" && session.step !== "AWAITING_RETRY_GAMERTAG" && session.step !== "AWAITING_RETRY_CONFIRMATION")) {
             await cancelCommand.execute({
                 remoteJid,
                 sender: effectiveSender,

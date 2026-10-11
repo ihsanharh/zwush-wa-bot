@@ -1,4 +1,8 @@
 {
+    "navigation": {
+        "backKeywords": ["b", "back", "k", "kembali"],
+        "cancelKeywords": ["c", "cancel", "batal"]
+    },
     "status": {
         "card": "🔍 *ORDER STATUS #{{orderId}}*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n📊 Status: *{{badge}}*\n💰 Total: *{{totalFormatted}}*\n\nAny questions? Contact our store admin team or type */support* or */cs*!",
         "fetchError": "❌ Failed to fetch order status: {{error}}\n\n💡 Please wait a moment and try again.",
@@ -45,7 +49,7 @@
         "instruction": "💡 Type */buy* to start ordering items above, or */help* to see all available commands! 😊",
         "fetchError": "❌ Failed to load catalog: {{message}}\n\n💡 Please wait a moment and try again.",
         "costumesTextMenu": "🦹 *CATALOG: REGULAR COSTUMES* ({{count}} Available)\n> All official The Hive costumes available for {{price}}!\n\nType */buy 7* to search and order costumes.",
-        "costumesPrompt": "🦹 *CATALOG: REGULAR COSTUMES* ({{count}} Available)\n> All official The Hive costumes available for {{price}}! ✨\n\nPlease type the *costume name* you would like to order:\n(Examples: *Owl*, *Alien*, *Abyssal Angler*, *Penguin*, etc.)\n\n• Type *k* to return to category selection\n• Type *c* to cancel order"
+        "costumesPrompt": "🦹 *CATALOG: REGULAR COSTUMES* ({{count}} Available)\n> All official The Hive costumes available for {{price}}! ✨\n\nPlease type the *costume name* you would like to order:\n(Examples: *Owl*, *Alien*, *Abyssal Angler*, *Penguin*, etc.)\n\n• Type *b* to return to category selection\n• Type *c* to cancel order"
     },
     "buying": {
         "gamertagPrompt": "✨ *Great choice!* You selected: *{{itemName}}*\n💰 *Promo Price:* *{{rupiahPrice}}* (Discount {{discountPercent}}%)\n🏷️ *Normal Price:* ~{{originalPrice}}~\n\n🎮 Now, please enter your *Minecraft Bedrock Gamertag* (example: *Steve123*):\n⚠️ *CRITICAL WARNING:* Please ensure your Gamertag is *100% accurate and valid* (check spelling, capitalization, and spaces). Once the item is sent, it *CANNOT BE CANCELLED OR REFUNDED* by anyone under any circumstances, not even by The Hive itself!\n\n_(Type *b* to change item, or *c* to cancel)_",

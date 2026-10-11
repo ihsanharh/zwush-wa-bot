@@ -170,4 +170,57 @@ describe("Buying Flow: Cancel ('b' / 'batal') vs Back ('k') Navigation", () => {
             expect(session.step).toBe("AWAITING_RETRY_GAMERTAG");
         });
     });
+
+    describe("English Language (en): 'b' = Back, 'c' = Cancel", () => {
+        beforeEach(() => {
+            state.startBuyingFlow(testJid);
+            state.setCategory(testJid, "Regular Costume");
+            state.setItem(testJid, {
+                id: "item-1",
+                name: "Wolfy",
+                category: "Regular Costume",
+                tokenCost: 1,
+                rupiahPrice: 8500,
+                originalPrice: 17000,
+                discountPercent: 50,
+                active: true,
+            });
+            // At this point, session is AWAITING_GAMERTAG
+            expect(state.getSession(testJid).step).toBe("AWAITING_GAMERTAG");
+        });
+
+        it("typing 'b' in English should go BACK to item selection, NOT cancel", async () => {
+            const handled = await handleBuyingFlow(testJid, false, "b", mockContext, "en");
+            expect(handled).toBe(true);
+
+            const session = state.getSession(testJid);
+            expect(session.step).toBe("AWAITING_ITEM");
+        });
+
+        it("typing 'back' in English should go BACK to item selection", async () => {
+            const handled = await handleBuyingFlow(testJid, false, "back", mockContext, "en");
+            expect(handled).toBe(true);
+
+            const session = state.getSession(testJid);
+            expect(session.step).toBe("AWAITING_ITEM");
+        });
+
+        it("typing 'c' in English should CANCEL the session", async () => {
+            const handled = await handleBuyingFlow(testJid, false, "c", mockContext, "en");
+            expect(handled).toBe(true);
+
+            const session = state.getSession(testJid);
+            expect(session.step).toBe("IDLE");
+            expect(sentTexts[0].text).toBe(t("cancelSuccess", "en"));
+        });
+
+        it("typing 'cancel' in English should CANCEL the session", async () => {
+            const handled = await handleBuyingFlow(testJid, false, "cancel", mockContext, "en");
+            expect(handled).toBe(true);
+
+            const session = state.getSession(testJid);
+            expect(session.step).toBe("IDLE");
+            expect(sentTexts[0].text).toBe(t("cancelSuccess", "en"));
+        });
+    });
 });
