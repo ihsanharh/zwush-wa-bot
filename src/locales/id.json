@@ -52,6 +52,9 @@
         "costumesPrompt": "🦹 *KATALOG: REGULAR COSTUME* ({{count}} Pilihan)\n> Semua costume resmi The Hive tersedia seharga {{price}}! ✨\n\nSilakan pilih costume yang ingin kamu beli pada menu daftar di bawah gambar ini ya kak! 👇"
     },
     "buying": {
+        "selectedItemCard": "✨ *Pilihan mantap kak! Kamu memilih:* *{{itemName}}*\n💰 *Harga Promo:* *{{rupiahPrice}}* (Diskon {{discountPercent}}%)\n🏷️ *Harga Normal:* ~{{originalPrice}}~",
+        "selectedItemCardNoDiscount": "✨ *Pilihan mantap kak! Kamu memilih:* *{{itemName}}*\n💰 *Harga:* *{{rupiahPrice}}*",
+        "askGamertagPrompt": "🎮 Sekarang masukkan *Gamertag Minecraft Bedrock* kakak ya (contoh: *Steve123*):\n\n⚠️ *PERINGATAN PENTING:* Pastikan Gamertag kakak sudah *100% benar dan valid* (perhatikan spasi, huruf besar/kecil). Jika item sudah terkirim ke gamertag tersebut, pesanan *TIDAK BISA DIBATALKAN / DI-REFUND* sama sekali oleh siapapun, termasuk oleh pihak The Hive sendiri!",
         "gamertagPrompt": "✨ *Pilihan mantap kak! Kamu memilih:* *{{itemName}}*\n💰 *Harga Promo:* *{{rupiahPrice}}* (Diskon {{discountPercent}}%)\n🏷️ *Harga Normal:* ~{{originalPrice}}~\n\n🎮 Sekarang masukkan *Gamertag Minecraft Bedrock* kakak ya (contoh: *Steve123*):\n⚠️ *PERINGATAN PENTING:* Pastikan Gamertag kakak sudah *100% benar dan valid* (perhatikan spasi, huruf besar/kecil). Jika item sudah terkirim ke gamertag tersebut, pesanan *TIDAK BISA DIBATALKAN / DI-REFUND* sama sekali oleh siapapun, termasuk oleh pihak The Hive sendiri!",
         "selectItemCaptionDiscount": "🛒 *KATALOG: {{categoryName}}*\n\nAda *{{count}} item* kece dengan diskon s/d {{discount}}%! ⚡\n\nSilakan pilih item yang kamu inginkan pada menu daftar di bawah gambar ini ya kak! 👇",
         "selectItemCaptionSpecial": "🛒 *KATALOG: {{categoryName}}*\n\nAda *{{count}} item* kece siap diorder! ⚡\n\nSilakan pilih item yang kamu inginkan pada menu daftar di bawah gambar ini ya kak! 👇",

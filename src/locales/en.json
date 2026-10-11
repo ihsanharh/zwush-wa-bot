@@ -52,6 +52,9 @@
         "costumesPrompt": "🦹 *CATALOG: REGULAR COSTUMES* ({{count}} Available)\n> All official The Hive costumes available for {{price}}! ✨\n\nPlease select the costume you want from the menu list below! 👇"
     },
     "buying": {
+        "selectedItemCard": "✨ *Great choice!* You selected: *{{itemName}}*\n💰 *Promo Price:* *{{rupiahPrice}}* (Discount {{discountPercent}}%)\n🏷️ *Normal Price:* ~{{originalPrice}}~",
+        "selectedItemCardNoDiscount": "✨ *Great choice!* You selected: *{{itemName}}*\n💰 *Price:* *{{rupiahPrice}}*",
+        "askGamertagPrompt": "🎮 Now, please enter your *Minecraft Bedrock Gamertag* (example: *Steve123*):\n\n⚠️ *CRITICAL WARNING:* Please ensure your Gamertag is *100% accurate and valid* (check spelling, capitalization, and spaces). Once the item is sent, it *CANNOT BE CANCELLED OR REFUNDED* by anyone under any circumstances, not even by The Hive itself!",
         "gamertagPrompt": "✨ *Great choice!* You selected: *{{itemName}}*\n💰 *Promo Price:* *{{rupiahPrice}}* (Discount {{discountPercent}}%)\n🏷️ *Normal Price:* ~{{originalPrice}}~\n\n🎮 Now, please enter your *Minecraft Bedrock Gamertag* (example: *Steve123*):\n⚠️ *CRITICAL WARNING:* Please ensure your Gamertag is *100% accurate and valid* (check spelling, capitalization, and spaces). Once the item is sent, it *CANNOT BE CANCELLED OR REFUNDED* by anyone under any circumstances, not even by The Hive itself!",
         "selectItemCaptionDiscount": "🛒 *CATALOG: {{categoryName}}*\n\nThere are *{{count}} awesome items* with up to {{discount}}% discount! ⚡\n\nPlease select the item you want from the menu list below! 👇",
         "selectItemCaptionSpecial": "🛒 *CATALOG: {{categoryName}}*\n\nThere are *{{count}} awesome items* ready for order! ⚡\n\nPlease select the item you want from the menu list below! 👇",

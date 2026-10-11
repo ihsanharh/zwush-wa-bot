@@ -16,6 +16,52 @@ import {
     buildInvoiceButtons
 } from "../utils/interactiveBuilders";
 
+async function sendItemSelectionAndGamertagPrompt(
+    remoteJid: string,
+    selected: CatalogItem,
+    userLang: Language,
+    ctx: BotContext
+): Promise<void> {
+    const itemCardText = selected.discountPercent && selected.discountPercent > 0
+        ? t("buying.selectedItemCard", userLang, {
+            itemName: selected.name,
+            rupiahPrice: formatRupiah(selected.rupiahPrice),
+            discountPercent: selected.discountPercent,
+            originalPrice: formatRupiah(selected.originalPrice)
+        })
+        : t("buying.selectedItemCardNoDiscount", userLang, {
+            itemName: selected.name,
+            rupiahPrice: formatRupiah(selected.rupiahPrice)
+        });
+
+    const askGamertagText = t("buying.askGamertagPrompt", userLang);
+
+    const imgUrl = resolveItemImageUrl(selected);
+    let previewBuffer: Buffer | null = null;
+    try {
+        previewBuffer = await getItemImageBuffer(imgUrl);
+    } catch {
+        previewBuffer = null;
+    }
+
+    // Pesan 1: Gambar + pilihan mantap + action buttons
+    if (ctx.sendButtons) {
+        const sent = await ctx.sendButtons(
+            remoteJid,
+            buildGamertagPromptButtons(itemCardText, userLang, previewBuffer || undefined)
+        );
+        const msgId = sent?.key?.id || sent?.id;
+        if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+    } else if (previewBuffer) {
+        await ctx.sendImage(remoteJid, previewBuffer, itemCardText);
+    } else {
+        await ctx.sendText(remoteJid, itemCardText);
+    }
+
+    // Pesan 2: Tanya input gamertag
+    await ctx.sendText(remoteJid, askGamertagText);
+}
+
 export async function handleBuyingFlow(
     remoteJid: string,
     fromMe: boolean,
@@ -152,33 +198,7 @@ export async function handleBuyingFlow(
                     return true;
                 }
 
-                const promptText = t("buying.gamertagPrompt", userLang, {
-                    itemName: selected.name,
-                    rupiahPrice: formatRupiah(selected.rupiahPrice),
-                    discountPercent: selected.discountPercent,
-                    originalPrice: formatRupiah(selected.originalPrice)
-                });
-
-                const imgUrl = resolveItemImageUrl(selected);
-                let previewBuffer: Buffer | null = null;
-                try {
-                    previewBuffer = await getItemImageBuffer(imgUrl);
-                } catch {
-                    previewBuffer = null;
-                }
-
-                if (ctx.sendButtons) {
-                    const sent = await ctx.sendButtons(
-                        remoteJid,
-                        buildGamertagPromptButtons(promptText, userLang, previewBuffer || undefined)
-                    );
-                    const msgId = sent?.key?.id || sent?.id;
-                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
-                } else if (previewBuffer) {
-                    await ctx.sendImage(remoteJid, previewBuffer, promptText);
-                } else {
-                    await ctx.sendText(remoteJid, promptText);
-                }
+                await sendItemSelectionAndGamertagPrompt(remoteJid, selected, userLang, ctx);
                 return true;
             }
             return true;
@@ -334,33 +354,7 @@ export async function handleBuyingFlow(
                 return true;
             }
 
-            const promptText = t("buying.gamertagPrompt", userLang, {
-                itemName: selected.name,
-                rupiahPrice: formatRupiah(selected.rupiahPrice),
-                discountPercent: selected.discountPercent,
-                originalPrice: formatRupiah(selected.originalPrice)
-            });
-
-            const imgUrl = resolveItemImageUrl(selected);
-            let previewBuffer: Buffer | null = null;
-            try {
-                previewBuffer = await getItemImageBuffer(imgUrl);
-            } catch {
-                previewBuffer = null;
-            }
-
-            if (ctx.sendButtons) {
-                const sent = await ctx.sendButtons(
-                    remoteJid,
-                    buildGamertagPromptButtons(promptText, userLang, previewBuffer || undefined)
-                );
-                const msgId = sent?.key?.id || sent?.id;
-                if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
-            } else if (previewBuffer) {
-                await ctx.sendImage(remoteJid, previewBuffer, promptText);
-            } else {
-                await ctx.sendText(remoteJid, promptText);
-            }
+            await sendItemSelectionAndGamertagPrompt(remoteJid, selected, userLang, ctx);
             return true;
         }
 
