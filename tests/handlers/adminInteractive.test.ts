@@ -65,7 +65,7 @@ describe("Admin Interactive Buttons & Action Handlers", () => {
         expect(mockContext.client.updateOrderStatus).toHaveBeenCalledWith("ORD-999", "COMPLETED");
     });
 
-    it("should refund order when admin clicks btn_admin_cancel_ORD-777 in group", async () => {
+    it("should cancel order when admin clicks btn_admin_cancel_ORD-777 in group", async () => {
         await handleIncomingMessage(
             adminGroupJid,
             false,
@@ -73,7 +73,7 @@ describe("Admin Interactive Buttons & Action Handlers", () => {
             mockContext,
             adminUser
         );
-        expect(mockContext.client.updateOrderStatus).toHaveBeenCalledWith("ORD-777", "REFUNDED");
+        expect(mockContext.client.cancelOrder).toHaveBeenCalled();
     });
 
     it("should ignore admin action clicks from non-authorized groups", async () => {

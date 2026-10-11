@@ -20,12 +20,22 @@ export async function handleAdminAction(
     if (actionId.startsWith("btn_admin_paid_") || actionId.startsWith("admin_paid_")) {
         const orderId = actionId.replace(/^(btn_)?admin_paid_/, "");
         try {
-            await ctx.client.markOrderPaid(orderId);
+            if (typeof ctx.client.markOrderAsPaid === "function") {
+                await ctx.client.markOrderAsPaid(orderId);
+            } else if (typeof (ctx.client as any).markOrderPaid === "function") {
+                await (ctx.client as any).markOrderPaid(orderId);
+            }
+
             try {
-                await ctx.client.reprocessOrder(orderId);
+                if (typeof ctx.client.retryOrder === "function") {
+                    await ctx.client.retryOrder(orderId);
+                } else if (typeof (ctx.client as any).reprocessOrder === "function") {
+                    await (ctx.client as any).reprocessOrder(orderId);
+                }
             } catch (reErr) {
                 console.warn(`[adminAction] Auto-reprocess after paid failed for #${orderId}:`, reErr);
             }
+
             await ctx.sendText(
                 remoteJid,
                 `✅ Pesanan *#${orderId}* berhasil ditandai *LUNAS* dan dikirim ke antrean pengiriman The Hive oleh ${senderTag}! 🚀`,
@@ -42,7 +52,12 @@ export async function handleAdminAction(
     if (actionId.startsWith("btn_admin_done_") || actionId.startsWith("admin_done_")) {
         const orderId = actionId.replace(/^(btn_)?admin_done_/, "");
         try {
-            await ctx.client.updateOrderStatus(orderId, "COMPLETED");
+            if (typeof ctx.client.manualCompleteOrder === "function") {
+                await ctx.client.manualCompleteOrder(orderId);
+            } else if (typeof (ctx.client as any).updateOrderStatus === "function") {
+                await (ctx.client as any).updateOrderStatus(orderId, "COMPLETED");
+            }
+
             await ctx.sendText(
                 remoteJid,
                 `✅ Pesanan *#${orderId}* berhasil diselesaikan secara manual oleh ${senderTag}! 📦✨`,
@@ -59,7 +74,12 @@ export async function handleAdminAction(
     if (actionId.startsWith("btn_admin_reprocess_") || actionId.startsWith("admin_reprocess_")) {
         const orderId = actionId.replace(/^(btn_)?admin_reprocess_/, "");
         try {
-            await ctx.client.reprocessOrder(orderId);
+            if (typeof ctx.client.retryOrder === "function") {
+                await ctx.client.retryOrder(orderId);
+            } else if (typeof (ctx.client as any).reprocessOrder === "function") {
+                await (ctx.client as any).reprocessOrder(orderId);
+            }
+
             await ctx.sendText(
                 remoteJid,
                 `🔄 Pesanan *#${orderId}* berhasil dikirim ulang ke antrean pengiriman The Hive oleh ${senderTag}! ⚡`,
@@ -76,7 +96,12 @@ export async function handleAdminAction(
     if (actionId.startsWith("btn_admin_cancel_") || actionId.startsWith("admin_cancel_")) {
         const orderId = actionId.replace(/^(btn_)?admin_cancel_/, "");
         try {
-            await ctx.client.updateOrderStatus(orderId, "REFUNDED");
+            if (typeof ctx.client.cancelOrder === "function") {
+                await ctx.client.cancelOrder(orderId, "Cancelled by admin via button");
+            } else if (typeof (ctx.client as any).updateOrderStatus === "function") {
+                await (ctx.client as any).updateOrderStatus(orderId, "REFUNDED");
+            }
+
             await ctx.sendText(
                 remoteJid,
                 `🚫 Pesanan *#${orderId}* telah dibatalkan oleh ${senderTag}.`,

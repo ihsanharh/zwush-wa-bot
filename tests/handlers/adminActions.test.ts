@@ -123,4 +123,29 @@ describe("Admin Action Handlers", () => {
         // Sends admin confirmation
         expect(sentTexts.some((m) => m.jid === "admin-group@g.us")).toBe(true);
     });
+
+    it("should handle standard CoreClient methods (markOrderAsPaid, manualCompleteOrder, retryOrder)", async () => {
+        const sentTexts: string[] = [];
+        const state = new StateManager();
+        const mockClient = {
+            markOrderAsPaid: mock(async () => ({ success: true })),
+            manualCompleteOrder: mock(async () => ({ success: true })),
+            retryOrder: mock(async () => ({ success: true }))
+        } as any;
+
+        const ctx: BotContext = {
+            client: mockClient,
+            state,
+            sendText: async (_jid, text) => {
+                sentTexts.push(text);
+            }
+        } as any;
+
+        await handleAdminAction("123@g.us", "btn_admin_paid_ORD-505", "6281@s.whatsapp.net", true, "id", ctx);
+        expect(mockClient.markOrderAsPaid).toHaveBeenCalledWith("ORD-505");
+        expect(mockClient.retryOrder).toHaveBeenCalledWith("ORD-505");
+
+        await handleAdminAction("123@g.us", "btn_admin_done_ORD-606", "6281@s.whatsapp.net", true, "id", ctx);
+        expect(mockClient.manualCompleteOrder).toHaveBeenCalledWith("ORD-606");
+    });
 });

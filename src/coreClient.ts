@@ -467,4 +467,25 @@ export class CoreClient {
         const data = (await res.json()) as OrderCheckPaymentResponse;
         return data;
     }
+
+    /**
+     * Aliases for order operations
+     */
+    async markOrderPaid(orderId: string, options?: { silent?: boolean }) {
+        return this.markOrderAsPaid(orderId, options);
+    }
+
+    async reprocessOrder(orderId: string, options?: { silent?: boolean }) {
+        return this.retryOrder(orderId, options);
+    }
+
+    async updateOrderStatus(orderId: string, status: string) {
+        if (status === "COMPLETED" || status === "SUCCESS") {
+            return this.manualCompleteOrder(orderId);
+        }
+        if (status === "CANCELLED" || status === "REFUNDED") {
+            return this.cancelOrder(orderId, `Status updated to ${status}`);
+        }
+        throw new Error(`Unsupported status update: ${status}`);
+    }
 }
