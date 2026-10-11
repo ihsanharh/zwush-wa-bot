@@ -10,6 +10,7 @@ import {
     buildAdminPanelMenu,
     buildAdminOrderActionButtons,
     buildAdminOrderFailureButtons,
+    buildUserOrderFailureButtons,
     buildAdminSupportSolvedButtons,
     buildWelcomeButtons,
     buildSettingsListMenu
@@ -141,9 +142,9 @@ describe("interactiveBuilders", () => {
         const p0 = JSON.parse(buttons[0].buttonParamsJson);
         const p1 = JSON.parse(buttons[1].buttonParamsJson);
         expect(p0.id).toBe("btn_admin_paid_ORD-12345");
-        expect(p0.display_text).toContain("Paid");
+        expect(p0.display_text).toBe("Mark as paid");
         expect(p1.id).toBe("btn_admin_done_ORD-12345");
-        expect(p1.display_text).toContain("Done");
+        expect(p1.display_text).toBe("Mark as completed");
     });
 
     it("should build admin order failure retry buttons", () => {
@@ -152,8 +153,18 @@ describe("interactiveBuilders", () => {
         expect(buttons.length).toBe(1);
         const p0 = JSON.parse(buttons[0].buttonParamsJson);
         expect(p0.id).toBe("btn_admin_reprocess_ORD-12345");
-        expect(p0.display_text).toContain("Retry");
+        expect(p0.display_text).toBe("Retry");
         expect(payload.text).toContain("Token Gibot habis");
+    });
+
+    it("should build user order failure buttons with live chat button", () => {
+        const payload = buildUserOrderFailureButtons("ORD-12345", "Gibot error", "id");
+        const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
+        expect(buttons.length).toBe(1);
+        const p0 = JSON.parse(buttons[0].buttonParamsJson);
+        expect(p0.id).toBe("btn_start_livechat_ORD-12345");
+        expect(p0.display_text).toContain("Mulai Live Chat");
+        expect(payload.text).toContain("ORD-12345");
     });
 
     it("should build admin support solved button", () => {

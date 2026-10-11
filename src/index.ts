@@ -288,6 +288,9 @@ client.on("message", async (event) => {
 const webhookSender: BotMessageSender = {
     async sendMessage(jid: string, text: string) {
         await client.message.send(jid, text);
+    },
+    async sendButtons(jid: string, payload: any) {
+        return await botContext.sendButtons!(jid, payload);
     }
 };
 

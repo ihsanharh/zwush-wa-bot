@@ -383,8 +383,8 @@ export function buildAdminOrderActionButtons(
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
     const text = `Aksi Cepat Admin — Order #${orderId}:`;
     const buttons = [
-        { id: `btn_admin_paid_${orderId}`, text: "✅ Tandai Paid" },
-        { id: `btn_admin_done_${orderId}`, text: "🚀 Proses / Done" }
+        { id: `btn_admin_paid_${orderId}`, text: "Mark as paid" },
+        { id: `btn_admin_done_${orderId}`, text: "Mark as completed" }
     ];
     return {
         interactiveMessage: {
@@ -416,8 +416,45 @@ export function buildAdminOrderFailureButtons(
     const reason = failureReason || "Kendala pemrosesan The Hive";
     const text = `⚠️ *KENDALA PESANAN #${orderId}*\nAlasan: *${reason}*\n\n👉 Silakan periksa kendala di atas, lalu klik tombol di bawah untuk mencoba memproses kembali:`;
     const buttons = [
-        { id: `btn_admin_reprocess_${orderId}`, text: "🔄 Retry Order" }
+        { id: `btn_admin_reprocess_${orderId}`, text: "Retry" }
     ];
+    return {
+        interactiveMessage: {
+            body: { text },
+            nativeFlowMessage: {
+                messageVersion: 1,
+                buttons: buttons.map((btn) => ({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text,
+                        id: btn.id
+                    })
+                }))
+            }
+        },
+        text,
+        buttons
+    };
+}
+
+/**
+ * Builds Follow-up Error & Live Chat Support Button for Buyer
+ */
+export function buildUserOrderFailureButtons(
+    orderId: string,
+    failureReason?: string,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const isEn = lang === "en";
+    const reason = failureReason || (isEn ? "The Hive delivery issue" : "Kendala pengiriman The Hive");
+    const text = isEn
+        ? `⚠️ *ORDER #${orderId} NOTICE*\nReason: *${reason}*\n\nDon't worry, your order is safe! Our Admin team is ready to assist you directly.\n\nClick the button below to start a live chat with an Admin:`
+        : `⚠️ *PEMBERITAHUAN PESANAN #${orderId}*\nKendala: *${reason}*\n\nJangan khawatir kak, pesanan kakak tetap aman! Tim Admin kami siap membantu memeriksa dan menyelesaikan pesanan kakak.\n\nSilakan klik tombol di bawah untuk langsung terhubung ke Admin:`;
+
+    const buttons = [
+        { id: `btn_start_livechat_${orderId}`, text: isEn ? "💬 Start Live Chat" : "💬 Mulai Live Chat" }
+    ];
+
     return {
         interactiveMessage: {
             body: { text },

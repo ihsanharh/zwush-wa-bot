@@ -31,8 +31,13 @@ import {
     sendUnrecognizedCommand,
     GREETINGS
 } from "../utils/messageUtils";
+import {
+    isLiveChatActive,
+    isAwaitingSupportConfirmation,
+    handleSupportConfirmation,
+    startUserLiveChat
+} from "../flows/supportFlow";
 import { defaultRegistry } from "../commands";
-import { isLiveChatActive, isAwaitingSupportConfirmation, handleSupportConfirmation } from "../flows/supportFlow";
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import { handleAdminAction } from "./adminActions";
 import { isCancelKeyword } from "../i18n";
@@ -256,8 +261,26 @@ async function handleIncomingMessageInternal(
     }
 
     // 2. Private 1:1 Chat Routing
+    // Direct Live Chat button click (Zero friction: immediately starts Live Chat without asking YA/Batal)
+    if (
+        trimmed === "btn_start_livechat" ||
+        trimmed.startsWith("btn_start_livechat_") ||
+        trimmed === "btn_contact_admin" ||
+        trimmed === "btn_support_confirm"
+    ) {
+        const orderIdMatch = trimmed.startsWith("btn_start_livechat_")
+            ? trimmed.replace("btn_start_livechat_", "")
+            : undefined;
+        await startUserLiveChat(remoteJid, ctx, userLang, orderIdMatch, undefined, effectiveSender);
+        return;
+    }
+
     // Live chat active: bot is paused so admin can chat directly with customer via WhatsApp web/app
     if (isLiveChatActive(remoteJid, ctx)) {
+        if (isCancelKeyword(trimmed, userLang) || trimmed === "btn_cancel_livechat" || trimmed === "btn_cancel_order") {
+            ctx.state.endLiveChat(remoteJid);
+            await ctx.sendText(remoteJid, t("support.cancelledNotice", userLang));
+        }
         return;
     }
 

@@ -26,24 +26,109 @@ export async function handleAdminAction(
                 await (ctx.client as any).markOrderPaid(orderId);
             }
 
+            // Retrieve order info to notify buyer
+            let buyerJid = "";
+            let itemName = "Item";
+            let gamertag = "-";
+            try {
+                const orderInfo = await ctx.client.getOrderStatus(orderId);
+                if (orderInfo) {
+                    buyerJid = orderInfo.platformUserId || "";
+                    itemName = orderInfo.itemName || itemName;
+                    gamertag = orderInfo.gamertag || gamertag;
+                }
+            } catch {}
+
+            // Notify buyer: payment verified & queued
+            if (buyerJid) {
+                const buyerLang = ctx.state.getLanguage(buyerJid);
+                const isEn = buyerLang === "en";
+                const buyerNotice = isEn
+                    ? `✅ *PAYMENT RECEIVED & VERIFIED!* 🎉\n\nPayment for order *#${orderId}* (*${itemName}*) has been verified by Admin.\n\n⏳ Your order is now directly queued for delivery in The Hive Bedrock! 🚀`
+                    : `✅ *PEMBAYARAN DITERIMA & DIVERIFIKASI!* 🎉\n\nPembayaran untuk pesanan *#${orderId}* (*${itemName}*) telah diverifikasi oleh Admin.\n\n⏳ Pesanan kakak sekarang langsung masuk ke antrean pengiriman The Hive Bedrock! Mohon ditunggu ya kak 🚀`;
+
+                try {
+                    await ctx.sendText(buyerJid, buyerNotice);
+                } catch (notifyErr) {
+                    console.warn(`[adminAction] Failed to notify buyer ${buyerJid} for paid #${orderId}:`, notifyErr);
+                }
+            }
+
+            // Directly queue the order
             try {
                 if (typeof ctx.client.retryOrder === "function") {
                     await ctx.client.retryOrder(orderId);
                 } else if (typeof (ctx.client as any).reprocessOrder === "function") {
                     await (ctx.client as any).reprocessOrder(orderId);
                 }
-            } catch (reErr) {
-                console.warn(`[adminAction] Auto-reprocess after paid failed for #${orderId}:`, reErr);
-            }
 
-            await ctx.sendText(
-                remoteJid,
-                `✅ Pesanan *#${orderId}* berhasil ditandai *LUNAS* dan dikirim ke antrean pengiriman The Hive oleh ${senderTag}! 🚀`,
-                mentions
-            );
+                await ctx.sendText(
+                    remoteJid,
+                    `✅ Pesanan *#${orderId}* berhasil ditandai *LUNAS* dan dikirim ke antrean pengiriman The Hive oleh ${senderTag}! 🚀`,
+                    mentions
+                );
+            } catch (reErr: unknown) {
+                const reErrMsg = reErr instanceof Error ? reErr.message : String(reErr);
+                console.warn(`[adminAction] Auto-reprocess after paid failed for #${orderId}:`, reErrMsg);
+
+                // Send failure alert in group with Retry button
+                if (ctx.adminLogger) {
+                    await ctx.adminLogger.updateOrderStatus(orderId, "FAILED", {
+                        failureReason: reErrMsg,
+                        itemName,
+                        gamertag,
+                        platformUserId: buyerJid
+                    });
+                }
+
+                try {
+                    const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                    const failPayload = buildAdminOrderFailureButtons(orderId, reErrMsg, "id");
+                    await ctx.sendText(remoteJid, `❌ Gagal memproses ke antrean The Hive untuk pesanan *#${orderId}*: ${reErrMsg}\n\n👉 Klik tombol di bawah untuk mencoba kembali:`, mentions);
+                    if (ctx.sendButtons) {
+                        await ctx.sendButtons(remoteJid, failPayload);
+                    }
+                } catch {}
+
+                // Send follow-up error with Live Chat button to buyer
+                if (buyerJid) {
+                    const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                    const buyerLang = ctx.state.getLanguage(buyerJid);
+                    const failBtns = buildUserOrderFailureButtons(orderId, reErrMsg, buyerLang);
+                    if (ctx.sendButtons) {
+                        await ctx.sendButtons(buyerJid, failBtns);
+                    } else {
+                        await ctx.sendText(buyerJid, failBtns.text);
+                    }
+                }
+            }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            await ctx.sendText(remoteJid, `❌ Gagal menandai lunas pesanan *#${orderId}*: ${msg}`, mentions);
+            try {
+                const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                const failPayload = buildAdminOrderFailureButtons(orderId, msg, "id");
+                await ctx.sendText(remoteJid, `❌ Gagal menandai lunas pesanan *#${orderId}*: ${msg}\n\n👉 Klik tombol di bawah untuk mencoba kembali:`, mentions);
+                if (ctx.sendButtons) {
+                    await ctx.sendButtons(remoteJid, failPayload);
+                }
+            } catch {
+                await ctx.sendText(remoteJid, `❌ Gagal menandai lunas pesanan *#${orderId}*: ${msg}`, mentions);
+            }
+
+            try {
+                const orderInfo = await ctx.client.getOrderStatus(orderId);
+                if (orderInfo?.platformUserId) {
+                    const buyerJid = orderInfo.platformUserId;
+                    const buyerLang = ctx.state.getLanguage(buyerJid);
+                    const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                    const userBtns = buildUserOrderFailureButtons(orderId, msg, buyerLang);
+                    if (ctx.sendButtons) {
+                        await ctx.sendButtons(buyerJid, userBtns);
+                    } else {
+                        await ctx.sendText(buyerJid, userBtns.text);
+                    }
+                }
+            } catch {}
         }
         return true;
     }
@@ -56,6 +141,43 @@ export async function handleAdminAction(
                 await ctx.client.manualCompleteOrder(orderId);
             } else if (typeof (ctx.client as any).updateOrderStatus === "function") {
                 await (ctx.client as any).updateOrderStatus(orderId, "COMPLETED");
+            }
+
+            // Retrieve order info to notify buyer
+            let buyerJid = "";
+            let itemName = "Item";
+            let gamertag = "-";
+            try {
+                const orderInfo = await ctx.client.getOrderStatus(orderId);
+                if (orderInfo) {
+                    buyerJid = orderInfo.platformUserId || "";
+                    itemName = orderInfo.itemName || itemName;
+                    gamertag = orderInfo.gamertag || gamertag;
+                }
+            } catch {}
+
+            // Update status in admin logger if present
+            if (ctx.adminLogger) {
+                await ctx.adminLogger.updateOrderStatus(orderId, "SUCCESS", {
+                    itemName,
+                    gamertag,
+                    platformUserId: buyerJid
+                });
+            }
+
+            // Notify buyer: order completed manually by admin
+            if (buyerJid) {
+                const buyerLang = ctx.state.getLanguage(buyerJid);
+                const isEn = buyerLang === "en";
+                const buyerNotice = isEn
+                    ? `🎉 *ORDER COMPLETED!* ✨\n\nOrder *#${orderId}* (*${itemName}*) for Gamertag *${gamertag}* has been successfully completed by Admin! 📦\n\nThank you for shopping with ${config.STORE_NAME.toUpperCase()}! Enjoy your cosmetics! 🎮✨`
+                    : `🎉 *PESANAN SELESAI!* ✨\n\nPesanan *#${orderId}* (*${itemName}*) untuk Gamertag *${gamertag}* telah berhasil diselesaikan oleh Admin! 📦\n\nTerima kasih banyak telah berbelanja di ${config.STORE_NAME.toUpperCase()} kak! Selamat menikmati kosmetik barunya! 🎮✨`;
+
+                try {
+                    await ctx.sendText(buyerJid, buyerNotice);
+                } catch (notifyErr) {
+                    console.warn(`[adminAction] Failed to notify buyer ${buyerJid} for completed #${orderId}:`, notifyErr);
+                }
             }
 
             await ctx.sendText(
@@ -87,7 +209,32 @@ export async function handleAdminAction(
             );
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            await ctx.sendText(remoteJid, `❌ Gagal memproses ulang pesanan *#${orderId}*: ${msg}`, mentions);
+
+            // Follow-up failure message in group with Retry button
+            try {
+                const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                const failPayload = buildAdminOrderFailureButtons(orderId, msg, "id");
+                await ctx.sendText(remoteJid, `❌ Gagal memproses ulang pesanan *#${orderId}*: ${msg}\n\n👉 Klik tombol di bawah untuk mencoba kembali setelah server pulih:`, mentions);
+                if (ctx.sendButtons) {
+                    await ctx.sendButtons(remoteJid, failPayload);
+                }
+            } catch {}
+
+            // Notify buyer with Live Chat button
+            try {
+                const orderInfo = await ctx.client.getOrderStatus(orderId);
+                if (orderInfo?.platformUserId) {
+                    const buyerJid = orderInfo.platformUserId;
+                    const buyerLang = ctx.state.getLanguage(buyerJid);
+                    const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                    const userBtns = buildUserOrderFailureButtons(orderId, msg, buyerLang);
+                    if (ctx.sendButtons) {
+                        await ctx.sendButtons(buyerJid, userBtns);
+                    } else {
+                        await ctx.sendText(buyerJid, userBtns.text);
+                    }
+                }
+            } catch {}
         }
         return true;
     }

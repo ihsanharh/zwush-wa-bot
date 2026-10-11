@@ -397,5 +397,45 @@ describe("Webhook Server", () => {
         expect(updateOrderStatusMock).toHaveBeenCalledTimes(1);
         expect(sentMessages.length).toBe(0); // Buyer must NEVER receive any message!
     });
+
+    it("should send live chat button to buyer when status is FAILED or HELD and sendButtons is available", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const sentButtonsList: Array<{ jid: string; payload: any }> = [];
+
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            }),
+            sendButtons: mock(async (jid: string, payload: any) => {
+                sentButtonsList.push({ jid, payload });
+            })
+        };
+
+        const app = createWebhookApp({
+            sender: mockSender
+        });
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ord_fail_button",
+                platform: "whatsapp",
+                platformUserId: "628999@s.whatsapp.net",
+                gamertag: "Steve",
+                itemName: "Dragon Pet",
+                status: "FAILED",
+                message: "Fatal connection error to The Hive Bedrock"
+            })
+        });
+
+        expect(res.status).toBe(200);
+        expect(sentMessages.length).toBe(1); // Standard status notification
+        expect(sentButtonsList.length).toBe(1); // Live chat button follow-up
+        expect(sentButtonsList[0]?.jid).toBe("628999@s.whatsapp.net");
+        const btn = JSON.parse(sentButtonsList[0]?.payload.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
+        expect(btn.id).toBe("btn_start_livechat_ord_fail_button");
+        expect(btn.display_text).toContain("Mulai Live Chat");
+    });
 });
 

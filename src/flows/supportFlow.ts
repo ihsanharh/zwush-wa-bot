@@ -12,6 +12,36 @@ export function isAwaitingSupportConfirmation(remoteJid: string, ctx: BotContext
     return session.step === "AWAITING_SUPPORT_CONFIRMATION";
 }
 
+export async function startUserLiveChat(
+    remoteJid: string,
+    ctx: BotContext,
+    userLang: Language,
+    orderId?: string,
+    reason?: string,
+    effectiveSender?: string
+): Promise<void> {
+    const session = ctx.state.getSession(remoteJid);
+    const targetOrderId = orderId || session.pendingSupportOrderId;
+    ctx.state.startLiveChat(remoteJid, targetOrderId);
+
+    const activeLiveMsg = t("support.activeLiveMsg", userLang, { store: config.STORE_NAME });
+    await ctx.sendText(remoteJid, activeLiveMsg);
+
+    if (ctx.adminLogger) {
+        const retry = session.retryOrder || session.lastFailedOrder;
+        await ctx.adminLogger.notifySupportRequest({
+            orderId: targetOrderId || retry?.orderId,
+            itemName: retry?.itemName,
+            gamertag: (retry as any)?.newGamertag || (retry as any)?.oldGamertag || (retry as any)?.gamertag,
+            attempts: retry?.attempts,
+            platformUserId: effectiveSender || remoteJid,
+            reason: reason || (retry?.attempts && retry.attempts >= 3
+                ? `Gamertag tidak ditemukan di The Hive setelah ${retry.attempts}x percobaan`
+                : "Pelanggan memulai sesi Live Chat Support via tombol")
+        });
+    }
+}
+
 export async function handleSupportConfirmation(
     remoteJid: string,
     text: string,
@@ -29,6 +59,8 @@ export async function handleSupportConfirmation(
 
     const isYes =
         trimmed === "btn_support_confirm" ||
+        trimmed === "btn_start_livechat" ||
+        trimmed.startsWith("btn_start_livechat_") ||
         lower === "ya" ||
         lower === "yes" ||
         lower === "y" ||
@@ -50,26 +82,10 @@ export async function handleSupportConfirmation(
         lower === "b";
 
     if (isYes) {
-        const targetOrderId = session.pendingSupportOrderId;
-        ctx.state.startLiveChat(remoteJid, targetOrderId);
-
-        const activeLiveMsg = t("support.activeLiveMsg", userLang, { store: config.STORE_NAME });
-        await ctx.sendText(remoteJid, activeLiveMsg);
-
-        // Alert admin group
-        if (ctx.adminLogger) {
-            const retry = session.retryOrder || session.lastFailedOrder;
-            await ctx.adminLogger.notifySupportRequest({
-                orderId: targetOrderId || retry?.orderId,
-                itemName: retry?.itemName,
-                gamertag: (retry as any)?.newGamertag || (retry as any)?.oldGamertag || (retry as any)?.gamertag,
-                attempts: retry?.attempts,
-                platformUserId: effectiveSender || remoteJid,
-                reason: retry?.attempts && retry.attempts >= 3
-                    ? `Gamertag tidak ditemukan di The Hive setelah ${retry.attempts}x percobaan`
-                    : "Pelanggan menyetujui masuk ke mode Live Chat Support"
-            });
-        }
+        const orderIdMatch = trimmed.startsWith("btn_start_livechat_")
+            ? trimmed.replace("btn_start_livechat_", "")
+            : session.pendingSupportOrderId;
+        await startUserLiveChat(remoteJid, ctx, userLang, orderIdMatch, undefined, effectiveSender);
         return true;
     }
 

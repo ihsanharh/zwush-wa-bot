@@ -14,6 +14,7 @@ export { formatStatusNotification, formatPlayerNotFoundRetry, formatPlayerNotFou
 
 export interface BotMessageSender {
     sendMessage(jid: string, text: string): Promise<void>;
+    sendButtons?(jid: string, payload: any): Promise<any>;
 }
 
 export interface WebhookAppOptions {
@@ -148,6 +149,16 @@ export function createWebhookApp(
                             buyerLang
                         );
                         await sender.sendMessage(body.platformUserId, maxText);
+
+                        if (sender.sendButtons) {
+                            try {
+                                const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                                const failBtns = buildUserOrderFailureButtons(body.orderId, body.message, buyerLang);
+                                await sender.sendButtons(body.platformUserId, failBtns);
+                            } catch (btnErr) {
+                                console.warn(`[Webhook] Failed to send live chat button for #${body.orderId}:`, btnErr);
+                            }
+                        }
                         return c.json({ success: true, retry: false, maxAttemptsReached: true });
                     }
                 }
@@ -194,12 +205,32 @@ export function createWebhookApp(
                     });
 
                     await sender.sendMessage(body.platformUserId, buyerNotice);
+
+                    if (sender.sendButtons) {
+                        try {
+                            const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                            const failBtns = buildUserOrderFailureButtons(body.orderId, body.message, buyerLang);
+                            await sender.sendButtons(body.platformUserId, failBtns);
+                        } catch (btnErr) {
+                            console.warn(`[Webhook] Failed to send live chat button for ineligible upgrade #${body.orderId}:`, btnErr);
+                        }
+                    }
                     return c.json({ success: true, ineligibleUpgrade: true });
                 }
             }
 
             const formattedText = formatStatusNotification(body, buyerLang);
             await sender.sendMessage(body.platformUserId, formattedText);
+
+            if ((body.status === "FAILED" || body.status === "HELD") && sender.sendButtons) {
+                try {
+                    const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                    const failBtns = buildUserOrderFailureButtons(body.orderId, body.message, buyerLang);
+                    await sender.sendButtons(body.platformUserId, failBtns);
+                } catch (btnErr) {
+                    console.warn(`[Webhook] Failed to send live chat button for #${body.orderId}:`, btnErr);
+                }
+            }
 
             return c.json({ success: true });
         } catch (err: unknown) {

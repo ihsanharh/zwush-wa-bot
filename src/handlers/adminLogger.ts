@@ -248,7 +248,26 @@ export class AdminGroupLogger {
             updateMsg += `📊 Status: *${statusBadge}*`;
 
             try {
-                await this.sender.sendMessage(this.logGroupJid, updateMsg);
+                const sent = await this.sender.sendMessage(this.logGroupJid, updateMsg);
+                const messageKey =
+                    sent?.key ??
+                    (sent?.id ? { id: sent.id, remoteJid: this.logGroupJid, fromMe: true } : undefined);
+
+                const isFailedOrHeld =
+                    status === "FAILED" ||
+                    status === "HELD" ||
+                    status === "INSUFFICIENT_TOKENS" ||
+                    status === "DELAYED_PAYMENT";
+
+                if (isFailedOrHeld && messageKey) {
+                    try {
+                        const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
+                        const failPayload = buildAdminOrderFailureButtons(orderId, extra?.failureReason, "id");
+                        await this.sender.sendMessage(this.logGroupJid, failPayload, { quote: messageKey });
+                    } catch (failErr) {
+                        console.warn(`[AdminGroupLogger] Failed to send fallback failure retry buttons for #${orderId}:`, failErr);
+                    }
+                }
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : String(err);
                 console.error(`[AdminGroupLogger] Error sending fallback status update for order #${orderId}:`, msg);
