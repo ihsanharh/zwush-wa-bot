@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { CatalogItem } from "./types";
 import type { Language } from "./i18n";
 import { config } from "./config";
@@ -61,10 +63,45 @@ export class StateManager {
     private readonly userLanguages = new Map<string, Language>();
     private readonly orderRetryAttempts = new Map<string, number>();
     private readonly ttlMs: number;
-    private maintenanceMode: boolean = config.MAINTENANCE_MODE;
+    private readonly stateFilePath: string;
+    private maintenanceMode: boolean;
 
-    constructor(ttlMs = 5 * 60 * 1000) {
+    constructor(ttlMs = 5 * 60 * 1000, stateFilePath?: string) {
         this.ttlMs = ttlMs;
+        const authDir = path.dirname(config.AUTH_PATH || "./.auth/state.sqlite");
+        this.stateFilePath = stateFilePath || path.join(authDir, "maintenance_state.json");
+        this.maintenanceMode = this.loadPersistedMaintenanceMode();
+    }
+
+    private loadPersistedMaintenanceMode(): boolean {
+        try {
+            if (fs.existsSync(this.stateFilePath)) {
+                const raw = fs.readFileSync(this.stateFilePath, "utf-8");
+                const data = JSON.parse(raw);
+                if (typeof data.maintenance === "boolean") {
+                    return data.maintenance;
+                }
+            }
+        } catch (err) {
+            console.warn("[StateManager] Failed to read persisted maintenance state:", err);
+        }
+        return config.MAINTENANCE_MODE;
+    }
+
+    private persistMaintenanceMode(enabled: boolean): void {
+        try {
+            const dir = path.dirname(this.stateFilePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            fs.writeFileSync(
+                this.stateFilePath,
+                JSON.stringify({ maintenance: enabled, updatedAt: new Date().toISOString() }, null, 2),
+                "utf-8"
+            );
+        } catch (err) {
+            console.warn("[StateManager] Failed to persist maintenance state:", err);
+        }
     }
 
     /**
@@ -75,10 +112,11 @@ export class StateManager {
     }
 
     /**
-     * Toggles maintenance mode.
+     * Toggles maintenance mode and persists setting across restarts.
      */
     setMaintenanceMode(enabled: boolean): void {
         this.maintenanceMode = enabled;
+        this.persistMaintenanceMode(enabled);
     }
 
     /**

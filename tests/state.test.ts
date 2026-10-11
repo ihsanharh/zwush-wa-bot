@@ -152,4 +152,31 @@ describe("StateManager", () => {
         expect(mgr.getSession(jid).appliedVoucher).toBeUndefined();
         expect(mgr.getSession(jid).appliedVoucherCode).toBeUndefined();
     });
+
+    it("should persist maintenance mode setting across restarts via state file", () => {
+        const testFilePath = "./.auth/test_maintenance_state.json";
+        const mgr1 = new StateManager(5000, testFilePath);
+        
+        // Turn ON
+        mgr1.setMaintenanceMode(true);
+        expect(mgr1.isMaintenanceMode()).toBe(true);
+
+        // Reload in new instance
+        const mgr2 = new StateManager(5000, testFilePath);
+        expect(mgr2.isMaintenanceMode()).toBe(true);
+
+        // Turn OFF
+        mgr2.setMaintenanceMode(false);
+        expect(mgr2.isMaintenanceMode()).toBe(false);
+
+        // Reload again in third instance
+        const mgr3 = new StateManager(5000, testFilePath);
+        expect(mgr3.isMaintenanceMode()).toBe(false);
+
+        // Clean up test file
+        try {
+            const fs = require("node:fs");
+            if (fs.existsSync(testFilePath)) fs.unlinkSync(testFilePath);
+        } catch {}
+    });
 });
