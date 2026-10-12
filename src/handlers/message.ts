@@ -342,7 +342,7 @@ async function handleIncomingMessageInternal(
                 : 1;
             const page = isNaN(requestedPage) || requestedPage < 1 ? 1 : requestedPage;
             try {
-                const orders = await ctx.client.getUserOrders(remoteJid);
+                const orders = await ctx.client.getUserOrders(remoteJid, { page, limit: 5 });
                 if (!orders || orders.length === 0) {
                     await ctx.sendText(remoteJid, t("history.empty", userLang));
                     return;

@@ -69,18 +69,46 @@ describe("CoreClient", () => {
     });
 
     it("should fetch user orders for platformUserId", async () => {
-        global.fetch = mock(() =>
-            Promise.resolve(new Response(JSON.stringify({
+        let calledUrl = "";
+        global.fetch = mock((url: string) => {
+            calledUrl = url;
+            return Promise.resolve(new Response(JSON.stringify({
                 success: true,
                 orders: [
                     { id: "ord_1", gamertag: "Viosca", itemName: "Dragon Pet", status: "QUEUED", totalNominal: 25012 }
                 ]
-            }), { status: 200 }))
-        ) as unknown as typeof fetch;
+            }), { status: 200 }));
+        }) as unknown as typeof fetch;
 
         const orders = await client.getUserOrders("628111@s.whatsapp.net");
         expect(orders.length).toBe(1);
         expect(orders[0]?.id).toBe("ord_1");
+        expect(calledUrl).toContain("/api/orders/user/628111%40s.whatsapp.net");
+
+        await client.getUserOrders("628111@s.whatsapp.net", 20);
+        expect(calledUrl).toContain("/api/orders/user/628111%40s.whatsapp.net?limit=20");
+
+        global.fetch = mock((url: string) => {
+            calledUrl = url;
+            return Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                orders: [
+                    { id: "ord_2", gamertag: "Viosca", itemName: "Dragon Pet", status: "SUCCESS", totalNominal: 25012 }
+                ],
+                pagination: {
+                    page: 2,
+                    limit: 5,
+                    total: 100,
+                    totalPages: 20
+                }
+            }), { status: 200 }));
+        }) as unknown as typeof fetch;
+
+        const paginatedOrders = await client.getUserOrders("628111@s.whatsapp.net", { page: 2, limit: 5 });
+        expect(calledUrl).toContain("page=2");
+        expect(calledUrl).toContain("limit=5");
+        expect(paginatedOrders.pagination).toBeDefined();
+        expect(paginatedOrders.pagination?.totalPages).toBe(20);
     });
 
     it("should retry single order", async () => {

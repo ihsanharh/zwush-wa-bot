@@ -2,7 +2,7 @@ import { proto } from "zapo-js";
 import { formatRupiah, formatStatusBadge, t, type Language } from "../i18n";
 import { config } from "../config";
 import type { CategoryDefinition } from "./categories";
-import type { CatalogItem, OrderInfo } from "../types";
+import type { CatalogItem, OrderInfo, PaginationInfo } from "../types";
 
 /**
  * Generic helper to construct interactive native flow quick reply messages.
@@ -552,21 +552,27 @@ export function buildSettingsListMenu(lang: Language = "id"): { listMessage: any
  * Builds Paginated Order History Buttons (Card text + Quick Reply buttons)
  */
 export function buildOrderHistoryButtons(
-    orders: OrderInfo[],
+    orders: (OrderInfo[] & { pagination?: PaginationInfo }) | OrderInfo[],
     page: number = 1,
     pageSize: number = 5,
-    lang: Language = "id"
+    lang: Language = "id",
+    customTotalPages?: number
 ): {
     interactiveMessage: any;
     text: string;
     buttons: Array<{ id: string; text: string }>;
 } {
     const store = config.STORE_NAME;
-    const totalPages = Math.max(1, Math.ceil(orders.length / pageSize));
+    const pagination = (orders as { pagination?: PaginationInfo }).pagination;
+    const isServerPaginated = customTotalPages !== undefined || pagination !== undefined;
+    const totalPages = Math.max(
+        1,
+        customTotalPages ?? pagination?.totalPages ?? Math.ceil(orders.length / pageSize)
+    );
     const safePage = Math.min(Math.max(1, page), totalPages);
 
     const startIdx = (safePage - 1) * pageSize;
-    const pageOrders = orders.slice(startIdx, startIdx + pageSize);
+    const pageOrders = isServerPaginated ? orders : orders.slice(startIdx, startIdx + pageSize);
 
     let out = t("history.pageTitle", lang, { page: safePage, totalPages, store });
 

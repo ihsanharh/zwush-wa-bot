@@ -118,5 +118,47 @@ describe("Order History Pagination", () => {
             expect(sentTexts.length).toBe(1);
             expect(sentTexts[0]!.text).toContain("Belum ada riwayat pesanan");
         });
+
+        it("should support server-side pagination seamlessly for >100 orders (e.g. 150 orders)", async () => {
+            let requestedOptions: any = null;
+            mockContext.client.getUserOrders = async (_jid: string, opts: any) => {
+                requestedOptions = opts;
+                const page = opts?.page || 1;
+                // Simulating 5 orders for the requested page
+                const slice = Array.from({ length: 5 }, (_, i) => ({
+                    id: `ORD-TEST-${(page - 1) * 5 + i + 1}`,
+                    gamertag: `Player${(page - 1) * 5 + i + 1}`,
+                    itemName: `Item ${(page - 1) * 5 + i + 1}`,
+                    status: "SUCCESS",
+                    totalNominal: 10000,
+                    createdAt: new Date().toISOString()
+                })) as any;
+                slice.pagination = {
+                    page,
+                    limit: 5,
+                    total: 150,
+                    totalPages: 30
+                };
+                return slice;
+            };
+
+            await handleIncomingMessage("628111@s.whatsapp.net", false, "btn_history", mockContext);
+            expect(requestedOptions).toEqual({ page: 1, limit: 5 });
+            expect(sentButtons[0]!.content.text).toContain("(Hal 1/30)");
+            expect(sentButtons[0]!.content.text).toContain("1. *#ORD-TEST-1*");
+            expect(sentButtons[0]!.content.text).toContain("5. *#ORD-TEST-5*");
+            const btnIdsP1 = sentButtons[0]!.content.buttons.map((b: any) => b.id);
+            expect(btnIdsP1).toContain("btn_hist_page_2");
+
+            sentButtons = [];
+            await handleIncomingMessage("628111@s.whatsapp.net", false, "btn_hist_page_2", mockContext);
+            expect(requestedOptions).toEqual({ page: 2, limit: 5 });
+            expect(sentButtons[0]!.content.text).toContain("(Hal 2/30)");
+            expect(sentButtons[0]!.content.text).toContain("6. *#ORD-TEST-6*");
+            expect(sentButtons[0]!.content.text).toContain("10. *#ORD-TEST-10*");
+            const btnIdsP2 = sentButtons[0]!.content.buttons.map((b: any) => b.id);
+            expect(btnIdsP2).toContain("btn_hist_page_1");
+            expect(btnIdsP2).toContain("btn_hist_page_3");
+        });
     });
 });

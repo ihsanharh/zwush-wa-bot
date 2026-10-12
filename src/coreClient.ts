@@ -4,6 +4,7 @@ import type {
     OrderCreateResponse,
     OrderStatusResponse,
     UserOrdersResponse,
+    PaginationInfo,
     OrderRetryResponse,
     VoucherValidationResponse,
     BotBalanceResponse,
@@ -87,17 +88,35 @@ export class CoreClient {
     }
 
     /**
-     * Fetches recent orders for a platform user.
+     * Fetches recent orders for a platform user, supporting optional server-side pagination.
      */
-    async getUserOrders(platformUserId: string): Promise<OrderStatusResponse["order"][]> {
-        const res = await fetch(`${this.baseUrl}/api/orders/user/${encodeURIComponent(platformUserId)}`, {
+    async getUserOrders(
+        platformUserId: string,
+        options?: { page?: number; limit?: number } | number
+    ): Promise<OrderStatusResponse["order"][] & { pagination?: PaginationInfo }> {
+        const url = new URL(`${this.baseUrl}/api/orders/user/${encodeURIComponent(platformUserId)}`);
+        if (typeof options === "number") {
+            url.searchParams.set("limit", options.toString());
+        } else if (options) {
+            if (options.page !== undefined) {
+                url.searchParams.set("page", options.page.toString());
+            }
+            if (options.limit !== undefined) {
+                url.searchParams.set("limit", options.limit.toString());
+            }
+        }
+        const res = await fetch(url.toString(), {
             signal: AbortSignal.timeout(10000)
         });
         const data = (await res.json()) as UserOrdersResponse & { message?: string };
         if (!res.ok || !data.success) {
             throw new Error(data.message || `Failed to fetch orders for user (${res.status})`);
         }
-        return data.orders;
+        const orders = (data.orders || []) as OrderStatusResponse["order"][] & { pagination?: PaginationInfo };
+        if (data.pagination) {
+            orders.pagination = data.pagination;
+        }
+        return orders;
     }
 
     /**

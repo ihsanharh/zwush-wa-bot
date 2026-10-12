@@ -52,9 +52,17 @@ export interface OrderStatusResponse {
 
 export type OrderInfo = OrderStatusResponse["order"];
 
+export interface PaginationInfo {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
 export interface UserOrdersResponse {
     success: boolean;
     orders: OrderStatusResponse["order"][];
+    pagination?: PaginationInfo;
 }
 
 export interface OrderRetryResponse {
