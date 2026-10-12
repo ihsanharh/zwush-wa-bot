@@ -6,7 +6,7 @@ export interface CategoryDefinition {
 }
 
 export const CATEGORIES: CategoryDefinition[] = [
-    { id: "1", displayName: "1. 👑 Main Store & Ranks", dbCategory: "Main Store" },
+    { id: "1", displayName: "1. 👑 Ranks, Bundles & Tiket", dbCategory: "Main Store" },
     { id: "2", displayName: "2. 🐾 Pets", dbCategory: "Regular Pet" },
     { id: "3", displayName: "3. 🦄 Mounts", dbCategory: "Regular Mount" },
     { id: "4", displayName: "4. 🎩 Hats", dbCategory: "Hats" },

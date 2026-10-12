@@ -558,8 +558,8 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         sentLists = [];
         await handleIncomingMessage(testJid, false, "opt_change_item", mockContext, undefined, undefined, modifyListId);
         expect(sentLists.length).toBe(1);
-        // It must open Main Store catalog, NOT Mounts!
-        expect(sentLists[0]!.payload.listMessage.title).toContain("Main Store");
+        // It must open Ranks, Bundles & Tiket catalog, NOT Mounts!
+        expect(sentLists[0]!.payload.listMessage.title).toContain("Ranks, Bundles & Tiket");
         expect(state.getSession(testJid).step).toBe("IDLE");
 
         // 9. User selects a different item (mount-1)
