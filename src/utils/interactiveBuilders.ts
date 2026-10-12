@@ -612,3 +612,22 @@ export function buildOrderHistoryButtons(
     return buildQuickReplyPayload(out, buttonsList, { footer: `${store} • The Hive Bedrock` });
 }
 
+/**
+ * Builds Order Cancelled Notice with quick-reply buttons (e.g. Beli Kosmetik, Riwayat Pesanan)
+ */
+export function buildOrderCancelledButtons(
+    message: string,
+    lang: Language = "id"
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+} {
+    const store = config.STORE_NAME;
+    const buttons = [
+        { id: "btn_start_buying", text: t("buttons.browseCatalog", lang) },
+        { id: "btn_history", text: t("buttons.orderHistory", lang) }
+    ];
+    return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
+}
+

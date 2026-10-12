@@ -37,6 +37,7 @@ import {
     buildAdminPanelMenu,
     buildAdminPanelQuickReply,
     buildCategoryListMenu,
+    buildOrderCancelledButtons,
     buildOrderHistoryButtons,
     buildSettingsListMenu,
     buildWelcomeButtons
@@ -567,7 +568,11 @@ async function handleCustomerCancel(
                 orderId: res.orderId,
                 itemName: res.itemName || pendingItemName || "Item",
             });
-            await ctx.sendText(remoteJid, msg);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(msg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, msg);
+            }
             return;
         } catch (err: unknown) {
             const errMsg = err instanceof Error ? err.message : String(err);
@@ -583,9 +588,19 @@ async function handleCustomerCancel(
         session.step !== "AWAITING_SUPPORT_CONFIRMATION"
     ) {
         ctx.state.clear(remoteJid);
-        await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+        const msg = t("cancelSuccess", userLang);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(msg, userLang));
+        } else {
+            await ctx.sendText(remoteJid, msg);
+        }
         return;
     }
 
-    await ctx.sendText(remoteJid, t("cancel.noPending", userLang));
+    const noPendingMsg = t("cancel.noPending", userLang);
+    if (ctx.sendButtons) {
+        await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(noPendingMsg, userLang));
+    } else {
+        await ctx.sendText(remoteJid, noPendingMsg);
+    }
 }

@@ -331,10 +331,16 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         state.setItem(testJid, catalogItems[0]!);
         expect(state.getSession(testJid).step).toBe("AWAITING_GAMERTAG");
 
-        // Clicking cancel button during active order step cancels the session
+        // Clicking cancel button during active order step cancels the session and provides re-buy buttons
         await handleIncomingMessage(testJid, false, "btn_cancel_order", mockContext);
         expect(state.getSession(testJid).step).toBe("IDLE");
-        expect(sentTexts[sentTexts.length - 1]!.text).toContain("dibatalkan");
+        expect(sentButtons[sentButtons.length - 1]!.payload.text).toContain("dibatalkan");
+        const cancelButtons = sentButtons[sentButtons.length - 1]!.payload.buttons;
+        expect(cancelButtons.map((b: any) => b.id)).toContain("btn_start_buying");
+
+        // Clicking btn_start_buying right after cancellation opens category menu
+        await handleIncomingMessage(testJid, false, "btn_start_buying", mockContext);
+        expect(sentLists.length).toBe(1);
     });
 
     it("should NOT reset active buying session when greeting is received", async () => {
@@ -647,9 +653,13 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
 
         // 6. Normal user cancels order via quick-reply button [Batalkan Pesanan]
         sentTexts = [];
+        sentButtons = [];
         (mockContext.client as any).cancelOrder = async () => ({ orderId: "ORD-TEST99", status: "CANCELLED" });
         await handleIncomingMessage(testJid, false, "btn_cancel_order", mockContext);
-        expect(sentTexts.length).toBeGreaterThanOrEqual(1);
+        expect(sentButtons.length).toBeGreaterThanOrEqual(1);
+        expect(sentButtons[sentButtons.length - 1]!.payload.text).toContain("ORD-TEST99");
+        const cancelButtonsPending = sentButtons[sentButtons.length - 1]!.payload.buttons;
+        expect(cancelButtonsPending.map((b: any) => b.id)).toContain("btn_start_buying");
         expect(state.getActiveOrderId(testJid)).toBeUndefined();
     });
 

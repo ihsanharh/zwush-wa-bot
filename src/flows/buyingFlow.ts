@@ -15,6 +15,7 @@ import {
     buildOrderConfirmationButtons,
     buildModifyOrderListMenu,
     buildInvoiceButtons,
+    buildOrderCancelledButtons,
     buildVoucherPromptButtons,
     buildQuickReplyPayload
 } from "../utils/interactiveBuilders";
@@ -214,7 +215,12 @@ export async function handleBuyingFlow(
             trimmed === "opt_cancel_order"
         ) {
             ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            const msg = t("cancelSuccess", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(msg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, msg);
+            }
             return true;
         }
 
@@ -243,7 +249,12 @@ export async function handleBuyingFlow(
             trimmed === "opt_cancel_order"
         ) {
             ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            const msg = t("cancelSuccess", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(msg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, msg);
+            }
             return true;
         }
 
@@ -465,7 +476,12 @@ export async function handleBuyingFlow(
             trimmed === "opt_cancel_order"
         ) {
             ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            const msg = t("cancelSuccess", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(msg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, msg);
+            }
             return true;
         }
 
@@ -571,7 +587,12 @@ export async function handleBuyingFlow(
             trimmed === "btn_cancel_order"
         ) {
             ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            const msg = t("cancelSuccess", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(msg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, msg);
+            }
             return true;
         }
 
