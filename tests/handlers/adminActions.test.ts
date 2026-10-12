@@ -98,7 +98,9 @@ describe("Admin Action Handlers", () => {
         const sentTexts: Array<{ jid: string; text: string }> = [];
         const state = new StateManager();
         const userJid = "628999888777@s.whatsapp.net";
-        state.startLiveChat(userJid);
+        state.startLiveChat(userJid, "ORD-FAIL-1");
+        state.setActiveOrderId(userJid, "ORD-FAIL-1");
+        state.setLastFailedOrder(userJid, { orderId: "ORD-FAIL-1", itemName: "Item", gamertag: "Steve", attempts: 1 });
 
         const ctx: BotContext = {
             client: {} as any,
@@ -119,6 +121,8 @@ describe("Admin Action Handlers", () => {
 
         expect(handled).toBe(true);
         expect(state.getSession(userJid).step).toBe("IDLE");
+        expect(state.getActiveOrderId(userJid)).toBeUndefined();
+        expect(state.getSession(userJid).lastFailedOrder).toBeUndefined();
         // Sends buyer closing text
         expect(sentTexts.some((m) => m.jid === userJid)).toBe(true);
         // Sends admin confirmation

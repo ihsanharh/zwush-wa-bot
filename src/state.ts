@@ -556,6 +556,10 @@ export class StateManager {
         if (session) {
             session.step = "IDLE";
             session.liveChatOrderId = undefined;
+            session.activeOrderId = undefined;
+            session.pendingSupportOrderId = undefined;
+            session.retryOrder = undefined;
+            session.lastFailedOrder = undefined;
             session.lastUpdated = Date.now();
         }
     }
@@ -601,36 +605,58 @@ export class StateManager {
         return list;
     }
 
+    private adminVoucherSessions = new Map<string, { step: StepStatus; draft: AdminVoucherDraft; lastUpdated: number }>();
+
     /**
-     * Updates admin interactive voucher step and persists draft properties.
+     * Updates admin interactive voucher step and persists draft properties in isolated admin storage.
      */
     setAdminVoucherStep(jid: string, step: StepStatus, draft?: Partial<AdminVoucherDraft>): void {
-        const current = this.getSession(jid);
-        current.step = step;
-        current.adminVoucherDraft = {
-            ...(current.adminVoucherDraft || {}),
+        const existing = this.adminVoucherSessions.get(jid);
+        const nextDraft: AdminVoucherDraft = {
+            ...(existing?.draft || {}),
             ...(draft || {})
         };
-        current.lastUpdated = Date.now();
-        this.sessions.set(jid, current);
+        this.adminVoucherSessions.set(jid, {
+            step,
+            draft: nextDraft,
+            lastUpdated: Date.now()
+        });
+    }
+
+    /**
+     * Gets the active admin voucher step.
+     */
+    getAdminVoucherStep(jid: string): StepStatus | undefined {
+        const adminSession = this.adminVoucherSessions.get(jid);
+        if (adminSession) {
+            if (Date.now() - adminSession.lastUpdated > 300000) {
+                this.adminVoucherSessions.delete(jid);
+                return undefined;
+            }
+            return adminSession.step;
+        }
+        return undefined;
     }
 
     /**
      * Gets the active admin voucher draft if any.
      */
     getAdminVoucherDraft(jid: string): AdminVoucherDraft | undefined {
-        return this.getSession(jid).adminVoucherDraft;
+        return this.adminVoucherSessions.get(jid)?.draft;
     }
 
     /**
-     * Clears admin interactive voucher step and resets session to IDLE.
+     * Clears admin interactive voucher step and resets wizard state.
      */
     clearAdminVoucher(jid: string): void {
-        const current = this.getSession(jid);
-        current.adminVoucherDraft = undefined;
-        current.step = "IDLE";
-        current.lastUpdated = Date.now();
-        this.sessions.set(jid, current);
+        this.adminVoucherSessions.delete(jid);
+        const current = this.sessions.get(jid);
+        if (current && current.step.startsWith("ADMIN_AWAITING_VOUCHER_")) {
+            current.step = "IDLE";
+            current.adminVoucherDraft = undefined;
+            current.lastUpdated = Date.now();
+        }
     }
 }
+
 

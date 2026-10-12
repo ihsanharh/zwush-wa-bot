@@ -33,7 +33,7 @@ import {
 } from "../flows/supportFlow";
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import { handleAdminAction } from "./adminActions";
-import { handleAdminVoucherAction, handleAdminVoucherTextInput } from "./adminVouchers";
+import { handleAdminVoucherAction, handleAdminVoucherTextInput, showAdminVoucherDetail } from "./adminVouchers";
 import {
     buildAdminPanelMenu,
     buildAdminPanelQuickReply,
@@ -229,8 +229,10 @@ async function handleIncomingMessageInternal(
 
         // Admin interactive voucher wizard text input
         if (isAdmin) {
-            const adminSession = ctx.state.getSession(effectiveSender);
-            if (adminSession.step.startsWith("ADMIN_AWAITING_VOUCHER_")) {
+            const adminStep = ctx.state.getAdminVoucherStep
+                ? ctx.state.getAdminVoucherStep(effectiveSender)
+                : ctx.state.getSession(effectiveSender).step;
+            if (adminStep && adminStep.startsWith("ADMIN_AWAITING_VOUCHER_")) {
                 const handledVoucherInput = await handleAdminVoucherTextInput(
                     remoteJid,
                     trimmed,
@@ -272,8 +274,21 @@ async function handleIncomingMessageInternal(
                 cleanCmd === "cek voucher" ||
                 cleanCmd === "kelola voucher" ||
                 cleanCmd.startsWith("!voucher") ||
-                cleanCmd.startsWith("/voucher")
+                cleanCmd.startsWith("/voucher") ||
+                cleanCmd.startsWith("voucher ")
             ) {
+                const parts = cleanCmd.split(/\s+/);
+                if (parts.length > 1 && parts[1]) {
+                    const handledVoucherDirect = await showAdminVoucherDetail(
+                        remoteJid,
+                        parts[1],
+                        effectiveSender,
+                        true,
+                        userLang,
+                        ctx
+                    );
+                    if (handledVoucherDirect) return;
+                }
                 await handleAdminVoucherAction(remoteJid, "admin_panel_vouchers", effectiveSender, true, userLang, ctx);
                 return;
             }
@@ -375,12 +390,15 @@ async function handleIncomingMessageInternal(
     const buyingActive = isBuyingFlowActive(ctx, remoteJid);
 
     // Support admin actions and voucher wizard in private chat for admins
-    if (isUserAdmin(remoteJid)) {
+    if (isAdmin) {
         if (trimmed.startsWith("admin_") || trimmed.startsWith("btn_admin_") || trimmed.startsWith("cmd_")) {
             const handledAdmin = await handleAdminAction(remoteJid, trimmed, remoteJid, false, userLang, ctx);
             if (handledAdmin) return;
         }
-        if (session.step.startsWith("ADMIN_AWAITING_VOUCHER_")) {
+        const adminStep = ctx.state.getAdminVoucherStep
+            ? ctx.state.getAdminVoucherStep(remoteJid)
+            : session.step;
+        if (adminStep && adminStep.startsWith("ADMIN_AWAITING_VOUCHER_")) {
             const handledVoucher = await handleAdminVoucherTextInput(remoteJid, trimmed, remoteJid, false, userLang, ctx);
             if (handledVoucher) return;
         }
@@ -427,8 +445,14 @@ async function handleIncomingMessageInternal(
     }
 
     // Quick-entry buttons from welcome greeting (only active when session is IDLE and no active pending order)
-    if (session.step === "IDLE" && !activeOrderId) {
+    if ((session.step === "IDLE" || !buyingActive) && !activeOrderId) {
         if (trimmed === "btn_start_buying") {
+            if (ctx.state.clearAdminVoucher) {
+                ctx.state.clearAdminVoucher(remoteJid);
+            }
+            if (session.step !== "IDLE") {
+                session.step = "IDLE";
+            }
             if (ctx.sendList) {
                 await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
             } else {

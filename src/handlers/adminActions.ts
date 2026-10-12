@@ -78,6 +78,11 @@ export async function handleAdminAction(
     const cleanSenderPhone = extractPhoneNumber(effectiveSender);
     const senderTag = cleanSenderPhone ? `@${cleanSenderPhone}` : "Admin";
 
+    // Clear any active voucher wizard state if navigating away to other admin actions
+    if (ctx.state.clearAdminVoucher && !actionId.startsWith("btn_admin_voucher_") && !actionId.startsWith("admin_panel_voucher")) {
+        ctx.state.clearAdminVoucher(effectiveSender);
+    }
+
     // 0. Admin Panel Main Drawer / Fallback
     if (actionId === "admin_panel" || actionId === "btn_admin_panel") {
         const isMaint = ctx.state.isMaintenanceMode();

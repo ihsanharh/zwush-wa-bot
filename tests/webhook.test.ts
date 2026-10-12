@@ -514,5 +514,40 @@ describe("Webhook Server", () => {
         expect(btn.id).toBe("btn_start_livechat_ord_fail_button");
         expect(btn.display_text).toContain("Mulai Live Chat");
     });
+
+    it("should clearActiveOrderId on FAILED status to unlock buyer checkout", async () => {
+        const stateManager = new StateManager();
+        const buyerJid = "628999@s.whatsapp.net";
+        stateManager.setActiveOrderId(buyerJid, "ord_failed_lock");
+        expect(stateManager.getActiveOrderId(buyerJid)).toBe("ord_failed_lock");
+
+        const mockSender = {
+            sendMessage: mock(async () => {}),
+            sendButtons: mock(async () => {})
+        };
+
+        const app = createWebhookApp({
+            sender: mockSender,
+            stateManager
+        });
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ord_failed_lock",
+                platform: "whatsapp",
+                platformUserId: buyerJid,
+                gamertag: "Steve",
+                itemName: "Dragon Pet",
+                status: "FAILED",
+                message: "Fatal connection error to The Hive Bedrock"
+            })
+        });
+
+        expect(res.status).toBe(200);
+        expect(stateManager.getActiveOrderId(buyerJid)).toBeUndefined();
+    });
 });
+
 

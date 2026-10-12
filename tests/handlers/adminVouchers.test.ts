@@ -223,11 +223,44 @@ describe("Interactive Admin Voucher Management", () => {
 
     it("should cancel wizard at any step when clicking 'btn_admin_voucher_cancel' or typing 'batal'", async () => {
         await handleIncomingMessage(adminGroupJid, false, "btn_admin_voucher_create", mockContext, adminUser);
-        expect(mockContext.state.getSession(adminUser).step).toBe("ADMIN_AWAITING_VOUCHER_CODE");
+        expect(mockContext.state.getAdminVoucherStep(adminUser)).toBe("ADMIN_AWAITING_VOUCHER_CODE");
 
         // Type 'batal'
         await handleIncomingMessage(adminGroupJid, false, "batal", mockContext, adminUser);
+        expect(mockContext.state.getAdminVoucherStep(adminUser)).toBeUndefined();
         expect(mockContext.state.getSession(adminUser).step).toBe("IDLE");
         expect(sentButtons.some((b: any) => b.payload.text.includes("dibatalkan"))).toBe(true);
     });
+
+    it("should clear active voucher wizard when admin navigates back to admin panel", async () => {
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_voucher_create", mockContext, adminUser);
+        expect(mockContext.state.getAdminVoucherStep(adminUser)).toBe("ADMIN_AWAITING_VOUCHER_CODE");
+
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_panel", mockContext, adminUser);
+        expect(mockContext.state.getAdminVoucherStep(adminUser)).toBeUndefined();
+    });
+
+    it("should support direct voucher inspection command 'voucher HEMAT10'", async () => {
+        sentButtons = [];
+        await handleIncomingMessage(adminGroupJid, false, "voucher HEMAT10", mockContext, adminUser);
+
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("DETAIL VOUCHER: HEMAT10");
+    });
+
+    it("should NOT lock or block private chat session when admin views voucher list or panel in admin group", async () => {
+        // 1. Admin views voucher list in group
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_voucher_list", mockContext, adminUser);
+
+        // 2. Admin then opens their private chat with bot and sends 'btn_start_buying'
+        sentTexts = [];
+        sentButtons = [];
+
+        await handleIncomingMessage(adminUser, false, "btn_start_buying", mockContext);
+
+        // Should respond with category menu, NOT be silently ignored!
+        expect(sentButtons.length + sentTexts.length).toBeGreaterThan(0);
+    });
 });
+
+

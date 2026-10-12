@@ -93,8 +93,8 @@ export function createWebhookApp(
                 });
             }
 
-            // 2. Delete buyer's QR code image when payment received, expired, cancelled, or succeeded
-            if (body.status === "QUEUED" || body.status === "EXPIRED" || body.status === "CANCELLED" || body.status === "SUCCESS") {
+            // 2. Delete buyer's QR code image when payment received, expired, cancelled, failed, or succeeded
+            if (body.status === "QUEUED" || body.status === "EXPIRED" || body.status === "CANCELLED" || body.status === "SUCCESS" || body.status === "FAILED") {
                 if (stateManager?.clearActiveOrderId) {
                     stateManager.clearActiveOrderId(body.platformUserId);
                 }

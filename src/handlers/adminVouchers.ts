@@ -244,7 +244,9 @@ export async function handleAdminVoucherTextInput(
     ctx: BotContext
 ): Promise<boolean> {
     const text = rawText.trim();
-    const session = ctx.state.getSession(effectiveSender);
+    const adminStep = ctx.state.getAdminVoucherStep
+        ? ctx.state.getAdminVoucherStep(effectiveSender)
+        : ctx.state.getSession(effectiveSender).step;
     const mentions = isGroup && effectiveSender ? [effectiveSender] : undefined;
 
     // Check cancellation keyword
@@ -264,7 +266,7 @@ export async function handleAdminVoucherTextInput(
     }
 
     // Step 1: Input Code
-    if (session.step === "ADMIN_AWAITING_VOUCHER_CODE") {
+    if (adminStep === "ADMIN_AWAITING_VOUCHER_CODE") {
         const code = text.toUpperCase();
         if (!/^[A-Z0-9_-]{3,20}$/.test(code)) {
             const warnText = `⚠️ Format kode voucher tidak valid.\n\n` +
@@ -298,7 +300,7 @@ export async function handleAdminVoucherTextInput(
     }
 
     // Step 2: Input Type via text
-    if (session.step === "ADMIN_AWAITING_VOUCHER_TYPE") {
+    if (adminStep === "ADMIN_AWAITING_VOUCHER_TYPE") {
         const lower = text.toLowerCase();
         let chosenType: "PERCENT" | "FLAT" | null = null;
         if (lower === "1" || lower.includes("persen") || lower.includes("%")) {
@@ -342,7 +344,7 @@ export async function handleAdminVoucherTextInput(
     }
 
     // Step 3: Input Discount Value
-    if (session.step === "ADMIN_AWAITING_VOUCHER_VALUE") {
+    if (adminStep === "ADMIN_AWAITING_VOUCHER_VALUE") {
         const num = parseInt(text.replace(/[^0-9]/g, ""), 10);
         const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
         const isPercent = draft?.discountType === "PERCENT";
@@ -378,7 +380,7 @@ export async function handleAdminVoucherTextInput(
     }
 
     // Step 4: Input Max Uses & Create Voucher
-    if (session.step === "ADMIN_AWAITING_VOUCHER_MAX_USES") {
+    if (adminStep === "ADMIN_AWAITING_VOUCHER_MAX_USES") {
         const quota = parseInt(text.replace(/[^0-9]/g, ""), 10);
         if (isNaN(quota) || quota < 0) {
             const warnText = `⚠️ Mohon masukkan angka yang valid (contoh: *50*, atau ketik *0* untuk tanpa batas kuota):`;
@@ -435,36 +437,12 @@ export async function handleAdminVoucherTextInput(
     }
 
     // List Action Select: Admin types voucher code to inspect/manage
-    if (session.step === "ADMIN_AWAITING_VOUCHER_ACTION_CODE") {
-        const queryCode = text.toUpperCase();
-        try {
-            const vouchers = await ctx.client.listVouchers();
-            const target = vouchers.find((v) => v.code.toUpperCase() === queryCode);
-            if (!target) {
-                await ctx.sendText(
-                    remoteJid,
-                    `⚠️ Voucher *${queryCode}* tidak ditemukan. Silakan periksa kembali kode voucher atau klik [📋 List Voucher].`,
-                    mentions
-                );
-                return true;
-            }
-
-            ctx.state.clearAdminVoucher(effectiveSender);
-            const detail = buildAdminVoucherDetailCard(target, userLang);
-            if (ctx.sendButtons) {
-                await ctx.sendButtons(remoteJid, detail);
-            } else {
-                await ctx.sendText(remoteJid, detail.text, mentions);
-            }
-        } catch (err: unknown) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            await ctx.sendText(remoteJid, `❌ Gagal mencari voucher: ${errMsg}`, mentions);
-        }
-        return true;
+    if (adminStep === "ADMIN_AWAITING_VOUCHER_ACTION_CODE") {
+        return await showAdminVoucherDetail(remoteJid, text, effectiveSender, isGroup, userLang, ctx);
     }
 
     // Edit Discount Value execution
-    if (session.step === "ADMIN_AWAITING_VOUCHER_EDIT_DISCOUNT") {
+    if (adminStep === "ADMIN_AWAITING_VOUCHER_EDIT_DISCOUNT") {
         const num = parseInt(text.replace(/[^0-9]/g, ""), 10);
         const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
         const code = draft?.targetCode;
@@ -500,7 +478,7 @@ export async function handleAdminVoucherTextInput(
     }
 
     // Edit Quota execution
-    if (session.step === "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES") {
+    if (adminStep === "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES") {
         const quota = parseInt(text.replace(/[^0-9]/g, ""), 10);
         const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
         const code = draft?.targetCode;
@@ -535,3 +513,44 @@ export async function handleAdminVoucherTextInput(
 
     return false;
 }
+
+/**
+ * Directly looks up a voucher code and displays its detail card with action buttons
+ */
+export async function showAdminVoucherDetail(
+    remoteJid: string,
+    queryCode: string,
+    effectiveSender: string,
+    isGroup: boolean,
+    userLang: Language,
+    ctx: BotContext
+): Promise<boolean> {
+    const mentions = isGroup && effectiveSender ? [effectiveSender] : undefined;
+    const cleanCode = queryCode.trim().toUpperCase();
+    try {
+        const vouchers = await ctx.client.listVouchers();
+        const target = vouchers.find((v) => v.code.toUpperCase() === cleanCode);
+        if (!target) {
+            await ctx.sendText(
+                remoteJid,
+                `⚠️ Voucher *${cleanCode}* tidak ditemukan. Silakan periksa kembali kode voucher atau klik [📋 List Voucher].`,
+                mentions
+            );
+            return true;
+        }
+
+        ctx.state.clearAdminVoucher(effectiveSender);
+        const detail = buildAdminVoucherDetailCard(target, userLang);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, detail);
+        } else {
+            await ctx.sendText(remoteJid, detail.text, mentions);
+        }
+        return true;
+    } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await ctx.sendText(remoteJid, `❌ Gagal mencari voucher: ${errMsg}`, mentions);
+        return true;
+    }
+}
+
