@@ -310,17 +310,44 @@ export function buildVoucherPromptButtons(
  */
 export function buildInvoiceButtons(
     invoiceText: string,
-    lang: Language = "id"
-): { interactiveMessage: any } {
+    lang: Language = "id",
+    headerImage?: Buffer | any
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+    headerImage?: Buffer;
+} {
     const store = config.STORE_NAME;
-    return buildQuickReplyPayload(
+    let headerOption: any = undefined;
+    if (
+        headerImage &&
+        typeof headerImage === "object" &&
+        !Buffer.isBuffer(headerImage) &&
+        (headerImage.url || headerImage.directPath)
+    ) {
+        headerOption = {
+            hasMediaAttachment: true,
+            imageMessage: headerImage
+        };
+    }
+
+    const payload = buildQuickReplyPayload(
         invoiceText,
         [
             { id: "btn_check_payment", text: t("buttons.checkPayment", lang) },
             { id: "btn_cancel_order", text: t("buttons.cancelOrder", lang) }
         ],
-        { footer: `${store} • QRIS Dinamis` }
+        {
+            footer: `${store} • QRIS Dinamis`,
+            header: headerOption
+        }
     );
+
+    return {
+        ...payload,
+        headerImage: Buffer.isBuffer(headerImage) ? headerImage : undefined
+    };
 }
 
 

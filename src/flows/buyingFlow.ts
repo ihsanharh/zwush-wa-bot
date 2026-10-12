@@ -781,7 +781,18 @@ export async function handleBuyingFlow(
                     store: config.STORE_NAME
                 });
 
-                const sent = await ctx.sendImage(remoteJid, qrisBuffer, invoice);
+                let sent: any;
+                if (ctx.sendButtons) {
+                    sent = await ctx.sendButtons(
+                        remoteJid,
+                        buildInvoiceButtons(invoice, userLang, qrisBuffer)
+                    );
+                    const msgId = sent?.key?.id || sent?.id;
+                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+                } else {
+                    sent = await ctx.sendImage(remoteJid, qrisBuffer, invoice);
+                }
+
                 const qrKey =
                     sent?.key ??
                     (sent?.id ? { id: sent.id, remoteJid, fromMe: true } : undefined);
@@ -789,13 +800,6 @@ export async function handleBuyingFlow(
                     ctx.state.setQrMessageKey(remoteJid, qrKey);
                 }
                 ctx.state.setActiveOrderId(remoteJid, order.orderId);
-
-                // Send 2 invoice quick-reply buttons below QR
-                if (ctx.sendButtons) {
-                    const sent = await ctx.sendButtons(remoteJid, buildInvoiceButtons(invoice, userLang));
-                    const msgId = sent?.key?.id || sent?.id;
-                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
-                }
 
                 if (ctx.adminLogger) {
                     await ctx.adminLogger.logNewOrder({

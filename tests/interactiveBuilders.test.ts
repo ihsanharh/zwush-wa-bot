@@ -104,7 +104,7 @@ describe("interactiveBuilders", () => {
         expect(payload.listMessage.sections[0].rows[2].rowId).toBe("opt_cancel_order");
     });
 
-    it("should build invoice buttons", () => {
+    it("should build invoice buttons with optional QR header image", () => {
         const payload = buildInvoiceButtons("Invoice details", "id");
         const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
         expect(buttons.length).toBe(2);
@@ -114,6 +114,11 @@ describe("interactiveBuilders", () => {
         expect(p0.display_text).toBe("Cek Pembayaran");
         expect(p1.id).toBe("btn_cancel_order");
         expect(p1.display_text).toBe("Batalkan Pesanan");
+        expect(payload.headerImage).toBeUndefined();
+
+        const fakeQr = Buffer.from("fake-qr");
+        const payloadWithQr = buildInvoiceButtons("Invoice details", "id", fakeQr);
+        expect(payloadWithQr.headerImage).toBe(fakeQr);
     });
 
 

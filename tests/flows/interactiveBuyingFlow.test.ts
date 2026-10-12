@@ -269,18 +269,33 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(state.getSession(testJid).step).toBe("IDLE");
         expect(state.getActiveOrderId(testJid)).toBe("ORD-TEST99");
 
-        // QR image sent
-        expect(sentImages.length).toBe(1);
-        expect(sentImages[0]!.caption).toContain("ORD-TEST99");
-
-        // Invoice action buttons sent
+        // Single unified invoice interactive message sent with QR header (no duplicate messages)
         expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]!.payload.text).toContain("ORD-TEST99");
+        expect(sentButtons[0]!.payload.headerImage).toBeDefined();
         const invoiceBtns = sentButtons[0]!.payload.interactiveMessage.nativeFlowMessage.buttons;
         expect(invoiceBtns.length).toBe(2);
         const ib0 = JSON.parse(invoiceBtns[0].buttonParamsJson);
         const ib1 = JSON.parse(invoiceBtns[1].buttonParamsJson);
         expect(ib0.id).toBe("btn_check_payment");
         expect(ib1.id).toBe("btn_cancel_order");
+
+        // Verify NO duplicate image message was sent
+        expect(sentImages.length).toBe(0);
+    });
+
+    it("should fallback to single sendImage with caption if sendButtons is not available", async () => {
+        state.startBuyingFlow(testJid);
+        state.setCategory(testJid, "Regular Pet");
+        state.setItem(testJid, catalogItems[0]!);
+        state.setGamertag(testJid, "SteveGamer");
+
+        const fallbackContext = { ...mockContext, sendButtons: undefined };
+        const handled = await handleBuyingFlow(testJid, false, "btn_confirm_order", fallbackContext, "id");
+        expect(handled).toBe(true);
+        expect(sentImages.length).toBe(1);
+        expect(sentImages[0]!.caption).toContain("ORD-TEST99");
+        expect(sentButtons.length).toBe(0);
     });
 
     it("should silently drop stale button clicks when session is IDLE", async () => {
