@@ -198,6 +198,29 @@ export function buildGamertagPromptButtons(
 }
 
 /**
+ * Builds Gamertag Change Prompt Buttons (Single quick reply button: [ Batal ])
+ */
+export function buildGamertagChangePromptButtons(
+    promptText: string,
+    lang: Language = "id"
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+} {
+    const store = config.STORE_NAME;
+    const cancelText = t("buttons.cancel", lang);
+    const buttons = [
+        {
+            id: "btn_cancel_gamertag",
+            text: cancelText
+        }
+    ];
+
+    return buildQuickReplyPayload(promptText, buttons, { footer: store });
+}
+
+/**
  * Builds Order Confirmation Buttons (Max 3 buttons for Meta limits)
  */
 export function buildOrderConfirmationButtons(

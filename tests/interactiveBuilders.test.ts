@@ -12,7 +12,8 @@ import {
     buildAdminSupportSolvedButtons,
     buildWelcomeButtons,
     buildSettingsListMenu,
-    buildVoucherPromptButtons
+    buildVoucherPromptButtons,
+    buildGamertagChangePromptButtons
 } from "../src/utils/interactiveBuilders";
 import type { CategoryDefinition } from "../src/utils/categories";
 import type { CatalogItem } from "../src/types";
@@ -225,6 +226,20 @@ describe("interactiveBuilders", () => {
         const payloadEn = buildVoucherPromptButtons("Enter voucher:", "en");
         expect(payloadEn.buttons[0]!.text).toBe("Cancel");
         expect((payloadEn as any).buttonsMessage).toBeUndefined();
+        const pEn = JSON.parse(payloadEn.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
+        expect(pEn.display_text).toBe("Cancel");
+    });
+
+    it("should build gamertag change prompt buttons with localized cancel button", () => {
+        const payloadId = buildGamertagChangePromptButtons("Masukkan gamertag:", "id");
+        expect(payloadId.buttons.length).toBe(1);
+        expect(payloadId.buttons[0]!.id).toBe("btn_cancel_gamertag");
+        expect(payloadId.buttons[0]!.text).toBe("Batal");
+        const pId = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
+        expect(pId.display_text).toBe("Batal");
+
+        const payloadEn = buildGamertagChangePromptButtons("Enter gamertag:", "en");
+        expect(payloadEn.buttons[0]!.text).toBe("Cancel");
         const pEn = JSON.parse(payloadEn.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
         expect(pEn.display_text).toBe("Cancel");
     });

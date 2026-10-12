@@ -552,6 +552,46 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(sentButtons[0]!.payload.interactiveMessage.body.text).toContain("SteveGamer");
     });
 
+    it("should handle opt_change_gamertag from confirmation with a single Batal button and return to confirmation on cancel", async () => {
+        state.startBuyingFlow(testJid);
+        state.setCategory(testJid, "Regular Pet");
+        state.setItem(testJid, catalogItems[0]!);
+        state.setGamertag(testJid, "SteveGamer");
+        expect(state.getSession(testJid).step).toBe("AWAITING_CONFIRMATION");
+
+        // 1. User clicks opt_change_gamertag from modify menu drawer
+        sentButtons = [];
+        await handleBuyingFlow(testJid, false, "opt_change_gamertag", mockContext, "id");
+        expect(state.getSession(testJid).step).toBe("AWAITING_GAMERTAG");
+
+        // Verify it sends prompt with ONLY a 'Batal' button (NO 'Ganti Item' button)
+        expect(sentButtons.length).toBe(1);
+        const btns = sentButtons[0]!.payload.interactiveMessage.nativeFlowMessage.buttons;
+        expect(btns.length).toBe(1);
+        const b0 = JSON.parse(btns[0].buttonParamsJson);
+        expect(b0.id).toBe("btn_cancel_gamertag");
+        expect(b0.display_text).toBe("Batal");
+
+        // 2. User cancels gamertag change -> returns to confirmation with original gamertag intact
+        sentButtons = [];
+        await handleBuyingFlow(testJid, false, "btn_cancel_gamertag", mockContext, "id");
+        expect(state.getSession(testJid).step).toBe("AWAITING_CONFIRMATION");
+        expect(state.getSession(testJid).gamertag).toBe("SteveGamer");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]!.payload.interactiveMessage.body.text).toContain("SteveGamer");
+
+        // 3. User clicks opt_change_gamertag again, and types a new gamertag
+        await handleBuyingFlow(testJid, false, "opt_change_gamertag", mockContext, "id");
+        expect(state.getSession(testJid).step).toBe("AWAITING_GAMERTAG");
+
+        sentButtons = [];
+        await handleBuyingFlow(testJid, false, "AlexBedrock", mockContext, "id");
+        expect(state.getSession(testJid).step).toBe("AWAITING_CONFIRMATION");
+        expect(state.getSession(testJid).gamertag).toBe("AlexBedrock");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]!.payload.interactiveMessage.body.text).toContain("AlexBedrock");
+    });
+
     it("should lock user focus during PENDING_PAYMENT: ignore menu/random commands/old buttons, drop normal user slash commands, allow btn_check_payment and btn_cancel_order", async () => {
         state.clear(testJid);
         state.startBuyingFlow(testJid);

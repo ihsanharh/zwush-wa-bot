@@ -11,6 +11,7 @@ import {
     buildCategoryListMenu,
     buildPaginatedItemListMenu,
     buildGamertagPromptButtons,
+    buildGamertagChangePromptButtons,
     buildOrderConfirmationButtons,
     buildModifyOrderListMenu,
     buildInvoiceButtons,
@@ -422,6 +423,43 @@ export async function handleBuyingFlow(
     // 5. AWAITING_GAMERTAG
     if (session.step === "AWAITING_GAMERTAG") {
         if (
+            trimmed === "btn_cancel_gamertag" ||
+            trimmed === "btn_cancel_voucher"
+        ) {
+            if (session.gamertag && session.selectedItem) {
+                session.step = "AWAITING_CONFIRMATION";
+                session.lastUpdated = Date.now();
+                const item = session.selectedItem;
+                const appliedVoucher = session.appliedVoucher;
+                let voucherLine = "";
+                if (appliedVoucher) {
+                    voucherLine = t("buying.invoiceVoucherLine", userLang, {
+                        code: appliedVoucher.code,
+                        formattedDiscount: formatRupiah(appliedVoucher.discountNominal)
+                    });
+                }
+                const summaryText = t("buying.confirmPrompt", userLang, {
+                    itemName: item.name,
+                    gamertag: session.gamertag,
+                    formattedPrice: formatRupiah(appliedVoucher ? appliedVoucher.finalPrice : item.rupiahPrice),
+                    voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
+                });
+                if (ctx.sendButtons) {
+                    const sent = await ctx.sendButtons(
+                        remoteJid,
+                        buildOrderConfirmationButtons(summaryText, Boolean(appliedVoucher), userLang)
+                    );
+                    const msgId = sent?.key?.id || sent?.id;
+                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+                }
+                return true;
+            }
+            ctx.state.clear(remoteJid);
+            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            return true;
+        }
+
+        if (
             trimmed === "act_cancel" ||
             trimmed === "btn_cancel_order" ||
             trimmed === "opt_cancel_order"
@@ -586,11 +624,13 @@ export async function handleBuyingFlow(
 
         if (trimmed === "btn_modify_change_gt" || trimmed === "opt_change_gamertag") {
             session.step = "AWAITING_GAMERTAG";
-            session.gamertag = undefined;
             session.lastUpdated = Date.now();
             const prompt = t("buying.enterGamertagPrompt", userLang);
             if (ctx.sendButtons) {
-                const sent = await ctx.sendButtons(remoteJid, buildGamertagPromptButtons(prompt, userLang));
+                const sent = await ctx.sendButtons(
+                    remoteJid,
+                    buildGamertagChangePromptButtons(prompt, userLang)
+                );
                 const msgId = sent?.key?.id || sent?.id;
                 if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
             } else {
