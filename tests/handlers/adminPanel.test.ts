@@ -14,6 +14,7 @@ describe("Interactive Admin Panel System", () => {
     const adminUser = "628999999999@s.whatsapp.net";
     const nonAdminUser = "628111111111@s.whatsapp.net";
     const botJid = "628222222222@s.whatsapp.net";
+    const botLid = "205626525360219@lid";
 
     beforeEach(() => {
         state = new StateManager();
@@ -34,6 +35,7 @@ describe("Interactive Admin Panel System", () => {
             state,
             adminLogger,
             botJid,
+            botLid,
             client: {
                 getBalance: mock(async (refresh?: boolean) => ({
                     bot: {
@@ -96,6 +98,66 @@ describe("Interactive Admin Panel System", () => {
 
             expect(sentLists.length).toBe(1);
             expect(sentLists[0]?.jid).toBe(adminGroupJid);
+        });
+
+        it("should open Admin Panel when admin mentions bot LID in text @205626525360219", async () => {
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "@205626525360219",
+                mockContext,
+                adminUser
+            );
+
+            expect(sentLists.length).toBe(1);
+            expect(sentLists[0]?.jid).toBe(adminGroupJid);
+            expect(sentLists[0]?.payload.listMessage.title).toContain("Panel Kontrol Admin");
+        });
+
+        it("should open Admin Panel when message contains bot in WhatsApp mentionedJids array with LID", async () => {
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "buka panel",
+                mockContext,
+                adminUser,
+                undefined,
+                undefined,
+                [botLid]
+            );
+
+            expect(sentLists.length).toBe(1);
+            expect(sentLists[0]?.jid).toBe(adminGroupJid);
+        });
+
+        it("should open Admin Panel when admin types just '@' in admin group", async () => {
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "@",
+                mockContext,
+                adminUser
+            );
+
+            expect(sentLists.length).toBe(1);
+            expect(sentLists[0]?.jid).toBe(adminGroupJid);
+        });
+
+        it("should fallback to QuickReply buttons if sendList throws an error in group", async () => {
+            mockContext.sendList = async () => {
+                throw new Error("List message not supported in this chat");
+            };
+
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "@205626525360219",
+                mockContext,
+                adminUser
+            );
+
+            expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]?.jid).toBe(adminGroupJid);
         });
 
         it("should NOT open Admin Panel on literal '@bot' text when not mentioning bot number", async () => {

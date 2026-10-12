@@ -148,32 +148,40 @@ export function extractMentionedJids(message: unknown): string[] {
 }
 
 /**
- * Checks whether the incoming message is truly mentioning the bot's WhatsApp identity (@<phone> or mentionedJid).
- * Strictly requires an actual WhatsApp mention or @<botNumber>. Rejects keywords like @bot, /panel, admin.
+ * Checks whether the incoming message is truly mentioning the bot's WhatsApp identity (@<phone>, @<lid>, or mentionedJid).
+ * Strictly requires an actual WhatsApp mention or @<botNumber>/@<botLid>. Rejects keywords like @bot, /panel, admin.
  */
 export function isBotMentioned(
     text: string,
     mentionedJids: string[] = [],
-    botJid?: string
+    botJid?: string,
+    botLid?: string
 ): boolean {
-    if (!botJid) {
+    if (!botJid && !botLid) {
         return mentionedJids.length > 0;
     }
 
-    const cleanBotPhone = extractPhoneNumber(botJid);
+    const cleanBotPhone = botJid ? extractPhoneNumber(botJid) : "";
+    const cleanBotLid = botLid ? extractPhoneNumber(botLid) : "";
 
-    // 1. WhatsApp contextInfo mentionedJid contains the bot's JID or phone
+    // 1. WhatsApp contextInfo mentionedJid contains the bot's JID or LID or phone
     const hasMentionedJid = mentionedJids.some((jid) => {
         if (!jid) return false;
-        if (jid === botJid) return true;
+        if (botJid && jid === botJid) return true;
+        if (botLid && jid === botLid) return true;
         const phone = extractPhoneNumber(jid);
-        return Boolean(phone && cleanBotPhone && phone === cleanBotPhone);
+        if (cleanBotPhone && phone && phone === cleanBotPhone) return true;
+        if (cleanBotLid && phone && phone === cleanBotLid) return true;
+        return false;
     });
 
     if (hasMentionedJid) return true;
 
-    // 2. Text body contains explicit @<botPhone> mention
+    // 2. Text body contains explicit @<botPhone> or @<botLid> mention
     if (cleanBotPhone && text.includes(`@${cleanBotPhone}`)) {
+        return true;
+    }
+    if (cleanBotLid && text.includes(`@${cleanBotLid}`)) {
         return true;
     }
 

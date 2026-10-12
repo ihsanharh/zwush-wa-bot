@@ -83,12 +83,27 @@ const adminLogger = new AdminGroupLogger(
     }
 );
 
+let cachedBotJid: string | undefined;
+let cachedBotLid: string | undefined;
+
 // 2. Setup message context for handlers
 const botContext: BotContext = {
     client: coreClient,
     state: stateManager,
     adminLogger,
     qrDeleter,
+    get botJid() {
+        return cachedBotJid || client.getCredentials()?.meJid;
+    },
+    set botJid(val: string | undefined) {
+        cachedBotJid = val;
+    },
+    get botLid() {
+        return cachedBotLid || client.getCredentials()?.meLid;
+    },
+    set botLid(val: string | undefined) {
+        cachedBotLid = val;
+    },
     async sendText(jid: string, text: string, mentions?: string[]) {
         console.log(`[WhatsApp Sending Text to ${jid}]:\n${text.slice(0, 100)}...`);
         if (mentions && mentions.length > 0) {
@@ -230,13 +245,20 @@ client.on("connection", async (event) => {
         if (creds?.meJid) {
             botContext.botJid = creds.meJid;
         }
+        if (creds?.meLid) {
+            botContext.botLid = creds.meLid;
+        }
+        console.log(`[Bot Identity] botJid: ${botContext.botJid || "(none)"}, botLid: ${botContext.botLid || "(none)"}`);
         await discoverGroups();
     }
 });
 
 client.on("auth_paired", async ({ credentials }) => {
-    console.log(`✅ Successfully paired as: ${credentials.meJid}`);
+    console.log(`✅ Successfully paired as: ${credentials.meJid} (LID: ${credentials.meLid || "(none)"})`);
     botContext.botJid = credentials.meJid;
+    if (credentials.meLid) {
+        botContext.botLid = credentials.meLid;
+    }
     await discoverGroups();
 });
 
@@ -271,9 +293,24 @@ client.on("message_addon", async (event) => {
 // 6. Incoming Message Dispatcher
 client.on("message", async (event) => {
     try {
+        if (!botContext.botJid || !botContext.botLid) {
+            const creds = client.getCredentials();
+            if (creds?.meJid && !botContext.botJid) botContext.botJid = creds.meJid;
+            if (creds?.meLid && !botContext.botLid) botContext.botLid = creds.meLid;
+        }
+
         const remoteJid = event.key?.remoteJid || "";
         const fromMe = Boolean(event.key?.fromMe);
         const participant = event.key?.participant ?? undefined;
+
+        if (fromMe && participant) {
+            if (participant.endsWith("@lid") && !botContext.botLid) {
+                botContext.botLid = participant;
+            } else if (participant.endsWith("@s.whatsapp.net") && !botContext.botJid) {
+                botContext.botJid = participant;
+            }
+        }
+
         const text = extractMessageText(event.message);
 
         const staleCheck = isEventStale(event, 300);

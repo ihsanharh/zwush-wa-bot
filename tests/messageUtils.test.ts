@@ -5,7 +5,8 @@ import {
     isPrivateChat,
     extractEventTimestampSeconds,
     isEventStale,
-    executeUserSequential
+    executeUserSequential,
+    isBotMentioned
 } from "../src/utils/messageUtils";
 
 describe("Message Utilities", () => {
@@ -164,6 +165,42 @@ describe("Message Utilities", () => {
 
             await Promise.all([p1, p2]);
             expect(order).toEqual([1, 2]);
+        });
+    });
+
+    describe("isBotMentioned", () => {
+        const botJid = "628222222222@s.whatsapp.net";
+        const botLid = "205626525360219@lid";
+
+        it("should detect bot phone mention in text", () => {
+            expect(isBotMentioned("@628222222222", [], botJid, botLid)).toBe(true);
+            expect(isBotMentioned("halo @628222222222 tolong cek", [], botJid, botLid)).toBe(true);
+        });
+
+        it("should detect bot LID mention in text", () => {
+            expect(isBotMentioned("@205626525360219", [], botJid, botLid)).toBe(true);
+            expect(isBotMentioned("halo @205626525360219 buka panel", [], botJid, botLid)).toBe(true);
+        });
+
+        it("should detect bot phone in mentionedJids array", () => {
+            expect(isBotMentioned("halo", [botJid], botJid, botLid)).toBe(true);
+            expect(isBotMentioned("cek", ["628222222222:1@s.whatsapp.net"], botJid, botLid)).toBe(true);
+        });
+
+        it("should detect bot LID in mentionedJids array", () => {
+            expect(isBotMentioned("halo", [botLid], botJid, botLid)).toBe(true);
+            expect(isBotMentioned("cek", ["205626525360219:0@lid"], botJid, botLid)).toBe(true);
+        });
+
+        it("should return false when a different user is mentioned", () => {
+            expect(isBotMentioned("@628999999999", ["628999999999@s.whatsapp.net"], botJid, botLid)).toBe(false);
+            expect(isBotMentioned("@28948566155371", ["28948566155371@lid"], botJid, botLid)).toBe(false);
+        });
+
+        it("should return false for casual words without actual mention", () => {
+            expect(isBotMentioned("halo bot", [], botJid, botLid)).toBe(false);
+            expect(isBotMentioned("admin panel", [], botJid, botLid)).toBe(false);
+            expect(isBotMentioned("@bot", [], botJid, botLid)).toBe(false);
         });
     });
 });

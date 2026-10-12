@@ -73,6 +73,7 @@ export interface BotContext {
     adminLogger?: AdminGroupLogger;
     qrDeleter?: (jid: string, key?: any) => Promise<void>;
     botJid?: string;
+    botLid?: string;
     sendText(jid: string, text: string, mentions?: string[]): Promise<void>;
     sendImage(jid: string, buffer: Buffer, caption?: string): Promise<any>;
     sendPoll?(jid: string, title: string, options: string[]): Promise<void>;
@@ -230,17 +231,30 @@ async function handleIncomingMessageInternal(
             return;
         }
 
-        // Truly mentioned (@<botPhone> or mentionedJid) in the Admin Group -> Reply with Admin Panel
+        // Truly mentioned (@<botPhone>, @<botLid>, or mentionedJid) in the Admin Group -> Reply with Admin Panel
         const isAdminGroup = !adminGroupJid || remoteJid === adminGroupJid;
-        if (isAdminGroup && isBotMentioned(trimmed, mentionedJids, ctx.botJid)) {
+        if (
+            isAdminGroup &&
+            (trimmed === "@" || isBotMentioned(trimmed, mentionedJids, ctx.botJid, ctx.botLid))
+        ) {
             const isMaint = ctx.state.isMaintenanceMode ? ctx.state.isMaintenanceMode() : false;
-            if (ctx.sendList) {
-                await ctx.sendList(remoteJid, buildAdminPanelMenu(userLang, isMaint));
-            } else if (ctx.sendButtons) {
-                await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(userLang, isMaint));
-            } else {
-                const qr = buildAdminPanelQuickReply(userLang, isMaint);
-                await ctx.sendText(remoteJid, qr.text, [effectiveSender]);
+            try {
+                if (ctx.sendList) {
+                    await ctx.sendList(remoteJid, buildAdminPanelMenu(userLang, isMaint));
+                } else if (ctx.sendButtons) {
+                    await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(userLang, isMaint));
+                } else {
+                    const qr = buildAdminPanelQuickReply(userLang, isMaint);
+                    await ctx.sendText(remoteJid, qr.text, [effectiveSender]);
+                }
+            } catch (err) {
+                console.error("[Admin Panel] Failed to send list menu, falling back to quick reply / text:", err);
+                if (ctx.sendButtons) {
+                    await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(userLang, isMaint));
+                } else {
+                    const qr = buildAdminPanelQuickReply(userLang, isMaint);
+                    await ctx.sendText(remoteJid, qr.text, [effectiveSender]);
+                }
             }
             return;
         }
