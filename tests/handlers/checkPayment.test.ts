@@ -64,8 +64,17 @@ describe("Interactive Button: btn_check_payment", () => {
             sendText: async (jid: string, text: string) => {
                 sentMessages.push({ jid, text });
             },
+            sendButtons: async (jid: string, payload: any) => {
+                sentButtons.push({ jid, payload });
+            },
             sendImage: async () => {},
         };
+    });
+
+    let sentButtons: { jid: string; payload: any }[] = [];
+
+    beforeEach(() => {
+        sentButtons = [];
     });
 
     it("verifies payment when active pending order is verified", async () => {
@@ -75,17 +84,51 @@ describe("Interactive Button: btn_check_payment", () => {
         expect(sentMessages[0]?.text).toContain("ORD-PENDING-1");
     });
 
-    it("reports pending status when order not yet paid", async () => {
+    it("reports pending status with looping quick-reply buttons when order not yet paid", async () => {
         state.setActiveOrderId(testJid, "ORD-NOT-PAID");
         await handleIncomingMessage(testJid, false, "btn_check_payment", mockContext);
-        expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0]?.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
+        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toEqual([
+            "btn_check_payment",
+            "btn_cancel_order"
+        ]);
     });
 
-    it("shows cooldown when verification is on cooldown", async () => {
+    it("shows cooldown with looping quick-reply buttons when verification is on cooldown", async () => {
         state.setActiveOrderId(testJid, "ORD-COOLDOWN");
         await handleIncomingMessage(testJid, false, "btn_check_payment", mockContext);
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("tunggu");
+        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toEqual([
+            "btn_check_payment",
+            "btn_cancel_order"
+        ]);
+    });
+
+    it("shows expired notice with buy cosmetics quick-reply button when order is expired", async () => {
+        mockClient.checkOrderPayment = async () => ({
+            success: false,
+            code: "ORDER_NOT_PAYABLE"
+        });
+        state.setActiveOrderId(testJid, "ORD-EXPIRED");
+        await handleIncomingMessage(testJid, false, "btn_check_payment", mockContext);
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("kedaluwarsa");
+        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toEqual([
+            "btn_start_buying",
+            "btn_history"
+        ]);
+    });
+
+    it("falls back to sendText when sendButtons is not available", async () => {
+        const textOnlyContext: BotContext = {
+            ...mockContext,
+            sendButtons: undefined
+        };
+        state.setActiveOrderId(testJid, "ORD-NOT-PAID");
+        await handleIncomingMessage(testJid, false, "btn_check_payment", textOnlyContext);
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0]?.text).toContain("tunggu");
+        expect(sentMessages[0]?.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
     });
 });

@@ -9,7 +9,12 @@ import {
     t,
     type Language
 } from "../i18n";
-import { buildUserOrderFailureButtons, buildOrderSuccessButtons } from "../utils/interactiveBuilders";
+import {
+    buildUserOrderFailureButtons,
+    buildOrderSuccessButtons,
+    buildOrderExpiredButtons,
+    buildOrderCancelledButtons
+} from "../utils/interactiveBuilders";
 
 export { formatStatusNotification, formatPlayerNotFoundRetry, formatPlayerNotFoundMaxExceeded };
 
@@ -225,6 +230,20 @@ export function createWebhookApp(
                     await sender.sendButtons(body.platformUserId, buildOrderSuccessButtons(formattedText, buyerLang));
                 } catch (btnErr) {
                     console.warn(`[Webhook] Failed to send success buttons for #${body.orderId}, falling back to text:`, btnErr);
+                    await sender.sendMessage(body.platformUserId, formattedText);
+                }
+            } else if (body.status === "EXPIRED" && sender.sendButtons) {
+                try {
+                    await sender.sendButtons(body.platformUserId, buildOrderExpiredButtons(formattedText, buyerLang));
+                } catch (btnErr) {
+                    console.warn(`[Webhook] Failed to send expired buttons for #${body.orderId}, falling back to text:`, btnErr);
+                    await sender.sendMessage(body.platformUserId, formattedText);
+                }
+            } else if (body.status === "CANCELLED" && sender.sendButtons) {
+                try {
+                    await sender.sendButtons(body.platformUserId, buildOrderCancelledButtons(formattedText, buyerLang));
+                } catch (btnErr) {
+                    console.warn(`[Webhook] Failed to send cancelled buttons for #${body.orderId}, falling back to text:`, btnErr);
                     await sender.sendMessage(body.platformUserId, formattedText);
                 }
             } else {

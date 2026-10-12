@@ -40,7 +40,9 @@ import {
     buildOrderCancelledButtons,
     buildOrderHistoryButtons,
     buildSettingsListMenu,
-    buildWelcomeButtons
+    buildWelcomeButtons,
+    buildPaymentPendingButtons,
+    buildOrderExpiredButtons
 } from "../utils/interactiveBuilders";
 
 // Re-exports for backward compatibility
@@ -463,17 +465,24 @@ async function handleCustomerCheckPayment(
         const res = await ctx.client.checkOrderPayment(orderId);
         if (!res.success) {
             if (res.code === "COOLDOWN") {
-                await ctx.sendText(
-                    remoteJid,
-                    t("checkPayment.cooldown", userLang, {
-                        seconds: res.remainingSeconds ?? 30,
-                        orderId,
-                    })
-                );
+                const msg = t("checkPayment.cooldown", userLang, {
+                    seconds: res.remainingSeconds ?? 30,
+                    orderId,
+                });
+                if (ctx.sendButtons) {
+                    await ctx.sendButtons(remoteJid, buildPaymentPendingButtons(msg, userLang));
+                } else {
+                    await ctx.sendText(remoteJid, msg);
+                }
                 return;
             }
             if (res.code === "ORDER_NOT_PAYABLE") {
-                await ctx.sendText(remoteJid, t("checkPayment.expired", userLang, { orderId }));
+                const msg = t("checkPayment.expired", userLang, { orderId });
+                if (ctx.sendButtons) {
+                    await ctx.sendButtons(remoteJid, buildOrderExpiredButtons(msg, userLang));
+                } else {
+                    await ctx.sendText(remoteJid, msg);
+                }
                 return;
             }
             if (res.code === "NOT_FOUND") {
@@ -510,13 +519,15 @@ async function handleCustomerCheckPayment(
             return;
         }
 
-        await ctx.sendText(
-            remoteJid,
-            t("checkPayment.pending", userLang, {
-                orderId,
-                formattedAmount: formatRupiah(res.order?.totalNominal || 0),
-            })
-        );
+        const pendingMsg = t("checkPayment.pending", userLang, {
+            orderId,
+            formattedAmount: formatRupiah(res.order?.totalNominal || 0),
+        });
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, buildPaymentPendingButtons(pendingMsg, userLang));
+        } else {
+            await ctx.sendText(remoteJid, pendingMsg);
+        }
     } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : String(err);
         await ctx.sendText(remoteJid, t("checkPayment.error", userLang, { error: errMsg }));

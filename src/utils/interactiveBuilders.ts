@@ -677,3 +677,42 @@ export function buildOrderSuccessButtons(
     return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
 }
 
+/**
+ * Builds Payment Pending / Check Payment Retry Notice with quick-reply buttons (Cek Pembayaran, Batalkan Pesanan)
+ */
+export function buildPaymentPendingButtons(
+    message: string,
+    lang: Language = "id"
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+} {
+    const store = config.STORE_NAME;
+    const buttons = [
+        { id: "btn_check_payment", text: t("buttons.checkPayment", lang) },
+        { id: "btn_cancel_order", text: t("buttons.cancelOrder", lang) }
+    ];
+    return buildQuickReplyPayload(message, buttons, { footer: `${store} • QRIS Dinamis` });
+}
+
+/**
+ * Builds Order Expired Notice with quick-reply buttons (Beli Kosmetik, Riwayat Pesanan)
+ */
+export function buildOrderExpiredButtons(
+    message: string,
+    lang: Language = "id"
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+} {
+    const store = config.STORE_NAME;
+    const buttons = [
+        { id: "btn_start_buying", text: t("buttons.browseCatalog", lang) },
+        { id: "btn_history", text: t("buttons.orderHistory", lang) }
+    ];
+    return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
+}
+
+

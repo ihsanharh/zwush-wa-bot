@@ -15,7 +15,9 @@ import {
     buildVoucherPromptButtons,
     buildGamertagChangePromptButtons,
     buildOrderCancelledButtons,
-    buildOrderSuccessButtons
+    buildOrderSuccessButtons,
+    buildPaymentPendingButtons,
+    buildOrderExpiredButtons
 } from "../src/utils/interactiveBuilders";
 import type { CategoryDefinition } from "../src/utils/categories";
 import type { CatalogItem } from "../src/types";
@@ -288,6 +290,46 @@ describe("interactiveBuilders", () => {
 
         const payloadEn = buildOrderSuccessButtons("Order delivered successfully.", "en");
         expect(payloadEn.buttons[0]!.text).toBe("Buy Again");
+        expect(payloadEn.buttons[1]!.text).toBe("Order History");
+    });
+
+    it("should build payment pending buttons with Cek Pembayaran and Batalkan Pesanan", () => {
+        const payloadId = buildPaymentPendingButtons("Pembayaran belum masuk.", "id");
+        expect(payloadId.buttons.length).toBe(2);
+        expect(payloadId.buttons[0]!.id).toBe("btn_check_payment");
+        expect(payloadId.buttons[0]!.text).toBe("Cek Pembayaran");
+        expect(payloadId.buttons[1]!.id).toBe("btn_cancel_order");
+        expect(payloadId.buttons[1]!.text).toBe("Batalkan Pesanan");
+
+        const p0 = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
+        const p1 = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[1].buttonParamsJson);
+        expect(p0.id).toBe("btn_check_payment");
+        expect(p0.display_text).toBe("Cek Pembayaran");
+        expect(p1.id).toBe("btn_cancel_order");
+        expect(p1.display_text).toBe("Batalkan Pesanan");
+
+        const payloadEn = buildPaymentPendingButtons("Payment not detected.", "en");
+        expect(payloadEn.buttons[0]!.text).toBe("Check Payment");
+        expect(payloadEn.buttons[1]!.text).toBe("Cancel Order");
+    });
+
+    it("should build order expired buttons with Beli Kosmetik and Riwayat Pesanan", () => {
+        const payloadId = buildOrderExpiredButtons("Pesanan telah kedaluwarsa.", "id");
+        expect(payloadId.buttons.length).toBe(2);
+        expect(payloadId.buttons[0]!.id).toBe("btn_start_buying");
+        expect(payloadId.buttons[0]!.text).toBe("Beli Kosmetik");
+        expect(payloadId.buttons[1]!.id).toBe("btn_history");
+        expect(payloadId.buttons[1]!.text).toBe("Riwayat Pesanan");
+
+        const p0 = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
+        const p1 = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[1].buttonParamsJson);
+        expect(p0.id).toBe("btn_start_buying");
+        expect(p0.display_text).toBe("Beli Kosmetik");
+        expect(p1.id).toBe("btn_history");
+        expect(p1.display_text).toBe("Riwayat Pesanan");
+
+        const payloadEn = buildOrderExpiredButtons("Order expired.", "en");
+        expect(payloadEn.buttons[0]!.text).toBe("Buy Cosmetics");
         expect(payloadEn.buttons[1]!.text).toBe("Order History");
     });
 });

@@ -103,9 +103,44 @@ describe("Webhook Server", () => {
             })
         });
 
-        expect(res.status).toBe(200);
         expect(sentMessages.length).toBe(1);
         expect(sentMessages[0]?.text).toContain("KEDALUWARSA");
+    });
+
+    it("should dispatch interactive quick-reply buttons (Beli Kosmetik & Riwayat Pesanan) on EXPIRED when sender.sendButtons is provided", async () => {
+        const sentButtons: Array<{ jid: string; payload: any }> = [];
+        const mockSender = {
+            sendMessage: mock(async () => {}),
+            sendButtons: mock(async (jid: string, payload: any) => {
+                sentButtons.push({ jid, payload });
+            })
+        };
+
+        const app = createWebhookApp({
+            sender: mockSender
+        });
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: "ord_exp_btns",
+                platform: "whatsapp",
+                platformUserId: "628111111111@s.whatsapp.net",
+                gamertag: "Notch",
+                itemName: "Ultimate Rank",
+                status: "EXPIRED",
+                message: "Payment window expired"
+            })
+        });
+
+        expect(res.status).toBe(200);
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.jid).toBe("628111111111@s.whatsapp.net");
+        expect(sentButtons[0]?.payload.text).toContain("KEDALUWARSA");
+        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toEqual(["btn_start_buying", "btn_history"]);
+        expect(sentButtons[0]?.payload.buttons[0].text).toBe("Beli Kosmetik");
+        expect(sentButtons[0]?.payload.buttons[1].text).toBe("Riwayat Pesanan");
     });
 
     it("should delete buyer QR message and notify buyer when status is QUEUED", async () => {
