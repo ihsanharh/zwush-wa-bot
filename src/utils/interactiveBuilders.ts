@@ -678,7 +678,7 @@ export function buildOrderSuccessButtons(
 }
 
 /**
- * Builds Payment Pending / Check Payment Retry Notice with quick-reply buttons (Cek Pembayaran, Batalkan Pesanan)
+ * Builds Payment Pending / Check Payment Retry Notice with quick-reply button (Cek Pembayaran)
  */
 export function buildPaymentPendingButtons(
     message: string,
@@ -690,8 +690,7 @@ export function buildPaymentPendingButtons(
 } {
     const store = config.STORE_NAME;
     const buttons = [
-        { id: "btn_check_payment", text: t("buttons.checkPayment", lang) },
-        { id: "btn_cancel_order", text: t("buttons.cancelOrder", lang) }
+        { id: "btn_check_payment", text: t("buttons.checkPayment", lang) }
     ];
     return buildQuickReplyPayload(message, buttons, { footer: `${store} • QRIS Dinamis` });
 }

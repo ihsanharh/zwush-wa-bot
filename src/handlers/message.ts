@@ -288,13 +288,18 @@ async function handleIncomingMessageInternal(
     const activeOrderId = ctx.state.getActiveOrderId(remoteJid);
     const buyingActive = isBuyingFlowActive(ctx, remoteJid);
 
-    // Stale quoted message drop during active buying flow
-    if (buyingActive && quotedMessageId) {
-        if (!ctx.state.isPromptMessageValid(remoteJid, quotedMessageId)) {
-            const expectedPromptId = ctx.state.getPromptMessageId(remoteJid);
-            console.log(`[BuyingFlow] Ignored interaction quoting stale message ${quotedMessageId} (expected ${expectedPromptId}) from ${remoteJid}`);
-            return;
+    // Quick-reply invoice button check (only allowed if there is an active pending order)
+    if (trimmed === "btn_check_payment" || trimmed === "act_check_status") {
+        if (activeOrderId) {
+            await handleCustomerCheckPayment(remoteJid, activeOrderId, userLang, ctx);
         }
+        return;
+    }
+
+    // Quick-reply cancel button check
+    if (trimmed === "btn_cancel_order") {
+        await handleCustomerCancel(remoteJid, activeOrderId, session, userLang, ctx);
+        return;
     }
 
     // In private chat: NO SLASH COMMANDS AT ALL! (Commands are strictly exclusive to the admin group)
@@ -314,18 +319,13 @@ async function handleIncomingMessageInternal(
         }
     }
 
-    // Quick-reply invoice button check (only allowed if there is an active pending order)
-    if (trimmed === "btn_check_payment" || trimmed === "act_check_status") {
-        if (activeOrderId) {
-            await handleCustomerCheckPayment(remoteJid, activeOrderId, userLang, ctx);
+    // Stale quoted message drop during active buying flow
+    if (buyingActive && quotedMessageId) {
+        if (!ctx.state.isPromptMessageValid(remoteJid, quotedMessageId)) {
+            const expectedPromptId = ctx.state.getPromptMessageId(remoteJid);
+            console.log(`[BuyingFlow] Ignored interaction quoting stale message ${quotedMessageId} (expected ${expectedPromptId}) from ${remoteJid}`);
+            return;
         }
-        return;
-    }
-
-    // Quick-reply cancel button check
-    if (trimmed === "btn_cancel_order") {
-        await handleCustomerCancel(remoteJid, activeOrderId, session, userLang, ctx);
-        return;
     }
 
     // Quick-entry buttons from welcome greeting (only active when session is IDLE and no active pending order)
@@ -470,7 +470,9 @@ async function handleCustomerCheckPayment(
                     orderId,
                 });
                 if (ctx.sendButtons) {
-                    await ctx.sendButtons(remoteJid, buildPaymentPendingButtons(msg, userLang));
+                    const sent = await ctx.sendButtons(remoteJid, buildPaymentPendingButtons(msg, userLang));
+                    const msgId = sent?.key?.id || sent?.id;
+                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
                 } else {
                     await ctx.sendText(remoteJid, msg);
                 }
@@ -479,7 +481,9 @@ async function handleCustomerCheckPayment(
             if (res.code === "ORDER_NOT_PAYABLE") {
                 const msg = t("checkPayment.expired", userLang, { orderId });
                 if (ctx.sendButtons) {
-                    await ctx.sendButtons(remoteJid, buildOrderExpiredButtons(msg, userLang));
+                    const sent = await ctx.sendButtons(remoteJid, buildOrderExpiredButtons(msg, userLang));
+                    const msgId = sent?.key?.id || sent?.id;
+                    if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
                 } else {
                     await ctx.sendText(remoteJid, msg);
                 }
@@ -524,7 +528,9 @@ async function handleCustomerCheckPayment(
             formattedAmount: formatRupiah(res.order?.totalNominal || 0),
         });
         if (ctx.sendButtons) {
-            await ctx.sendButtons(remoteJid, buildPaymentPendingButtons(pendingMsg, userLang));
+            const sent = await ctx.sendButtons(remoteJid, buildPaymentPendingButtons(pendingMsg, userLang));
+            const msgId = sent?.key?.id || sent?.id;
+            if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
         } else {
             await ctx.sendText(remoteJid, pendingMsg);
         }

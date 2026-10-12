@@ -293,24 +293,19 @@ describe("interactiveBuilders", () => {
         expect(payloadEn.buttons[1]!.text).toBe("Order History");
     });
 
-    it("should build payment pending buttons with Cek Pembayaran and Batalkan Pesanan", () => {
+    it("should build payment pending buttons with Cek Pembayaran only", () => {
         const payloadId = buildPaymentPendingButtons("Pembayaran belum masuk.", "id");
-        expect(payloadId.buttons.length).toBe(2);
+        expect(payloadId.buttons.length).toBe(1);
         expect(payloadId.buttons[0]!.id).toBe("btn_check_payment");
         expect(payloadId.buttons[0]!.text).toBe("Cek Pembayaran");
-        expect(payloadId.buttons[1]!.id).toBe("btn_cancel_order");
-        expect(payloadId.buttons[1]!.text).toBe("Batalkan Pesanan");
 
         const p0 = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
-        const p1 = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[1].buttonParamsJson);
         expect(p0.id).toBe("btn_check_payment");
         expect(p0.display_text).toBe("Cek Pembayaran");
-        expect(p1.id).toBe("btn_cancel_order");
-        expect(p1.display_text).toBe("Batalkan Pesanan");
 
         const payloadEn = buildPaymentPendingButtons("Payment not detected.", "en");
+        expect(payloadEn.buttons.length).toBe(1);
         expect(payloadEn.buttons[0]!.text).toBe("Check Payment");
-        expect(payloadEn.buttons[1]!.text).toBe("Cancel Order");
     });
 
     it("should build order expired buttons with Beli Kosmetik and Riwayat Pesanan", () => {
