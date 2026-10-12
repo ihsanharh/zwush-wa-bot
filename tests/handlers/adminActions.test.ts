@@ -15,7 +15,7 @@ describe("Admin Action Handlers", () => {
         const ctx: BotContext = {
             client: mockClient,
             state,
-            sendText: async (_jid, text) => {
+            sendText: async (_jid: string, text: string) => {
                 sentTexts.push(text);
             }
         } as any;
@@ -45,7 +45,7 @@ describe("Admin Action Handlers", () => {
         const ctx: BotContext = {
             client: mockClient,
             state,
-            sendText: async (_jid, text) => {
+            sendText: async (_jid: string, text: string) => {
                 sentTexts.push(text);
             }
         } as any;
@@ -74,7 +74,7 @@ describe("Admin Action Handlers", () => {
         const ctx: BotContext = {
             client: mockClient,
             state,
-            sendText: async (_jid, text) => {
+            sendText: async (_jid: string, text: string) => {
                 sentTexts.push(text);
             }
         } as any;
@@ -102,7 +102,7 @@ describe("Admin Action Handlers", () => {
         const ctx: BotContext = {
             client: {} as any,
             state,
-            sendText: async (jid, text) => {
+            sendText: async (jid: string, text: string) => {
                 sentTexts.push({ jid, text });
             }
         } as any;
@@ -136,7 +136,7 @@ describe("Admin Action Handlers", () => {
         const ctx: BotContext = {
             client: mockClient,
             state,
-            sendText: async (_jid, text) => {
+            sendText: async (_jid: string, text: string) => {
                 sentTexts.push(text);
             }
         } as any;
@@ -167,7 +167,7 @@ describe("Admin Action Handlers", () => {
         const ctx: BotContext = {
             client: mockClient,
             state,
-            sendText: async (jid, text) => {
+            sendText: async (jid: string, text: string) => {
                 sentMessages.push({ jid, text });
             }
         } as any;
@@ -198,7 +198,7 @@ describe("Admin Action Handlers", () => {
         const ctx: BotContext = {
             client: mockClient,
             state,
-            sendText: async (jid, text) => {
+            sendText: async (jid: string, text: string) => {
                 sentMessages.push({ jid, text });
             }
         } as any;
@@ -232,10 +232,10 @@ describe("Admin Action Handlers", () => {
         const ctx: BotContext = {
             client: mockClient,
             state,
-            sendText: async (jid, text) => {
+            sendText: async (jid: string, text: string) => {
                 sentMessages.push({ jid, text });
             },
-            sendButtons: async (jid, payload) => {
+            sendButtons: async (jid: string, payload: any) => {
                 sentButtonsList.push({ jid, payload });
             }
         } as any;

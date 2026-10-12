@@ -5,6 +5,40 @@ import type { CategoryDefinition } from "./categories";
 import type { CatalogItem, OrderInfo } from "../types";
 
 /**
+ * Generic helper to construct interactive native flow quick reply messages.
+ */
+export function buildQuickReplyPayload(
+    text: string,
+    buttons: Array<{ id: string; text: string }>,
+    options?: { footer?: string; header?: any }
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const interactiveMessage: any = {
+        body: { text },
+        nativeFlowMessage: {
+            messageVersion: 1,
+            buttons: buttons.map((btn) => ({
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: btn.text,
+                    id: btn.id
+                })
+            }))
+        }
+    };
+    if (options?.footer) {
+        interactiveMessage.footer = { text: options.footer };
+    }
+    if (options?.header) {
+        interactiveMessage.header = options.header;
+    }
+    return {
+        interactiveMessage,
+        text,
+        buttons
+    };
+}
+
+/**
  * Builds Category List Menu (Single Select Drawer)
  */
 export function buildCategoryListMenu(
@@ -139,38 +173,27 @@ export function buildGamertagPromptButtons(
         }
     ];
 
-    const interactiveMessage: any = {
-        body: { text: promptText },
-        footer: { text: store },
-        nativeFlowMessage: {
-            messageVersion: 1,
-            buttons: buttons.map((btn) => ({
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({
-                    display_text: btn.text,
-                    id: btn.id
-                })
-            }))
-        }
-    };
-
+    let headerOption: any = undefined;
     if (
         headerImage &&
         typeof headerImage === "object" &&
         !Buffer.isBuffer(headerImage) &&
         (headerImage.url || headerImage.directPath)
     ) {
-        interactiveMessage.header = {
+        headerOption = {
             hasMediaAttachment: true,
             imageMessage: headerImage
         };
     }
 
+    const payload = buildQuickReplyPayload(promptText, buttons, {
+        footer: store,
+        header: headerOption
+    });
+
     return {
-        text: promptText,
-        buttons,
-        headerImage: Buffer.isBuffer(headerImage) ? headerImage : undefined,
-        interactiveMessage
+        ...payload,
+        headerImage: Buffer.isBuffer(headerImage) ? headerImage : undefined
     };
 }
 
@@ -190,38 +213,15 @@ export function buildOrderConfirmationButtons(
 
     const voucherBtnId = hasVoucher ? "btn_remove_voucher" : "btn_open_voucher";
 
-    return {
-        interactiveMessage: {
-            body: { text: orderSummaryText },
-            footer: { text: `${store} • Automated Checkout` },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: [
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.confirmOrder", lang),
-                            id: "btn_confirm_order"
-                        })
-                    },
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: voucherBtnText,
-                            id: voucherBtnId
-                        })
-                    },
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.modifyMenu", lang),
-                            id: "btn_modify_menu"
-                        })
-                    }
-                ]
-            }
-        }
-    };
+    return buildQuickReplyPayload(
+        orderSummaryText,
+        [
+            { id: "btn_confirm_order", text: t("buttons.confirmOrder", lang) },
+            { id: voucherBtnId, text: voucherBtnText },
+            { id: "btn_modify_menu", text: t("buttons.modifyMenu", lang) }
+        ],
+        { footer: `${store} • Automated Checkout` }
+    );
 }
 
 /**
@@ -280,23 +280,10 @@ export function buildVoucherPromptButtons(
         }
     ];
 
+    const payload = buildQuickReplyPayload(promptText, buttons, { footer: store });
+
     return {
-        text: promptText,
-        buttons,
-        interactiveMessage: {
-            body: { text: promptText },
-            footer: { text: store },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: buttons.map((btn) => ({
-                    name: "quick_reply",
-                    buttonParamsJson: JSON.stringify({
-                        display_text: btn.text,
-                        id: btn.id
-                    })
-                }))
-            }
-        },
+        ...payload,
         buttonsMessage: {
             contentText: promptText,
             footerText: store,
@@ -321,112 +308,16 @@ export function buildInvoiceButtons(
     lang: Language = "id"
 ): { interactiveMessage: any } {
     const store = config.STORE_NAME;
-    return {
-        interactiveMessage: {
-            body: { text: invoiceText },
-            footer: { text: `${store} • QRIS Dinamis` },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: [
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.checkPayment", lang),
-                            id: "btn_check_payment"
-                        })
-                    },
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.cancelOrder", lang),
-                            id: "btn_cancel_order"
-                        })
-                    }
-                ]
-            }
-        }
-    };
+    return buildQuickReplyPayload(
+        invoiceText,
+        [
+            { id: "btn_check_payment", text: t("buttons.checkPayment", lang) },
+            { id: "btn_cancel_order", text: t("buttons.cancelOrder", lang) }
+        ],
+        { footer: `${store} • QRIS Dinamis` }
+    );
 }
 
-/**
- * Builds Support Confirmation Buttons
- */
-export function buildSupportPromptButtons(lang: Language = "id"): { interactiveMessage: any } {
-    const store = config.STORE_NAME;
-    return {
-        interactiveMessage: {
-            body: { text: t("support.greeting", lang) },
-            footer: { text: `${store} • Support` },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: [
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.contactAdmin", lang),
-                            id: "btn_support_confirm"
-                        })
-                    },
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.backToShop", lang),
-                            id: "btn_support_cancel"
-                        })
-                    }
-                ]
-            }
-        }
-    };
-}
-
-/**
- * Builds Admin Panel Dashboard Menu
- */
-export function buildAdminPanelMenu(
-    dataOrLang: { storeName?: string; adminGid?: string; logGid?: string } | Language = "id",
-    lang: Language = "id"
-): { listMessage: any } {
-    const activeLang: Language = typeof dataOrLang === "string" ? dataOrLang : lang;
-    const store = (typeof dataOrLang === "object" && dataOrLang?.storeName) || config.STORE_NAME;
-
-    return {
-        listMessage: {
-            title: t("interactive.adminPanelTitle", activeLang),
-            description: t("interactive.adminPanelDesc", activeLang),
-            buttonText: t("interactive.adminPanelBtn", activeLang) || "Menu Admin",
-            footerText: `${store} • Admin Control`,
-            listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
-            sections: [
-                {
-                    title: t("interactive.adminPanelTitle", lang),
-                    rows: [
-                        {
-                            rowId: "admin_cmd_balance",
-                            title: t("interactive.adminBtnBalance", lang)
-                        },
-                        {
-                            rowId: "admin_cmd_orders",
-                            title: t("interactive.adminBtnOrders", lang)
-                        },
-                        {
-                            rowId: "admin_cmd_sync",
-                            title: t("interactive.adminBtnSync", lang)
-                        },
-                        {
-                            rowId: "admin_cmd_voucher",
-                            title: t("interactive.adminBtnVoucher", lang)
-                        },
-                        {
-                            rowId: "admin_cmd_discount",
-                            title: t("interactive.adminBtnDiscount", lang)
-                        }
-                    ]
-                }
-            ]
-        }
-    };
-}
 
 /**
  * Builds Quick Action Buttons for New Orders in Admin Log Group (Paid & Done)
@@ -435,28 +326,12 @@ export function buildAdminOrderActionButtons(
     orderId: string,
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const text = `Aksi Cepat Admin — Order #${orderId}:`;
+    const text = t("interactive.adminOrderActionPrompt", lang, { orderId });
     const buttons = [
-        { id: `btn_admin_paid_${orderId}`, text: "Mark as paid" },
-        { id: `btn_admin_done_${orderId}`, text: "Mark as completed" }
+        { id: `btn_admin_paid_${orderId}`, text: t("buttons.markPaid", lang) },
+        { id: `btn_admin_done_${orderId}`, text: t("buttons.markCompleted", lang) }
     ];
-    return {
-        interactiveMessage: {
-            body: { text },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: buttons.map((btn) => ({
-                    name: "quick_reply",
-                    buttonParamsJson: JSON.stringify({
-                        display_text: btn.text,
-                        id: btn.id
-                    })
-                }))
-            }
-        },
-        text,
-        buttons
-    };
+    return buildQuickReplyPayload(text, buttons);
 }
 
 /**
@@ -467,28 +342,12 @@ export function buildAdminOrderFailureButtons(
     failureReason?: string,
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const reason = failureReason || "Kendala pemrosesan The Hive";
-    const text = `⚠️ *KENDALA PESANAN #${orderId}*\nAlasan: *${reason}*\n\n👉 Silakan periksa kendala di atas, lalu klik tombol di bawah untuk mencoba memproses kembali:`;
+    const reason = failureReason || t("interactive.defaultAdminFailureReason", lang);
+    const text = t("interactive.adminOrderFailurePrompt", lang, { orderId, reason });
     const buttons = [
-        { id: `btn_admin_reprocess_${orderId}`, text: "Retry" }
+        { id: `btn_admin_reprocess_${orderId}`, text: t("buttons.retry", lang) }
     ];
-    return {
-        interactiveMessage: {
-            body: { text },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: buttons.map((btn) => ({
-                    name: "quick_reply",
-                    buttonParamsJson: JSON.stringify({
-                        display_text: btn.text,
-                        id: btn.id
-                    })
-                }))
-            }
-        },
-        text,
-        buttons
-    };
+    return buildQuickReplyPayload(text, buttons);
 }
 
 /**
@@ -499,33 +358,12 @@ export function buildUserOrderFailureButtons(
     failureReason?: string,
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const isEn = lang === "en";
-    const reason = failureReason || (isEn ? "The Hive delivery issue" : "Kendala pengiriman The Hive");
-    const text = isEn
-        ? `⚠️ *ORDER #${orderId} NOTICE*\nReason: *${reason}*\n\nDon't worry, your order is safe! Our Admin team is ready to assist you directly.\n\nClick the button below to start a live chat with an Admin:`
-        : `⚠️ *PEMBERITAHUAN PESANAN #${orderId}*\nKendala: *${reason}*\n\nJangan khawatir kak, pesanan kakak tetap aman! Tim Admin kami siap membantu memeriksa dan menyelesaikan pesanan kakak.\n\nSilakan klik tombol di bawah untuk langsung terhubung ke Admin:`;
-
+    const reason = failureReason || t("interactive.defaultFailureReason", lang);
+    const text = t("interactive.userOrderFailurePrompt", lang, { orderId, reason });
     const buttons = [
-        { id: `btn_start_livechat_${orderId}`, text: isEn ? "💬 Start Live Chat" : "💬 Mulai Live Chat" }
+        { id: `btn_start_livechat_${orderId}`, text: t("buttons.startLiveChat", lang) }
     ];
-
-    return {
-        interactiveMessage: {
-            body: { text },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: buttons.map((btn) => ({
-                    name: "quick_reply",
-                    buttonParamsJson: JSON.stringify({
-                        display_text: btn.text,
-                        id: btn.id
-                    })
-                }))
-            }
-        },
-        text,
-        buttons
-    };
+    return buildQuickReplyPayload(text, buttons);
 }
 
 /**
@@ -535,27 +373,121 @@ export function buildAdminSupportSolvedButtons(
     target: string,
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const text = `💡 *Setelah selesai membantu pelanggan, klik tombol di bawah untuk mengaktifkan bot kembali:*`;
+    const text = t("interactive.adminSupportSolvedPrompt", lang);
     const buttons = [
-        { id: `btn_admin_solved_${target}`, text: "✅ Selesai / Solved" }
+        { id: `btn_admin_solved_${target}`, text: t("buttons.solved", lang) }
     ];
+    return buildQuickReplyPayload(text, buttons);
+}
+
+/**
+ * Builds Interactive Admin Panel List Menu (Drawer) for Admin Group
+ */
+export function buildAdminPanelMenu(
+    lang: Language = "id",
+    isMaintenanceOn = false
+): { listMessage: any } {
+    const store = config.STORE_NAME;
+    const title = t("interactive.adminPanelTitle", lang, { store });
+    const description = t("interactive.adminPanelDesc", lang, { store });
+    const buttonText = t("interactive.adminPanelBtn", lang);
+    const maintStatus = isMaintenanceOn ? "🔴 Mode: ON (Aktif)" : "🟢 Mode: OFF (Normal)";
+
     return {
-        interactiveMessage: {
-            body: { text },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: buttons.map((btn) => ({
-                    name: "quick_reply",
-                    buttonParamsJson: JSON.stringify({
-                        display_text: btn.text,
-                        id: btn.id
-                    })
-                }))
-            }
-        },
-        text,
-        buttons
+        listMessage: {
+            title,
+            description,
+            buttonText,
+            footerText: `${store} • Admin Control Panel`,
+            listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
+            sections: [
+                {
+                    title: "Status & Kontrol Bot",
+                    rows: [
+                        {
+                            rowId: "admin_panel_balance",
+                            title: t("interactive.adminBtnBalance", lang),
+                            description: "Lihat saldo token Hive & omset penjualan"
+                        },
+                        {
+                            rowId: "admin_panel_maintenance",
+                            title: t("interactive.adminBtnMaintenance", lang),
+                            description: `Status Maintenance (${maintStatus})`
+                        },
+                        {
+                            rowId: "admin_panel_sync",
+                            title: t("interactive.adminBtnSync", lang),
+                            description: "Sinkronisasi katalog item Hive via gibot"
+                        }
+                    ]
+                },
+                {
+                    title: "Manajemen Toko",
+                    rows: [
+                        {
+                            rowId: "admin_panel_orders",
+                            title: t("interactive.adminBtnOrders", lang),
+                            description: "Daftar pesanan tertahan token / pending"
+                        },
+                        {
+                            rowId: "admin_panel_vouchers",
+                            title: t("interactive.adminBtnVoucher", lang),
+                            description: "Ringkasan voucher promo & diskon toko"
+                        }
+                    ]
+                }
+            ]
+        }
     };
+}
+
+/**
+ * Builds Quick Reply Buttons for Admin Panel fallback
+ */
+export function buildAdminPanelQuickReply(
+    lang: Language = "id",
+    isMaintenanceOn = false
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const store = config.STORE_NAME;
+    const maintStatus = isMaintenanceOn ? "🔴 ON" : "🟢 OFF";
+    const text = `⚙️ *PANEL KONTROL ADMIN — ${store.toUpperCase()}*\n\nStatus Maintenance: *${maintStatus}*\nSilakan pilih menu kontrol admin:`;
+    const buttons = [
+        { id: "admin_panel_balance", text: t("interactive.adminBtnBalance", lang) },
+        { id: "admin_panel_maintenance", text: t("interactive.adminBtnMaintenance", lang) },
+        { id: "admin_panel_orders", text: t("interactive.adminBtnOrders", lang) }
+    ];
+    return buildQuickReplyPayload(text, buttons, { footer: `${store} • Admin Panel` });
+}
+
+/**
+ * Builds Maintenance Mode Interactive Controls (Toggle Buttons)
+ */
+export function buildAdminMaintenanceButtons(
+    isMaintenanceOn: boolean,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const store = config.STORE_NAME;
+    const statusText = isMaintenanceOn ? "AKTIF (ON) 🔴" : "NONAKTIF (OFF) 🟢";
+    const text = t("admin.maintenanceStatus", lang, { storeUpper: store.toUpperCase(), status: statusText });
+    const buttons = [
+        { id: isMaintenanceOn ? "btn_admin_maint_off" : "btn_admin_maint_on", text: isMaintenanceOn ? t("buttons.maintOff", lang) : t("buttons.maintOn", lang) },
+        { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
+    ];
+    return buildQuickReplyPayload(text, buttons);
+}
+
+/**
+ * Builds Balance Summary Action Buttons (Refresh + Back to Panel)
+ */
+export function buildAdminBalanceButtons(
+    balanceText: string,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const buttons = [
+        { id: "btn_admin_balance_refresh", text: t("buttons.refreshBalance", lang) },
+        { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
+    ];
+    return buildQuickReplyPayload(balanceText, buttons);
 }
 
 /**
@@ -563,39 +495,12 @@ export function buildAdminSupportSolvedButtons(
  */
 export function buildWelcomeButtons(lang: Language = "id"): { interactiveMessage: any } {
     const store = config.STORE_NAME;
-    const bodyText = t("greeting", lang);
-    return {
-        interactiveMessage: {
-            body: { text: bodyText },
-            footer: { text: `${store} • The Hive Bedrock` },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: [
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.browseCatalog", lang),
-                            id: "btn_start_buying"
-                        })
-                    },
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.orderHistory", lang),
-                            id: "btn_history"
-                        })
-                    },
-                    {
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: t("buttons.settingsAndInfo", lang),
-                            id: "btn_settings"
-                        })
-                    }
-                ]
-            }
-        }
-    };
+    const buttons = [
+        { id: "btn_start_buying", text: t("buttons.browseCatalog", lang) },
+        { id: "btn_history", text: t("buttons.orderHistory", lang) },
+        { id: "btn_settings", text: t("buttons.settingsAndInfo", lang) }
+    ];
+    return buildQuickReplyPayload(t("greeting", lang), buttons, { footer: `${store} • The Hive Bedrock` });
 }
 
 /**
@@ -693,25 +598,6 @@ export function buildOrderHistoryButtons(
         text: t("buttons.browseCatalog", lang)
     });
 
-    const nativeButtons = buttonsList.map((btn) => ({
-        name: "quick_reply",
-        buttonParamsJson: JSON.stringify({
-            display_text: btn.text,
-            id: btn.id
-        })
-    }));
-
-    return {
-        interactiveMessage: {
-            body: { text: out },
-            footer: { text: `${store} • The Hive Bedrock` },
-            nativeFlowMessage: {
-                messageVersion: 1,
-                buttons: nativeButtons
-            }
-        },
-        text: out,
-        buttons: buttonsList
-    };
+    return buildQuickReplyPayload(out, buttonsList, { footer: `${store} • The Hive Bedrock` });
 }
 

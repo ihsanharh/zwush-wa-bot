@@ -463,13 +463,6 @@ export class StateManager {
     }
 
     /**
-     * Gets retry count for an order.
-     */
-    getOrderRetryAttempts(orderId: string): number {
-        return this.orderRetryAttempts.get(orderId) || 0;
-    }
-
-    /**
      * Increments retry count for an order and returns new count.
      */
     incrementOrderRetryAttempts(orderId: string): number {
@@ -517,23 +510,6 @@ export class StateManager {
     }
 
     /**
-     * Gets last failed order information for /support fallback.
-     */
-    getLastFailedOrder(jid: string): { orderId: string; itemName: string; gamertag: string; attempts: number } | undefined {
-        return this.sessions.get(jid)?.lastFailedOrder;
-    }
-
-    /**
-     * Puts user session into AWAITING_SUPPORT_CONFIRMATION to ask user consent before going live.
-     */
-    requestSupportConsent(jid: string, orderId?: string): void {
-        const session = this.getSession(jid);
-        session.step = "AWAITING_SUPPORT_CONFIRMATION";
-        session.pendingSupportOrderId = orderId;
-        session.lastUpdated = Date.now();
-    }
-
-    /**
      * Cancels pending support consent request.
      */
     cancelSupportConsent(jid: string): void {
@@ -566,13 +542,6 @@ export class StateManager {
             session.liveChatOrderId = undefined;
             session.lastUpdated = Date.now();
         }
-    }
-
-    /**
-     * Checks if user session is currently in LIVE_CHAT mode.
-     */
-    isLiveChat(jid: string): boolean {
-        return this.sessions.get(jid)?.step === "LIVE_CHAT";
     }
 
     /**

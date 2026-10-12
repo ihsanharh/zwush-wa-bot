@@ -1,7 +1,4 @@
-import { t, type Language } from "../i18n";
-import { config } from "../config";
 import type { AdminGroupLogger } from "../handlers/adminLogger";
-import type { BotContext } from "../handlers/message";
 
 export const GREETINGS = [
     "halo", "halo kak", "halo min", "hai", "hai kak", "hi", "hi kak", "hey", "hello", "hei",
@@ -119,6 +116,73 @@ export function extractQuotedMessageId(message: unknown): string | undefined {
 }
 
 /**
+ * Safely extracts mentioned JIDs from an incoming WhatsApp message payload.
+ */
+export function extractMentionedJids(message: unknown): string[] {
+    if (!message || typeof message !== "object") return [];
+    const msgObj = message as Record<string, any>;
+
+    const innerMsg =
+        msgObj.ephemeralMessage?.message ??
+        msgObj.viewOnceMessage?.message ??
+        msgObj.viewOnceMessageV2?.message ??
+        msgObj.documentWithCaptionMessage?.message ??
+        msgObj;
+
+    if (!innerMsg || typeof innerMsg !== "object") return [];
+
+    const contextInfo =
+        innerMsg.extendedTextMessage?.contextInfo ??
+        innerMsg.imageMessage?.contextInfo ??
+        innerMsg.videoMessage?.contextInfo ??
+        innerMsg.interactiveResponseMessage?.contextInfo ??
+        innerMsg.buttonsResponseMessage?.contextInfo ??
+        innerMsg.listResponseMessage?.contextInfo ??
+        innerMsg.contextInfo ??
+        msgObj.contextInfo;
+
+    if (Array.isArray(contextInfo?.mentionedJid)) {
+        return contextInfo.mentionedJid.map(String);
+    }
+    return [];
+}
+
+/**
+ * Checks whether the incoming message is truly mentioning the bot's WhatsApp identity (@<phone> or mentionedJid).
+ * Strictly requires an actual WhatsApp mention or @<botNumber>. Rejects keywords like @bot, /panel, admin.
+ */
+export function isBotMentioned(
+    text: string,
+    mentionedJids: string[] = [],
+    botJid?: string
+): boolean {
+    if (!botJid) {
+        return mentionedJids.length > 0;
+    }
+
+    const cleanBotPhone = extractPhoneNumber(botJid);
+
+    // 1. WhatsApp contextInfo mentionedJid contains the bot's JID or phone
+    const hasMentionedJid = mentionedJids.some((jid) => {
+        if (!jid) return false;
+        if (jid === botJid) return true;
+        const phone = extractPhoneNumber(jid);
+        return Boolean(phone && cleanBotPhone && phone === cleanBotPhone);
+    });
+
+    if (hasMentionedJid) return true;
+
+    // 2. Text body contains explicit @<botPhone> mention
+    if (cleanBotPhone && text.includes(`@${cleanBotPhone}`)) {
+        return true;
+    }
+
+    return false;
+}
+
+export const isBotTaggedOrCalled = isBotMentioned;
+
+/**
  * Checks if the JID belongs to a 1:1 private chat (@s.whatsapp.net or @lid).
  * Strictly filters out groups (@g.us), status broadcasts, and newsletters.
  */
@@ -234,20 +298,6 @@ export function isUserAdmin(
     return false;
 }
 
-export async function sendUnrecognizedCommand(
-    remoteJid: string,
-    cmd: string,
-    userLang: Language,
-    ctx: BotContext,
-    mentionSender?: string
-): Promise<void> {
-    const senderPhone = mentionSender ? extractPhoneNumber(mentionSender) : "";
-    const prefix = mentionSender ? `@${senderPhone}\n\n` : "";
-    const mentions = mentionSender ? [mentionSender] : undefined;
-
-    const body = t("unrecognizedCommand", userLang, { command: cmd });
-    await ctx.sendText(remoteJid, `${prefix}${body}`, mentions);
-}
 
 const userMessageQueues = new Map<string, Promise<void>>();
 

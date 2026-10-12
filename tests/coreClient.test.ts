@@ -97,87 +97,6 @@ describe("CoreClient", () => {
         expect(res.orderId).toBe("ord_1");
     });
 
-    it("should retry all insufficient tokens orders", async () => {
-        global.fetch = mock(() =>
-            Promise.resolve(new Response(JSON.stringify({
-                success: true,
-                count: 2,
-                orderIds: ["ord_1", "ord_2"]
-            }), { status: 200 }))
-        ) as unknown as typeof fetch;
-
-        const res = await client.retryAllOrders();
-        expect(res.success).toBe(true);
-        expect(res.count).toBe(2);
-    });
-
-    it("should fetch voucher status and active vouchers", async () => {
-        global.fetch = mock(() =>
-            Promise.resolve(new Response(JSON.stringify({
-                success: true,
-                discountPercent: 40,
-                vouchers: [
-                    { id: "v1", code: "HEMAT", discountType: "FLAT", discountValue: 5000, usedCount: 1, active: true, createdAt: "2026-09-25T00:00:00Z" }
-                ]
-            }), { status: 200 }))
-        ) as unknown as typeof fetch;
-
-        const res = await client.getVoucherStatus();
-        expect(res.success).toBe(true);
-        expect(res.discountPercent).toBe(40);
-        expect(res.vouchers.length).toBe(1);
-        expect(res.vouchers[0]?.code).toBe("HEMAT");
-    });
-
-    it("should set store discount", async () => {
-        global.fetch = mock(() =>
-            Promise.resolve(new Response(JSON.stringify({
-                success: true,
-                discountPercent: 35
-            }), { status: 200 }))
-        ) as unknown as typeof fetch;
-
-        const newDiscount = await client.setStoreDiscount(35);
-        expect(newDiscount).toBe(35);
-    });
-
-    it("should create voucher", async () => {
-        global.fetch = mock(() =>
-            Promise.resolve(new Response(JSON.stringify({
-                success: true,
-                voucher: {
-                    id: "v2",
-                    code: "NEWPROMO",
-                    discountType: "PERCENT",
-                    discountValue: 15,
-                    maxUses: 10,
-                    usedCount: 0,
-                    active: true,
-                    createdAt: "2026-09-25T00:00:00Z"
-                }
-            }), { status: 201 }))
-        ) as unknown as typeof fetch;
-
-        const v = await client.createVoucher({
-            code: "NEWPROMO",
-            discountType: "PERCENT",
-            discountValue: 15,
-            maxUses: 10
-        });
-        expect(v.code).toBe("NEWPROMO");
-        expect(v.discountValue).toBe(15);
-    });
-
-    it("should delete voucher", async () => {
-        global.fetch = mock(() =>
-            Promise.resolve(new Response(JSON.stringify({
-                success: true,
-                message: "Voucher deleted"
-            }), { status: 200 }))
-        ) as unknown as typeof fetch;
-
-        await expect(client.deleteVoucher("NEWPROMO")).resolves.toBeUndefined();
-    });
 
     it("should validate voucher", async () => {
         global.fetch = mock(() =>
@@ -270,32 +189,7 @@ describe("CoreClient", () => {
         expect(res.gamertag).toBe("Wellingsun");
     });
 
-    it("should list orders with optional status filter", async () => {
-        let calledUrl = "";
-        global.fetch = mock((url) => {
-            calledUrl = String(url);
-            return Promise.resolve(new Response(JSON.stringify({
-                success: true,
-                count: 1,
-                orders: [{
-                    id: "ORD-999",
-                    gamertag: "Steve",
-                    itemName: "Hive+ to Ultimate Upgrade",
-                    status: "FAILED",
-                    totalNominal: 55123,
-                    createdAt: "2026-09-28T06:00:00.000Z"
-                }]
-            }), { status: 200 }));
-        }) as unknown as typeof fetch;
-
-        const res = await client.listOrders("FAILED", 5);
-        expect(calledUrl).toContain("status=FAILED");
-        expect(calledUrl).toContain("limit=5");
-        expect(res.count).toBe(1);
-        expect(res.orders[0]?.id).toBe("ORD-999");
-    });
-
-    it("should pass silent flag to manualCompleteOrder and support bulk completion", async () => {
+    it("should pass silent flag to manualCompleteOrder", async () => {
         let sentBody: any = null;
         global.fetch = mock((_url, init) => {
             sentBody = JSON.parse(init?.body as string);
@@ -309,38 +203,6 @@ describe("CoreClient", () => {
 
         const res = await client.manualCompleteOrder("ORD-SILENT", { silent: true });
         expect(res.success).toBe(true);
-        expect(sentBody.silent).toBe(true);
-
-        // Bulk complete
-        global.fetch = mock((_url, init) => {
-            sentBody = JSON.parse(init?.body as string);
-            return Promise.resolve(new Response(JSON.stringify({
-                success: true,
-                count: 3,
-                orderIds: ["ORD-1", "ORD-2", "ORD-3"],
-                silent: true
-            }), { status: 200 }));
-        }) as unknown as typeof fetch;
-
-        const bulkRes = await client.manualCompleteAllOrders({ silent: true });
-        expect(bulkRes.count).toBe(3);
-        expect(sentBody.silent).toBe(true);
-    });
-
-    it("should support markAllOrdersAsPaid with silent option", async () => {
-        let sentBody: any = null;
-        global.fetch = mock((_url, init) => {
-            sentBody = JSON.parse(init?.body as string);
-            return Promise.resolve(new Response(JSON.stringify({
-                success: true,
-                count: 2,
-                orderIds: ["ORD-A", "ORD-B"],
-                silent: true
-            }), { status: 200 }));
-        }) as unknown as typeof fetch;
-
-        const res = await client.markAllOrdersAsPaid({ silent: true });
-        expect(res.count).toBe(2);
         expect(sentBody.silent).toBe(true);
     });
 });

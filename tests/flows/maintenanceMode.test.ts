@@ -3,8 +3,6 @@ import { handleIncomingMessage, type BotContext } from "../../src/handlers/messa
 import { StateManager } from "../../src/state";
 import { AdminGroupLogger, type GroupMessageSender } from "../../src/handlers/adminLogger";
 import { CoreClient } from "../../src/coreClient";
-import { defaultRegistry } from "../../src/commands/registry";
-import { maintenanceCommand } from "../../src/commands/admin/maintenance";
 
 describe("Maintenance Mode & Admin Recognition", () => {
     let sentTexts: Array<{ jid: string; text: string }> = [];
@@ -17,8 +15,6 @@ describe("Maintenance Mode & Admin Recognition", () => {
         sentTexts = [];
         sentButtons = [];
         state = new StateManager();
-
-        defaultRegistry.register(maintenanceCommand);
 
         const mockSender: GroupMessageSender = {
             sendMessage: mock(async () => ({ key: { id: "test" } })),
@@ -37,6 +33,7 @@ describe("Maintenance Mode & Admin Recognition", () => {
             client: new CoreClient("http://localhost:3000"),
             state,
             adminLogger,
+            botJid: "628222222222@s.whatsapp.net",
             sendText: async (jid: string, text: string) => {
                 sentTexts.push({ jid, text });
             },
@@ -124,10 +121,17 @@ describe("Maintenance Mode & Admin Recognition", () => {
         const adminGroupJid = "12345-admin@g.us";
         const newAdminParticipant = "628555444333@s.whatsapp.net";
 
-        // 1. Speak in admin group
-        await handleIncomingMessage(adminGroupJid, false, "/maintenance status", ctx, newAdminParticipant);
-        expect(sentTexts.length).toBe(1);
-        expect(sentTexts[0]?.text).toContain("STATUS MAINTENANCE");
+        // 1. Mention bot number in admin group to open admin panel
+        await handleIncomingMessage(
+            adminGroupJid,
+            false,
+            "@628222222222",
+            ctx,
+            newAdminParticipant,
+            undefined,
+            undefined,
+            ["628222222222@s.whatsapp.net"]
+        );
 
         // 2. Now the participant chats in private 1:1 chat -> bot should recognize them!
         sentTexts = [];
@@ -138,14 +142,14 @@ describe("Maintenance Mode & Admin Recognition", () => {
         expect(sentTexts.length).toBe(0);
     });
 
-    it("should allow admins to toggle maintenance mode on and off via /maintenance in admin group", async () => {
+    it("should allow admins to toggle maintenance mode on and off via interactive buttons in admin group", async () => {
         const adminGroupJid = "12345-admin@g.us";
         const adminLid = "28948566155371@lid";
         adminLogger.addAdminParticipants([adminLid]);
         const normalUserJid = "628999888777@s.whatsapp.net";
 
-        // 1. Turn ON maintenance mode in admin group
-        await handleIncomingMessage(adminGroupJid, false, "/maintenance on", ctx, adminLid);
+        // 1. Turn ON maintenance mode in admin group via button
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_maint_on", ctx, adminLid);
         expect(state.isMaintenanceMode()).toBe(true);
         expect(sentTexts[0]?.text).toContain("DIAKTIFKAN");
 
@@ -154,9 +158,9 @@ describe("Maintenance Mode & Admin Recognition", () => {
         await handleIncomingMessage(normalUserJid, false, "Halo", ctx);
         expect(sentTexts[0]?.text).toContain("PEMELIHARAAN");
 
-        // 3. Turn OFF maintenance mode in admin group
+        // 3. Turn OFF maintenance mode in admin group via button
         sentTexts = [];
-        await handleIncomingMessage(adminGroupJid, false, "/maintenance off", ctx, adminLid);
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_maint_off", ctx, adminLid);
         expect(state.isMaintenanceMode()).toBe(false);
         expect(sentTexts[0]?.text).toContain("DINONAKTIFKAN");
 

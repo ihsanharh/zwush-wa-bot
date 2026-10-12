@@ -6,8 +6,6 @@ import {
     buildOrderConfirmationButtons,
     buildModifyOrderListMenu,
     buildInvoiceButtons,
-    buildSupportPromptButtons,
-    buildAdminPanelMenu,
     buildAdminOrderActionButtons,
     buildAdminOrderFailureButtons,
     buildUserOrderFailureButtons,
@@ -116,25 +114,6 @@ describe("interactiveBuilders", () => {
         expect(p1.display_text).toBe("Batalkan Pesanan");
     });
 
-    it("should build support prompt buttons", () => {
-        const payload = buildSupportPromptButtons("id");
-        const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
-        expect(buttons.length).toBe(2);
-        const p0 = JSON.parse(buttons[0].buttonParamsJson);
-        const p1 = JSON.parse(buttons[1].buttonParamsJson);
-        expect(p0.id).toBe("btn_support_confirm");
-        expect(p0.display_text).toBe("Hubungi Admin");
-        expect(p1.id).toBe("btn_support_cancel");
-        expect(p1.display_text).toBe("Kembali Belanja");
-    });
-
-    it("should build admin panel menu", () => {
-        const payload = buildAdminPanelMenu({ storeName: "Zwush Store" }, "id");
-        expect(payload.listMessage).toBeDefined();
-        expect(payload.listMessage.sections[0].rows.length).toBe(5);
-        expect(payload.listMessage.sections[0].rows[0].rowId).toBe("admin_cmd_balance");
-        expect(payload.listMessage.sections[0].rows[1].rowId).toBe("admin_cmd_orders");
-    });
 
     it("should build admin order action buttons for new orders (paid and done)", () => {
         const payload = buildAdminOrderActionButtons("ORD-12345", "id");

@@ -2,12 +2,12 @@ import type { OrderStatus } from "../types";
 import { config } from "../config";
 import { formatStatusBadge } from "../i18n";
 import { extractPhoneNumber } from "../utils/messageUtils";
+import {
+    buildAdminOrderActionButtons,
+    buildAdminOrderFailureButtons,
+    buildAdminSupportSolvedButtons
+} from "../utils/interactiveBuilders";
 
-export interface GroupParticipantInfo {
-    jid: string;
-    lid?: string;
-    phoneNumber?: string;
-}
 
 export interface GroupMessageSender {
     sendMessage(jid: string, content: any, options?: any): Promise<any>;
@@ -212,7 +212,6 @@ export class AdminGroupLogger {
             // Follow-up: send action buttons (Paid & Done) quoting the original order log message
             if (messageKey) {
                 try {
-                    const { buildAdminOrderActionButtons } = await import("../utils/interactiveBuilders");
                     const buttonPayload = buildAdminOrderActionButtons(order.orderId, "id");
                     await this.sender.sendMessage(this.logGroupJid, buttonPayload, { quote: messageKey });
                 } catch (btnErr) {
@@ -255,13 +254,10 @@ export class AdminGroupLogger {
 
                 const isFailedOrHeld =
                     status === "FAILED" ||
-                    status === "HELD" ||
-                    status === "INSUFFICIENT_TOKENS" ||
-                    status === "DELAYED_PAYMENT";
+                    status === "INSUFFICIENT_TOKENS";
 
                 if (isFailedOrHeld && messageKey) {
                     try {
-                        const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
                         const failPayload = buildAdminOrderFailureButtons(orderId, extra?.failureReason, "id");
                         await this.sender.sendMessage(this.logGroupJid, failPayload, { quote: messageKey });
                     } catch (failErr) {
@@ -312,13 +308,10 @@ export class AdminGroupLogger {
         // If order failed or held: send follow-up message quoting the order log with retry button
         const isFailedOrHeld =
             status === "FAILED" ||
-            status === "HELD" ||
-            status === "INSUFFICIENT_TOKENS" ||
-            status === "DELAYED_PAYMENT";
+            status === "INSUFFICIENT_TOKENS";
 
         if (isFailedOrHeld && entry.messageKey) {
             try {
-                const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
                 const failPayload = buildAdminOrderFailureButtons(orderId, extra?.failureReason, "id");
                 await this.sender.sendMessage(this.logGroupJid, failPayload, { quote: entry.messageKey });
             } catch (failErr) {
@@ -432,7 +425,6 @@ export class AdminGroupLogger {
                 await this.sender.sendMessage(targetJid, alertText);
             }
 
-            const { buildAdminSupportSolvedButtons } = await import("../utils/interactiveBuilders");
             const solvedPayload = buildAdminSupportSolvedButtons(info.platformUserId, "id");
             await this.sender.sendMessage(targetJid, solvedPayload);
         } catch (err: unknown) {

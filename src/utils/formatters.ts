@@ -41,50 +41,6 @@ export function renderOrderCategoryMenu(
     return out;
 }
 
-export function renderMainMenu(lang: Language = "id"): string {
-    return renderOrderCategoryMenu(lang);
-}
-
-export function renderCategoryItems(items: CatalogItem[], category: CategoryDefinition, lang: Language = "id"): string {
-    const active = items.filter((i) => i.active && i.category === category.dbCategory);
-
-    if (active.length === 0) {
-        return t("catalog.categoryEmpty", lang, { categoryName: category.displayName });
-    }
-
-    if (category.dbCategory === "Regular Costume") {
-        return t("catalog.costumesTextMenu", lang, {
-            count: active.length,
-            price: formatRupiah(active[0]?.rupiahPrice ?? 20000)
-        });
-    }
-
-    const discountPercent = active[0]?.discountPercent ?? currentStoreDiscount;
-    let out = discountPercent > 0
-        ? t("menu.textCatalogHeaderDiscount", lang, {
-            categoryName: category.displayName.toUpperCase(),
-            count: active.length,
-            discount: discountPercent
-        })
-        : t("menu.textCatalogHeaderSpecial", lang, {
-            categoryName: category.displayName.toUpperCase(),
-            count: active.length
-        });
-
-    active.forEach((item, idx) => {
-        out += t("menu.textCatalogItemLine", lang, {
-            idx: idx + 1,
-            name: item.name,
-            originalPrice: formatRupiah(item.originalPrice),
-            rupiahPrice: formatRupiah(item.rupiahPrice),
-            discountPercent: item.discountPercent
-        });
-    });
-
-    out += t("menu.textCatalogFooter", lang);
-    return out;
-}
-
 export async function sendCategoryOrderPoster(
     remoteJid: string,
     cat: CategoryDefinition,

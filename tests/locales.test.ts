@@ -8,16 +8,12 @@ describe("Locale keys validation", () => {
             "browseCatalog",
             "orderHistory",
             "settingsAndInfo",
-            "help",
             "confirmOrder",
             "applyVoucher",
             "removeVoucher",
             "modifyMenu",
             "checkPayment",
             "cancelOrder",
-            "contactAdmin",
-            "backToShop",
-            "back",
             "nextPage",
             "nextPageShort",
             "prevPage",
@@ -42,7 +38,6 @@ describe("Locale keys validation", () => {
             "navNextPage",
             "navPrevPage",
             "navChangeCategory",
-            "gamertagPrompt",
             "voucherInputPrompt",
             "modifyMenuTitle",
             "modifyMenuDesc",
@@ -57,14 +52,7 @@ describe("Locale keys validation", () => {
             "switchLangId",
             "switchLangEn",
             "switchLangIdDesc",
-            "switchLangEnDesc",
-            "adminPanelTitle",
-            "adminPanelDesc",
-            "adminBtnBalance",
-            "adminBtnOrders",
-            "adminBtnSync",
-            "adminBtnVoucher",
-            "adminBtnDiscount"
+            "switchLangEnDesc"
         ];
 
         for (const key of requiredInteractive) {

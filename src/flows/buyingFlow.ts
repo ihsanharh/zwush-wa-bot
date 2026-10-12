@@ -1,10 +1,10 @@
 import type { BotContext } from "../handlers/message";
 import type { CatalogItem } from "../types";
-import { formatRupiah, t, isBackKeyword, isCancelKeyword, type Language } from "../i18n";
+import { formatRupiah, t, type Language } from "../i18n";
 import { config } from "../config";
 import { generateQrisBuffer } from "../qr";
 import { getItemImageBuffer, resolveItemImageUrl } from "../poster";
-import { CATEGORIES, resolveCategory } from "../utils/categories";
+import { CATEGORIES, findCategory } from "../utils/categories";
 import { sendCategoryOrderPoster, renderOrderCategoryMenu } from "../utils/formatters";
 import { GREETINGS } from "../utils/messageUtils";
 import {
@@ -14,7 +14,8 @@ import {
     buildOrderConfirmationButtons,
     buildModifyOrderListMenu,
     buildInvoiceButtons,
-    buildVoucherPromptButtons
+    buildVoucherPromptButtons,
+    buildQuickReplyPayload
 } from "../utils/interactiveBuilders";
 
 async function sendItemSelectionAndGamertagPrompt(
@@ -79,11 +80,7 @@ export async function handleBuyingFlow(
     // 0. Stateless Catalog Browsing (only handled when session is IDLE and no active pending order)
     if (session.step === "IDLE" && !ctx.state.getActiveOrderId(remoteJid)) {
         if (trimmed.startsWith("cat_")) {
-            const catId = trimmed.replace(/^cat_/, "");
-            const cat =
-                CATEGORIES.find(
-                    (c) => c.dbCategory.toLowerCase() === catId.toLowerCase() || String(c.id) === catId
-                ) || resolveCategory(catId, CATEGORIES);
+            const cat = findCategory(trimmed);
 
             if (cat) {
                 session.selectedCategory = cat.dbCategory;
@@ -211,7 +208,6 @@ export async function handleBuyingFlow(
     // 1. AWAITING_CATEGORY (Legacy text compatibility)
     if (session.step === "AWAITING_CATEGORY") {
         if (
-            isCancelKeyword(trimmed, userLang) ||
             trimmed === "act_cancel" ||
             trimmed === "btn_cancel_order" ||
             trimmed === "opt_cancel_order"
@@ -221,21 +217,18 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        const catId = trimmed;
-        const cat =
-            CATEGORIES.find(
-                (c) => c.dbCategory.toLowerCase() === catId.toLowerCase() || String(c.id) === catId
-            ) || resolveCategory(catId, CATEGORIES);
-
-        if (cat) {
-            session.selectedCategory = cat.dbCategory;
-            session.catalogPage = 1;
-            await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
-            const catalog = await ctx.client.getCatalog();
-            if (ctx.sendList) {
-                await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, 1, 8, userLang));
+        if (trimmed.startsWith("cat_")) {
+            const cat = findCategory(trimmed);
+            if (cat) {
+                session.selectedCategory = cat.dbCategory;
+                session.catalogPage = 1;
+                await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
+                const catalog = await ctx.client.getCatalog();
+                if (ctx.sendList) {
+                    await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, 1, 8, userLang));
+                }
+                return true;
             }
-            return true;
         }
 
         return true;
@@ -244,23 +237,12 @@ export async function handleBuyingFlow(
     // 2. AWAITING_ITEM (Legacy text compatibility)
     if (session.step === "AWAITING_ITEM") {
         if (
-            isCancelKeyword(trimmed, userLang) ||
             trimmed === "act_cancel" ||
             trimmed === "btn_cancel_order" ||
             trimmed === "opt_cancel_order"
         ) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
-            return true;
-        }
-
-        if (isBackKeyword(trimmed, userLang)) {
-            session.step = "IDLE";
-            if (ctx.sendList) {
-                await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
-            } else {
-                await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
-            }
             return true;
         }
 
@@ -270,34 +252,24 @@ export async function handleBuyingFlow(
             ? catalog.filter((i) => i.active && i.category === selectedCat)
             : catalog.filter((i) => i.active);
 
-        let selected: CatalogItem | undefined;
-        if (trimmed.startsWith("item_")) {
-            const itemId = trimmed.replace(/^item_/, "");
-            selected =
-                categoryItems.find(
-                    (i) =>
-                        String(i.id) === itemId ||
-                        i.name.toLowerCase() === itemId.toLowerCase() ||
-                        (i.sku && i.sku.toLowerCase() === itemId.toLowerCase())
-                ) ||
-                catalog.find(
-                    (i) =>
-                        String(i.id) === itemId ||
-                        i.name.toLowerCase() === itemId.toLowerCase() ||
-                        (i.sku && i.sku.toLowerCase() === itemId.toLowerCase())
-                );
-        } else {
-            const num = parseInt(trimmed, 10);
-            if (!isNaN(num) && num >= 1 && num <= categoryItems.length) {
-                selected = categoryItems[num - 1];
-            } else {
-                selected = categoryItems.find(
-                    (i) =>
-                        i.name.toLowerCase() === lower ||
-                        (lower.length >= 3 && i.name.toLowerCase().includes(lower))
-                );
-            }
+        if (!trimmed.startsWith("item_")) {
+            return true;
         }
+
+        const itemId = trimmed.replace(/^item_/, "");
+        const selected: CatalogItem | undefined =
+            categoryItems.find(
+                (i) =>
+                    String(i.id) === itemId ||
+                    i.name.toLowerCase() === itemId.toLowerCase() ||
+                    (i.sku && i.sku.toLowerCase() === itemId.toLowerCase())
+            ) ||
+            catalog.find(
+                (i) =>
+                    String(i.id) === itemId ||
+                    i.name.toLowerCase() === itemId.toLowerCase() ||
+                    (i.sku && i.sku.toLowerCase() === itemId.toLowerCase())
+            );
 
         if (selected) {
             ctx.state.setItem(remoteJid, selected);
@@ -362,9 +334,8 @@ export async function handleBuyingFlow(
         return true;
     }
 
-    // 3. AWAITING_RETRY_GAMERTAG
     if (session.step === "AWAITING_RETRY_GAMERTAG") {
-        if (isCancelKeyword(trimmed, userLang) || trimmed === "act_cancel") {
+        if (trimmed === "act_cancel" || trimmed === "btn_cancel_order") {
             ctx.state.clearRetryOrder(remoteJid);
             await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
             return true;
@@ -393,7 +364,20 @@ export async function handleBuyingFlow(
             gamertag
         });
 
-        await ctx.sendText(remoteJid, confirmMsg);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(
+                remoteJid,
+                buildQuickReplyPayload(
+                    confirmMsg,
+                    [
+                        { id: "act_retry_yes", text: t("buttons.confirmOrder", userLang) },
+                        { id: "act_cancel", text: t("buttons.cancelOrder", userLang) }
+                    ]
+                )
+            );
+        } else {
+            await ctx.sendText(remoteJid, confirmMsg);
+        }
         return true;
     }
 
@@ -402,11 +386,7 @@ export async function handleBuyingFlow(
 
         const isYes =
             trimmed === "act_retry_yes" ||
-            lower === "ya" ||
-            lower === "yes" ||
-            lower === "y" ||
-            lower === "deal" ||
-            lower === "ok";
+            trimmed === "btn_retry_confirm";
         const retry = session.retryOrder;
         if (!retry) {
             ctx.state.clearRetryOrder(remoteJid);
@@ -431,16 +411,9 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        if (isCancelKeyword(trimmed, userLang) || trimmed === "act_cancel") {
+        if (trimmed === "act_cancel" || trimmed === "btn_cancel_order") {
             ctx.state.clearRetryOrder(remoteJid);
             await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
-            return true;
-        }
-
-        if (isBackKeyword(trimmed, userLang)) {
-            session.step = "AWAITING_RETRY_GAMERTAG";
-            session.lastUpdated = Date.now();
-            await ctx.sendText(remoteJid, t("buying.enterCorrectGamertag", userLang));
             return true;
         }
         return true;
@@ -449,7 +422,6 @@ export async function handleBuyingFlow(
     // 5. AWAITING_GAMERTAG
     if (session.step === "AWAITING_GAMERTAG") {
         if (
-            isCancelKeyword(trimmed, userLang) ||
             trimmed === "act_cancel" ||
             trimmed === "btn_cancel_order" ||
             trimmed === "opt_cancel_order"
@@ -460,16 +432,13 @@ export async function handleBuyingFlow(
         }
 
         if (
-            isBackKeyword(trimmed, userLang) ||
             trimmed === "btn_modify_change_item" ||
             trimmed === "opt_change_item"
         ) {
             session.step = "IDLE";
             ctx.state.setPromptMessageId(remoteJid, undefined);
             session.lastUpdated = Date.now();
-            const cat =
-                CATEGORIES.find((c) => c.dbCategory.toLowerCase() === session.selectedCategory?.toLowerCase()) ||
-                CATEGORIES.find((c) => c.displayName.toLowerCase().includes(session.selectedCategory?.toLowerCase() || ""));
+            const cat = findCategory(session.selectedCategory);
             if (cat) {
                 const catalog = await ctx.client.getCatalog();
                 if (ctx.sendList) {
@@ -558,7 +527,6 @@ export async function handleBuyingFlow(
     // 6. AWAITING_CONFIRMATION
     if (session.step === "AWAITING_CONFIRMATION") {
         if (
-            isCancelKeyword(trimmed, userLang) ||
             trimmed === "btn_modify_cancel" ||
             trimmed === "opt_cancel_order" ||
             trimmed === "act_cancel" ||
@@ -566,13 +534,6 @@ export async function handleBuyingFlow(
         ) {
             ctx.state.clear(remoteJid);
             await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
-            return true;
-        }
-
-        if (isBackKeyword(trimmed, userLang)) {
-            session.step = "AWAITING_GAMERTAG";
-            session.lastUpdated = Date.now();
-            await ctx.sendText(remoteJid, t("buying.enterGamertagPrompt", userLang));
             return true;
         }
 
@@ -642,9 +603,7 @@ export async function handleBuyingFlow(
             session.step = "IDLE";
             ctx.state.setPromptMessageId(remoteJid, undefined);
             session.lastUpdated = Date.now();
-            const cat =
-                CATEGORIES.find((c) => c.dbCategory.toLowerCase() === session.selectedCategory?.toLowerCase()) ||
-                CATEGORIES.find((c) => c.displayName.toLowerCase().includes(session.selectedCategory?.toLowerCase() || ""));
+            const cat = findCategory(session.selectedCategory);
             if (cat) {
                 const catalog = await ctx.client.getCatalog();
                 if (ctx.sendList) {
@@ -722,13 +681,7 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        const isConfirmed =
-            trimmed === "btn_confirm_order" ||
-            trimmed.toUpperCase() === "YES" ||
-            trimmed.toUpperCase() === "YA" ||
-            trimmed.toUpperCase() === "Y" ||
-            trimmed.toUpperCase() === "OK" ||
-            trimmed.toUpperCase() === "OKE";
+        const isConfirmed = trimmed === "btn_confirm_order";
 
         if (isConfirmed) {
             const item = session.selectedItem!;
@@ -810,8 +763,7 @@ export async function handleBuyingFlow(
             trimmed === "btn_cancel_voucher" ||
             trimmed === "btn_cancel_order" ||
             trimmed === "opt_cancel_order" ||
-            isCancelKeyword(trimmed, userLang) ||
-            isBackKeyword(trimmed, userLang)
+            trimmed === "act_cancel"
         ) {
             session.step = "AWAITING_CONFIRMATION";
             session.lastUpdated = Date.now();

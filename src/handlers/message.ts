@@ -1,23 +1,16 @@
 import type { CoreClient } from "../coreClient";
 import type { StateManager } from "../state";
-import type { CatalogItem } from "../types";
 import type { AdminGroupLogger } from "./adminLogger";
 import { formatStatusBadge, formatRupiah, t, type Language } from "../i18n";
 import { config } from "../config";
 import {
     CATEGORIES,
     type CategoryDefinition,
-    resolveCategory,
-    currentStoreDiscount,
-    getKnownStoreDiscount,
-    setKnownStoreDiscount
+    resolveCategory
 } from "../utils/categories";
 import {
     formatStatusText,
-    renderMainMenu,
-    renderOrderCategoryMenu,
-    renderCategoryItems,
-    sendCategoryOrderPoster
+    renderOrderCategoryMenu
 } from "../utils/formatters";
 import {
     extractMessageText,
@@ -28,8 +21,9 @@ import {
     extractPhoneNumber,
     isUserAdmin,
     executeUserSequential,
-    sendUnrecognizedCommand,
-    GREETINGS
+    extractMentionedJids,
+    isBotMentioned,
+    isBotTaggedOrCalled
 } from "../utils/messageUtils";
 import {
     isLiveChatActive,
@@ -37,10 +31,16 @@ import {
     handleSupportConfirmation,
     startUserLiveChat
 } from "../flows/supportFlow";
-import { defaultRegistry } from "../commands";
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import { handleAdminAction } from "./adminActions";
-import { isCancelKeyword } from "../i18n";
+import {
+    buildAdminPanelMenu,
+    buildAdminPanelQuickReply,
+    buildCategoryListMenu,
+    buildOrderHistoryButtons,
+    buildSettingsListMenu,
+    buildWelcomeButtons
+} from "../utils/interactiveBuilders";
 
 // Re-exports for backward compatibility
 export {
@@ -49,14 +49,8 @@ export {
     CATEGORIES,
     type CategoryDefinition,
     resolveCategory,
-    currentStoreDiscount,
-    getKnownStoreDiscount,
-    setKnownStoreDiscount,
     formatStatusText,
-    renderMainMenu,
     renderOrderCategoryMenu,
-    renderCategoryItems,
-    sendCategoryOrderPoster,
     extractMessageText,
     extractQuotedMessageId,
     isPrivateChat,
@@ -65,7 +59,9 @@ export {
     extractPhoneNumber,
     isUserAdmin,
     executeUserSequential,
-    sendUnrecognizedCommand
+    extractMentionedJids,
+    isBotMentioned,
+    isBotTaggedOrCalled
 };
 
 export interface BotContext {
@@ -73,6 +69,7 @@ export interface BotContext {
     state: StateManager;
     adminLogger?: AdminGroupLogger;
     qrDeleter?: (jid: string, key?: any) => Promise<void>;
+    botJid?: string;
     sendText(jid: string, text: string, mentions?: string[]): Promise<void>;
     sendImage(jid: string, buffer: Buffer, caption?: string): Promise<any>;
     sendPoll?(jid: string, title: string, options: string[]): Promise<void>;
@@ -99,7 +96,8 @@ export async function handleIncomingMessage(
     ctx?: BotContext,
     participant?: string,
     timestampSeconds?: number,
-    quotedMessageId?: string
+    quotedMessageId?: string,
+    mentionedJidsList?: string[]
 ): Promise<void> {
     let remoteJid: string | undefined;
     let fromMe = false;
@@ -107,6 +105,7 @@ export async function handleIncomingMessage(
     let context: BotContext;
     let part = participant;
     let quotedId = quotedMessageId;
+    let mentionedJids: string[] = mentionedJidsList || [];
 
     if (typeof remoteJidOrEvent === "string") {
         remoteJid = remoteJidOrEvent;
@@ -127,6 +126,9 @@ export async function handleIncomingMessage(
         if (!quotedId) {
             quotedId = extractQuotedMessageId(ev?.message);
         }
+        if (mentionedJids.length === 0) {
+            mentionedJids = extractMentionedJids(ev?.message);
+        }
     }
 
     if (!remoteJid || !context) return;
@@ -137,7 +139,7 @@ export async function handleIncomingMessage(
         : remoteJid;
 
     await executeUserSequential(userKey, () =>
-        handleIncomingMessageInternal(remoteJid!, fromMe, text, context, part, quotedId)
+        handleIncomingMessageInternal(remoteJid!, fromMe, text, context, part, quotedId, mentionedJids)
     );
 }
 
@@ -147,7 +149,8 @@ async function handleIncomingMessageInternal(
     bodyText: string,
     ctx: BotContext,
     participant?: string,
-    quotedMessageId?: string
+    quotedMessageId?: string,
+    mentionedJids: string[] = []
 ): Promise<void> {
     const isGroup = remoteJid.endsWith("@g.us");
     if (!isPrivateChat(remoteJid) && !isGroup) {
@@ -219,44 +222,27 @@ async function handleIncomingMessageInternal(
             if (handledAdminAction) return;
         }
 
-        // Slash commands are STRICTLY EXCLUSIVE to the Admin Group
-        if (!trimmed.startsWith("/")) {
-            return;
-        }
-
-        if (adminGroupJid && remoteJid !== adminGroupJid) {
-            return;
-        }
-
-        // Non-admins have no commands in groups
+        // Only admins can trigger bot interactions in groups
         if (!isAdmin) {
             return;
         }
 
-        const parts = trimmed.split(/\s+/);
-        const cmd = parts[0]?.toLowerCase() || "";
-        const args = parts.slice(1);
-
-        // Only the 3 essential administrative commands are allowed:
-        const ALLOWED_ADMIN_COMMANDS = new Set(["/maintenance", "/sync", "/saldo", "/balance"]);
-        if (!ALLOWED_ADMIN_COMMANDS.has(cmd)) {
+        // Truly mentioned (@<botPhone> or mentionedJid) in the Admin Group -> Reply with Admin Panel
+        const isAdminGroup = !adminGroupJid || remoteJid === adminGroupJid;
+        if (isAdminGroup && isBotMentioned(trimmed, mentionedJids, ctx.botJid)) {
+            const isMaint = ctx.state.isMaintenanceMode ? ctx.state.isMaintenanceMode() : false;
+            if (ctx.sendList) {
+                await ctx.sendList(remoteJid, buildAdminPanelMenu(userLang, isMaint));
+            } else if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(userLang, isMaint));
+            } else {
+                const qr = buildAdminPanelQuickReply(userLang, isMaint);
+                await ctx.sendText(remoteJid, qr.text, [effectiveSender]);
+            }
             return;
         }
 
-        const handled = await defaultRegistry.dispatch(cmd, {
-            remoteJid,
-            sender: effectiveSender,
-            args,
-            rawText: trimmed,
-            isGroup: true,
-            isAdmin: true,
-            userLang,
-            ctx
-        });
-
-        if (!handled) {
-            await sendUnrecognizedCommand(remoteJid, cmd, userLang, ctx, effectiveSender);
-        }
+        // Silently drop any other text or slash commands in groups
         return;
     }
 
@@ -277,7 +263,7 @@ async function handleIncomingMessageInternal(
 
     // Live chat active: bot is paused so admin can chat directly with customer via WhatsApp web/app
     if (isLiveChatActive(remoteJid, ctx)) {
-        if (isCancelKeyword(trimmed, userLang) || trimmed === "btn_cancel_livechat" || trimmed === "btn_cancel_order") {
+        if (trimmed === "btn_cancel_livechat" || trimmed === "btn_cancel_order") {
             ctx.state.endLiveChat(remoteJid);
             await ctx.sendText(remoteJid, t("support.cancelledNotice", userLang));
         }
@@ -333,27 +319,16 @@ async function handleIncomingMessageInternal(
         return;
     }
 
-    // Bare cancel keyword or quick-reply cancel button check
-    if (trimmed === "btn_cancel_order" || isCancelKeyword(trimmed, userLang)) {
-        if (
-            trimmed === "btn_cancel_order" ||
-            activeOrderId ||
-            (session.step !== "IDLE" &&
-                session.step !== "LIVE_CHAT" &&
-                session.step !== "AWAITING_SUPPORT_CONFIRMATION" &&
-                session.step !== "AWAITING_RETRY_GAMERTAG" &&
-                session.step !== "AWAITING_RETRY_CONFIRMATION")
-        ) {
-            await handleCustomerCancel(remoteJid, activeOrderId, session, userLang, ctx);
-            return;
-        }
+    // Quick-reply cancel button check
+    if (trimmed === "btn_cancel_order") {
+        await handleCustomerCancel(remoteJid, activeOrderId, session, userLang, ctx);
+        return;
     }
 
     // Quick-entry buttons from welcome greeting (only active when session is IDLE and no active pending order)
     if (session.step === "IDLE" && !activeOrderId) {
         if (trimmed === "btn_start_buying") {
             if (ctx.sendList) {
-                const { buildCategoryListMenu } = await import("../utils/interactiveBuilders");
                 await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
             } else {
                 await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
@@ -372,7 +347,6 @@ async function handleIncomingMessageInternal(
                     await ctx.sendText(remoteJid, t("history.empty", userLang));
                     return;
                 }
-                const { buildOrderHistoryButtons } = await import("../utils/interactiveBuilders");
                 const historyPayload = buildOrderHistoryButtons(orders, page, 5, userLang);
                 if (ctx.sendButtons) {
                     await ctx.sendButtons(remoteJid, historyPayload);
@@ -388,7 +362,6 @@ async function handleIncomingMessageInternal(
 
         if (trimmed === "btn_settings") {
             if (ctx.sendList) {
-                const { buildSettingsListMenu } = await import("../utils/interactiveBuilders");
                 await ctx.sendList(remoteJid, buildSettingsListMenu(userLang));
             }
             return;
@@ -398,7 +371,6 @@ async function handleIncomingMessageInternal(
             const nextLang: Language = userLang === "id" ? "en" : "id";
             ctx.state.setLanguage(remoteJid, nextLang);
             if (ctx.sendButtons) {
-                const { buildWelcomeButtons } = await import("../utils/interactiveBuilders");
                 await ctx.sendButtons(remoteJid, buildWelcomeButtons(nextLang));
             } else {
                 await ctx.sendText(remoteJid, t("languageSwitched", nextLang));
@@ -414,7 +386,6 @@ async function handleIncomingMessageInternal(
 
         if (trimmed === "btn_help") {
             if (ctx.sendButtons) {
-                const { buildWelcomeButtons } = await import("../utils/interactiveBuilders");
                 await ctx.sendButtons(remoteJid, buildWelcomeButtons(userLang));
             } else {
                 await ctx.sendText(remoteJid, t("greeting", userLang));
@@ -470,7 +441,6 @@ async function handleIncomingMessageInternal(
         ctx.state.setLastGreetingAt(remoteJid, now);
 
         if (ctx.sendButtons) {
-            const { buildWelcomeButtons } = await import("../utils/interactiveBuilders");
             await ctx.sendButtons(remoteJid, buildWelcomeButtons(userLang));
         } else {
             await ctx.sendText(remoteJid, t("greeting", userLang));
@@ -554,7 +524,7 @@ async function handleCustomerCheckPayment(
 
 async function handleCustomerCancel(
     remoteJid: string,
-    activeOrderId: string | null,
+    activeOrderId: string | null | undefined,
     session: any,
     userLang: Language,
     ctx: BotContext

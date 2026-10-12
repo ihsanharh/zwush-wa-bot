@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import type { CatalogItem } from "./types";
-import type { CategoryDefinition } from "./handlers/message";
+import type { CategoryDefinition } from "./utils/categories";
 import { config } from "./config";
 import { formatRupiah, t, type Language } from "./i18n";
 
@@ -360,15 +360,3 @@ export async function generateCategoryPoster(
     return finalBuffer;
 }
 
-export async function generateCategoryPosters(
-    category: CategoryDefinition,
-    items: CatalogItem[]
-): Promise<Buffer[]> {
-    const poster = await generateCategoryPoster(category, items);
-    return [poster];
-}
-
-export function getCachedPosters(categoryDbName: string): Buffer[] | undefined {
-    const cached = getCachedPoster(categoryDbName);
-    return cached ? [cached] : undefined;
-}

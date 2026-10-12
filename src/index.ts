@@ -7,14 +7,14 @@ import { config } from "./config";
 import { CoreClient } from "./coreClient";
 import { StateManager } from "./state";
 import { createWebhookApp, type BotMessageSender } from "./handlers/webhook";
+import { handleIncomingMessage, type BotContext } from "./handlers/message";
 import {
-    handleIncomingMessage,
     extractMessageText,
     extractQuotedMessageId,
     extractEventTimestampSeconds,
     isEventStale,
-    type BotContext
-} from "./handlers/message";
+    extractMentionedJids
+} from "./utils/messageUtils";
 import { AdminGroupLogger } from "./handlers/adminLogger";
 
 console.log(`⚡ Starting ${config.STORE_NAME} WhatsApp Bot...`);
@@ -222,12 +222,17 @@ async function discoverGroups() {
 client.on("connection", async (event) => {
     if (event.status === "open") {
         console.log(`✅ Connection open: ${event.reason}`);
+        const creds = client.getCredentials();
+        if (creds?.meJid) {
+            botContext.botJid = creds.meJid;
+        }
         await discoverGroups();
     }
 });
 
 client.on("auth_paired", async ({ credentials }) => {
     console.log(`✅ Successfully paired as: ${credentials.meJid}`);
+    botContext.botJid = credentials.meJid;
     await discoverGroups();
 });
 
@@ -275,9 +280,10 @@ client.on("message", async (event) => {
 
         const tsSec = extractEventTimestampSeconds(event) ?? undefined;
         const quotedId = extractQuotedMessageId(event.message);
+        const mentionedJids = extractMentionedJids(event.message);
         console.log(`[WhatsApp Message Event] from: ${remoteJid}, participant: ${participant}, fromMe: ${fromMe}, text: "${text}"${quotedId ? `, quotedId: ${quotedId}` : ""}`);
 
-        await handleIncomingMessage(remoteJid, fromMe, text, botContext, participant, tsSec, quotedId);
+        await handleIncomingMessage(remoteJid, fromMe, text, botContext, participant, tsSec, quotedId, mentionedJids);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[Message Event Error]:", msg);

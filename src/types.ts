@@ -63,12 +63,6 @@ export interface OrderRetryResponse {
     status: OrderStatus;
 }
 
-export interface OrderRetryAllResponse {
-    success: boolean;
-    count: number;
-    orderIds: string[];
-}
-
 export interface OrderNotificationPayload {
     orderId: string;
     platform: string;
@@ -79,24 +73,6 @@ export interface OrderNotificationPayload {
     message?: string;
     timestamp?: number;
     silent?: boolean;
-}
-
-export interface VoucherItem {
-    id: string;
-    code: string;
-    discountType: "PERCENT" | "FLAT";
-    discountValue: number;
-    maxUses?: number | null;
-    usedCount: number;
-    active: boolean;
-    expiresAt?: string | null;
-    createdAt: string;
-}
-
-export interface VoucherStatusResponse {
-    success: boolean;
-    discountPercent: number;
-    vouchers: VoucherItem[];
 }
 
 export interface VoucherValidationResponse {

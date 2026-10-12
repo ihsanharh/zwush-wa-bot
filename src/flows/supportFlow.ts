@@ -36,8 +36,8 @@ export async function startUserLiveChat(
             attempts: retry?.attempts,
             platformUserId: effectiveSender || remoteJid,
             reason: reason || (retry?.attempts && retry.attempts >= 3
-                ? `Gamertag tidak ditemukan di The Hive setelah ${retry.attempts}x percobaan`
-                : "Pelanggan memulai sesi Live Chat Support via tombol")
+                ? t("support.reasonGamertagNotFound", userLang, { attempts: retry.attempts })
+                : t("support.reasonCustomerStarted", userLang))
         });
     }
 }
@@ -55,31 +55,15 @@ export async function handleSupportConfirmation(
     }
 
     const trimmed = text.trim();
-    const lower = trimmed.toLowerCase();
 
     const isYes =
         trimmed === "btn_support_confirm" ||
         trimmed === "btn_start_livechat" ||
-        trimmed.startsWith("btn_start_livechat_") ||
-        lower === "ya" ||
-        lower === "yes" ||
-        lower === "y" ||
-        lower === "1" ||
-        lower === "lanjut" ||
-        lower === "oke" ||
-        lower === "ok" ||
-        lower === "siap";
+        trimmed.startsWith("btn_start_livechat_");
 
     const isCancel =
         trimmed === "btn_support_cancel" ||
-        lower === "batal" ||
-        lower === "cancel" ||
-        lower === "tidak" ||
-        lower === "no" ||
-        lower === "gak" ||
-        lower === "ngga" ||
-        lower === "c" ||
-        lower === "b";
+        trimmed === "btn_cancel_order";
 
     if (isYes) {
         const orderIdMatch = trimmed.startsWith("btn_start_livechat_")
@@ -96,7 +80,6 @@ export async function handleSupportConfirmation(
         return true;
     }
 
-    const promptHint = t("support.consentHint", userLang);
-    await ctx.sendText(remoteJid, promptHint);
+    // Zero-Text Policy: ignore free-form manual text; user must interact via buttons
     return true;
 }

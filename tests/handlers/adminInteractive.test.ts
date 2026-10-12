@@ -3,7 +3,6 @@ import { handleIncomingMessage } from "../../src/handlers/message";
 import { AdminGroupLogger } from "../../src/handlers/adminLogger";
 import { StateManager } from "../../src/state";
 import type { BotContext } from "../../src/handlers/message";
-import { defaultRegistry } from "../../src/commands";
 
 describe("Admin Interactive Buttons & Action Handlers", () => {
     let state: StateManager;

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { handleBuyingFlow } from "../../src/flows/buyingFlow";
+import { handleSupportConfirmation } from "../../src/flows/supportFlow";
 import { handleIncomingMessage } from "../../src/handlers/message";
 import { StateManager } from "../../src/state";
 import type { BotContext } from "../../src/handlers/message";
@@ -588,6 +589,71 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         await handleIncomingMessage(testJid, false, "btn_cancel_order", mockContext);
         expect(sentTexts.length).toBeGreaterThanOrEqual(1);
         expect(state.getActiveOrderId(testJid)).toBeUndefined();
+    });
+
+    it("should strictly reject manual text in AWAITING_CONFIRMATION and only accept btn_confirm_order", async () => {
+        state.startBuyingFlow(testJid);
+        state.setCategory(testJid, "Regular Pet");
+        state.setItem(testJid, catalogItems[0]!);
+        state.setGamertag(testJid, "SteveGamer");
+        expect(state.getSession(testJid).step).toBe("AWAITING_CONFIRMATION");
+
+        // Typing manual text like "ya", "yes", "oke", "deal" should NOT confirm order
+        for (const manualText of ["ya", "yes", "oke", "deal", "YA", "YES", "OK"]) {
+            sentImages = [];
+            sentButtons = [];
+            const handled = await handleBuyingFlow(testJid, false, manualText, mockContext, "id");
+            expect(handled).toBe(true);
+            expect(state.getSession(testJid).step).toBe("AWAITING_CONFIRMATION");
+            expect(state.getActiveOrderId(testJid)).toBeUndefined();
+            expect(sentImages.length).toBe(0);
+        }
+
+        // Only the button btn_confirm_order confirms the order
+        const handled = await handleBuyingFlow(testJid, false, "btn_confirm_order", mockContext, "id");
+        expect(handled).toBe(true);
+        expect(state.getSession(testJid).step).toBe("IDLE");
+        expect(state.getActiveOrderId(testJid)).toBe("ORD-TEST99");
+    });
+
+    it("should strictly reject manual numbers or text in AWAITING_ITEM and only accept item_ prefix buttons", async () => {
+        state.startBuyingFlow(testJid);
+        state.setCategory(testJid, "Regular Pet");
+        expect(state.getSession(testJid).step).toBe("AWAITING_ITEM");
+
+        // Typing manual numbers or names should NOT select item
+        for (const manualText of ["1", "2", "Dragon Pet", "Wolf Pet"]) {
+            sentTexts = [];
+            const handled = await handleBuyingFlow(testJid, false, manualText, mockContext, "id");
+            expect(handled).toBe(true);
+            expect(state.getSession(testJid).step).toBe("AWAITING_ITEM");
+            expect(state.getSession(testJid).selectedItem).toBeUndefined();
+        }
+
+        // Button selection with item_ prefix succeeds
+        const handled = await handleBuyingFlow(testJid, false, "item_pet-1", mockContext, "id");
+        expect(handled).toBe(true);
+        expect(state.getSession(testJid).step).toBe("AWAITING_GAMERTAG");
+        expect(state.getSession(testJid).selectedItem?.id).toBe("pet-1");
+    });
+
+    it("should strictly reject manual text in handleSupportConfirmation and only accept button IDs", async () => {
+        state.getSession(testJid).step = "AWAITING_SUPPORT_CONFIRMATION";
+
+        // Typing manual text like "ya", "siap", "lanjut", "batal" should be ignored (not start chat or send text)
+        for (const manualText of ["ya", "siap", "lanjut", "oke", "y", "batal", "tidak", "gak"]) {
+            sentTexts = [];
+            const handled = await handleSupportConfirmation(testJid, manualText, mockContext, "id");
+            expect(handled).toBe(true);
+            expect(state.getSession(testJid).step).toBe("AWAITING_SUPPORT_CONFIRMATION");
+            expect(sentTexts.length).toBe(0);
+        }
+
+        // Button btn_support_confirm starts live chat
+        const handled = await handleSupportConfirmation(testJid, "btn_support_confirm", mockContext, "id");
+        expect(handled).toBe(true);
+        expect(state.getSession(testJid).step).toBe("LIVE_CHAT");
+        expect(sentTexts.length).toBe(1);
     });
 });
 

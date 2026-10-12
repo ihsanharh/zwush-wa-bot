@@ -17,14 +17,6 @@ export const CATEGORIES: CategoryDefinition[] = [
 
 export let currentStoreDiscount = 50;
 
-export function getKnownStoreDiscount(): number {
-    return currentStoreDiscount;
-}
-
-export function setKnownStoreDiscount(percent: number): void {
-    currentStoreDiscount = percent;
-}
-
 export function resolveCategory(input: string, categories: CategoryDefinition[]): CategoryDefinition | undefined {
     const trimmed = input.trim().toLowerCase();
     if (!trimmed) return undefined;
@@ -53,3 +45,18 @@ export function resolveCategory(input: string, categories: CategoryDefinition[])
             trimmed.includes(c.dbCategory.toLowerCase())
     );
 }
+
+export function findCategory(identifier: string | null | undefined): CategoryDefinition | undefined {
+    if (!identifier) return undefined;
+    const clean = identifier.replace(/^cat_/, "").trim();
+    if (!clean) return undefined;
+    return (
+        CATEGORIES.find(
+            (c) =>
+                c.dbCategory.toLowerCase() === clean.toLowerCase() ||
+                String(c.id) === clean ||
+                c.displayName.toLowerCase().includes(clean.toLowerCase())
+        ) || resolveCategory(clean, CATEGORIES)
+    );
+}
+

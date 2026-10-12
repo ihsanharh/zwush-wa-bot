@@ -1,4 +1,4 @@
-import type { CatalogItem, OrderNotificationPayload, OrderStatus } from "./types";
+import type { OrderNotificationPayload } from "./types";
 import { config } from "./config";
 import idLocale from "./locales/id.json";
 import enLocale from "./locales/en.json";
@@ -178,24 +178,4 @@ function resolveNestedKey(obj: any, path: string): any {
         }
     }
     return curr;
-}
-
-/**
- * Checks whether user input matches a navigation "back" keyword for the given language.
- */
-export function isBackKeyword(input: string, lang: Language = "id"): boolean {
-    const lower = input.trim().toLowerCase();
-    const dict = locales[lang] || locales.id;
-    const keywords: string[] = (dict as any).navigation?.backKeywords || (locales.id as any).navigation?.backKeywords || ["k", "kembali", "back"];
-    return keywords.some((k) => k.toLowerCase() === lower);
-}
-
-/**
- * Checks whether user input matches a navigation "cancel" keyword for the given language.
- */
-export function isCancelKeyword(input: string, lang: Language = "id"): boolean {
-    const lower = input.trim().toLowerCase();
-    const dict = locales[lang] || locales.id;
-    const keywords: string[] = (dict as any).navigation?.cancelKeywords || (locales.id as any).navigation?.cancelKeywords || ["b", "batal", "c", "cancel"];
-    return keywords.some((k) => k.toLowerCase() === lower);
 }

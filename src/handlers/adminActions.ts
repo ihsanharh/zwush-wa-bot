@@ -1,20 +1,240 @@
 import type { BotContext } from "./message";
-import type { Language } from "../types";
 import { config } from "../config";
-import { t } from "../i18n";
+import { formatRupiah, t, type Language } from "../i18n";
 import { extractPhoneNumber } from "../utils/messageUtils";
+import { clearPosterCache } from "../poster";
+import {
+    buildAdminBalanceButtons,
+    buildAdminMaintenanceButtons,
+    buildAdminOrderFailureButtons,
+    buildAdminPanelMenu,
+    buildAdminPanelQuickReply,
+    buildQuickReplyPayload,
+    buildUserOrderFailureButtons
+} from "../utils/interactiveBuilders";
+
+async function getOrderDetails(ctx: BotContext, orderId: string) {
+    let buyerJid = "";
+    let itemName = "Item";
+    let gamertag = "-";
+    try {
+        const orderInfo = await ctx.client.getOrderStatus(orderId);
+        if (orderInfo) {
+            buyerJid = orderInfo.platformUserId || "";
+            itemName = orderInfo.itemName || itemName;
+            gamertag = orderInfo.gamertag || gamertag;
+        }
+    } catch {}
+    return { buyerJid, itemName, gamertag };
+}
+
+async function notifyFailureWithButtons(
+    ctx: BotContext,
+    remoteJid: string,
+    orderId: string,
+    errorMsg: string,
+    mentions?: string[],
+    buyerJid?: string,
+    promptKey: string = "admin.actionQueueFailed"
+): Promise<void> {
+    try {
+        const failPayload = buildAdminOrderFailureButtons(orderId, errorMsg, "id");
+        const adminText = t(promptKey, "id", { orderId, error: errorMsg });
+        await ctx.sendText(remoteJid, adminText, mentions);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, failPayload);
+        }
+    } catch {
+        await ctx.sendText(remoteJid, t("admin.actionPaidFailed", "id", { orderId, error: errorMsg }), mentions);
+    }
+
+    if (buyerJid) {
+        try {
+            const buyerLang = ctx.state.getLanguage(buyerJid);
+            const userBtns = buildUserOrderFailureButtons(orderId, errorMsg, buyerLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(buyerJid, userBtns);
+            } else {
+                await ctx.sendText(buyerJid, userBtns.text);
+            }
+        } catch (buyerErr) {
+            console.warn(`[adminAction] Failed to notify buyer ${buyerJid} on failure:`, buyerErr);
+        }
+    }
+}
 
 export async function handleAdminAction(
     remoteJid: string,
     actionId: string,
     effectiveSender: string,
     isGroup: boolean,
-    userLang: Language,
+    _userLang: Language,
     ctx: BotContext
 ): Promise<boolean> {
     const mentions = isGroup && effectiveSender ? [effectiveSender] : undefined;
     const cleanSenderPhone = extractPhoneNumber(effectiveSender);
     const senderTag = cleanSenderPhone ? `@${cleanSenderPhone}` : "Admin";
+
+    // 0. Admin Panel Main Drawer / Fallback
+    if (actionId === "admin_panel" || actionId === "btn_admin_panel") {
+        const isMaint = ctx.state.isMaintenanceMode();
+        if (ctx.sendList) {
+            await ctx.sendList(remoteJid, buildAdminPanelMenu(_userLang, isMaint));
+        } else if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(_userLang, isMaint));
+        } else {
+            const qr = buildAdminPanelQuickReply(_userLang, isMaint);
+            await ctx.sendText(remoteJid, qr.text, mentions);
+        }
+        return true;
+    }
+
+    // 0.1 Admin Panel: Balance Summary & Refresh
+    if (actionId === "admin_panel_balance" || actionId === "btn_admin_balance_refresh") {
+        const forceRefresh = actionId === "btn_admin_balance_refresh";
+        try {
+            const res = await ctx.client.getBalance(forceRefresh);
+            const gamertag = res.bot.gamertag;
+            const tokens = res.bot.tokens;
+            const costumeTokens = res.bot.costumeTokens ?? 0;
+            const botStatus = res.bot.status === "ONLINE"
+                ? t("admin.balanceOnline", _userLang)
+                : t("admin.balanceOffline", _userLang);
+            const s = res.summary;
+
+            const out = t("admin.balanceSummary", _userLang, {
+                gamertag,
+                botStatus,
+                tokens,
+                costumeTokens,
+                todayCompleted: s.todayCompleted,
+                todayRevenue: formatRupiah(s.todayRevenue),
+                pendingPayment: s.pendingPayment,
+                giftingQueue: s.giftingQueue,
+                insufficientTokens: s.insufficientTokens,
+                discountPercent: s.discountPercent,
+                activeVouchers: s.activeVouchers,
+                storeUpper: config.STORE_NAME.toUpperCase()
+            });
+
+            const buttonsPayload = buildAdminBalanceButtons(out, _userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buttonsPayload);
+            } else {
+                await ctx.sendText(remoteJid, out, mentions);
+            }
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            await ctx.sendText(remoteJid, t("admin.balanceFailed", _userLang, { error: errMsg }), mentions);
+        }
+        return true;
+    }
+
+    // 0.2 Admin Panel: Maintenance Mode Menu & Toggles
+    if (actionId === "admin_panel_maintenance") {
+        const isMaint = ctx.state.isMaintenanceMode();
+        const maintPayload = buildAdminMaintenanceButtons(isMaint, _userLang);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, maintPayload);
+        } else {
+            await ctx.sendText(remoteJid, maintPayload.text, mentions);
+        }
+        return true;
+    }
+
+    if (actionId === "btn_admin_maint_on") {
+        ctx.state.setMaintenanceMode(true);
+        const notice = t("admin.maintenanceEnabled", _userLang, { store: config.STORE_NAME });
+        await ctx.sendText(remoteJid, notice, mentions);
+        const maintPayload = buildAdminMaintenanceButtons(true, _userLang);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, maintPayload);
+        }
+        return true;
+    }
+
+    if (actionId === "btn_admin_maint_off") {
+        ctx.state.setMaintenanceMode(false);
+        const notice = t("admin.maintenanceDisabled", _userLang, { store: config.STORE_NAME });
+        await ctx.sendText(remoteJid, notice, mentions);
+        const maintPayload = buildAdminMaintenanceButtons(false, _userLang);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, maintPayload);
+        }
+        return true;
+    }
+
+    // 0.3 Admin Panel: Catalog Sync
+    if (actionId === "admin_panel_sync") {
+        try {
+            await ctx.client.syncCatalog();
+            clearPosterCache();
+            const successMsg = t("admin.syncSuccess", _userLang);
+            const payload = buildQuickReplyPayload(successMsg, [
+                { id: "btn_admin_panel", text: t("buttons.adminPanel", _userLang) }
+            ]);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, payload);
+            } else {
+                await ctx.sendText(remoteJid, successMsg, mentions);
+            }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            const failMsg = t("admin.syncFailed", _userLang, { message: msg });
+            await ctx.sendText(remoteJid, failMsg, mentions);
+        }
+        return true;
+    }
+
+    // 0.4 Admin Panel: Order Monitoring
+    if (actionId === "admin_panel_orders") {
+        try {
+            const res = await ctx.client.getBalance(false);
+            const s = res.summary;
+            const text = `${t("interactive.adminOrdersTitle", _userLang)}\n\n` +
+                `• Selesai Hari Ini: *${s.todayCompleted}* pesanan\n` +
+                `• Menunggu Pembayaran: *${s.pendingPayment}* pesanan\n` +
+                `• Antrean Gifting: *${s.giftingQueue}* pesanan\n` +
+                `• Tertahan Token: *${s.insufficientTokens}* pesanan\n\n` +
+                `💡 _Pesanan yang tertahan atau gagal dapat langsung diproses melalui tombol aksi pada grup log/admin._`;
+            const payload = buildQuickReplyPayload(text, [
+                { id: "btn_admin_panel", text: t("buttons.adminPanel", _userLang) }
+            ]);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, payload);
+            } else {
+                await ctx.sendText(remoteJid, text, mentions);
+            }
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            await ctx.sendText(remoteJid, `❌ Gagal memuat data pesanan: ${errMsg}`, mentions);
+        }
+        return true;
+    }
+
+    // 0.5 Admin Panel: Vouchers & Discount
+    if (actionId === "admin_panel_vouchers") {
+        try {
+            const res = await ctx.client.getBalance(false);
+            const s = res.summary;
+            const text = `${t("interactive.adminVouchersTitle", _userLang)}\n\n` +
+                `• Diskon Global Toko: *${s.discountPercent}%*\n` +
+                `• Total Voucher Aktif: *${s.activeVouchers}* voucher\n\n` +
+                `💡 _Diskon toko diterapkan langsung ke seluruh katalog item. Voucher tambahan dapat diklaim pembeli saat konfirmasi order._`;
+            const payload = buildQuickReplyPayload(text, [
+                { id: "btn_admin_panel", text: t("buttons.adminPanel", _userLang) }
+            ]);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, payload);
+            } else {
+                await ctx.sendText(remoteJid, text, mentions);
+            }
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            await ctx.sendText(remoteJid, `❌ Gagal memuat data voucher: ${errMsg}`, mentions);
+        }
+        return true;
+    }
 
     // 1. Mark Paid + Auto Reprocess
     if (actionId.startsWith("btn_admin_paid_") || actionId.startsWith("admin_paid_")) {
@@ -26,27 +246,12 @@ export async function handleAdminAction(
                 await (ctx.client as any).markOrderPaid(orderId);
             }
 
-            // Retrieve order info to notify buyer
-            let buyerJid = "";
-            let itemName = "Item";
-            let gamertag = "-";
-            try {
-                const orderInfo = await ctx.client.getOrderStatus(orderId);
-                if (orderInfo) {
-                    buyerJid = orderInfo.platformUserId || "";
-                    itemName = orderInfo.itemName || itemName;
-                    gamertag = orderInfo.gamertag || gamertag;
-                }
-            } catch {}
+            const { buyerJid, itemName, gamertag } = await getOrderDetails(ctx, orderId);
 
             // Notify buyer: payment verified & queued
             if (buyerJid) {
                 const buyerLang = ctx.state.getLanguage(buyerJid);
-                const isEn = buyerLang === "en";
-                const buyerNotice = isEn
-                    ? `✅ *PAYMENT RECEIVED & VERIFIED!* 🎉\n\nPayment for order *#${orderId}* (*${itemName}*) has been verified by Admin.\n\n⏳ Your order is now directly queued for delivery in The Hive Bedrock! 🚀`
-                    : `✅ *PEMBAYARAN DITERIMA & DIVERIFIKASI!* 🎉\n\nPembayaran untuk pesanan *#${orderId}* (*${itemName}*) telah diverifikasi oleh Admin.\n\n⏳ Pesanan kakak sekarang langsung masuk ke antrean pengiriman The Hive Bedrock! Mohon ditunggu ya kak 🚀`;
-
+                const buyerNotice = t("admin.buyerPaidNotice", buyerLang, { orderId, itemName });
                 try {
                     await ctx.sendText(buyerJid, buyerNotice);
                 } catch (notifyErr) {
@@ -64,14 +269,13 @@ export async function handleAdminAction(
 
                 await ctx.sendText(
                     remoteJid,
-                    `✅ Pesanan *#${orderId}* berhasil ditandai *LUNAS* dan dikirim ke antrean pengiriman The Hive oleh ${senderTag}! 🚀`,
+                    t("admin.actionPaidSuccess", "id", { orderId, senderTag }),
                     mentions
                 );
             } catch (reErr: unknown) {
                 const reErrMsg = reErr instanceof Error ? reErr.message : String(reErr);
                 console.warn(`[adminAction] Auto-reprocess after paid failed for #${orderId}:`, reErrMsg);
 
-                // Send failure alert in group with Retry button
                 if (ctx.adminLogger) {
                     await ctx.adminLogger.updateOrderStatus(orderId, "FAILED", {
                         failureReason: reErrMsg,
@@ -81,54 +285,12 @@ export async function handleAdminAction(
                     });
                 }
 
-                try {
-                    const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
-                    const failPayload = buildAdminOrderFailureButtons(orderId, reErrMsg, "id");
-                    await ctx.sendText(remoteJid, `❌ Gagal memproses ke antrean The Hive untuk pesanan *#${orderId}*: ${reErrMsg}\n\n👉 Klik tombol di bawah untuk mencoba kembali:`, mentions);
-                    if (ctx.sendButtons) {
-                        await ctx.sendButtons(remoteJid, failPayload);
-                    }
-                } catch {}
-
-                // Send follow-up error with Live Chat button to buyer
-                if (buyerJid) {
-                    const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
-                    const buyerLang = ctx.state.getLanguage(buyerJid);
-                    const failBtns = buildUserOrderFailureButtons(orderId, reErrMsg, buyerLang);
-                    if (ctx.sendButtons) {
-                        await ctx.sendButtons(buyerJid, failBtns);
-                    } else {
-                        await ctx.sendText(buyerJid, failBtns.text);
-                    }
-                }
+                await notifyFailureWithButtons(ctx, remoteJid, orderId, reErrMsg, mentions, buyerJid, "admin.actionQueueFailed");
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            try {
-                const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
-                const failPayload = buildAdminOrderFailureButtons(orderId, msg, "id");
-                await ctx.sendText(remoteJid, `❌ Gagal menandai lunas pesanan *#${orderId}*: ${msg}\n\n👉 Klik tombol di bawah untuk mencoba kembali:`, mentions);
-                if (ctx.sendButtons) {
-                    await ctx.sendButtons(remoteJid, failPayload);
-                }
-            } catch {
-                await ctx.sendText(remoteJid, `❌ Gagal menandai lunas pesanan *#${orderId}*: ${msg}`, mentions);
-            }
-
-            try {
-                const orderInfo = await ctx.client.getOrderStatus(orderId);
-                if (orderInfo?.platformUserId) {
-                    const buyerJid = orderInfo.platformUserId;
-                    const buyerLang = ctx.state.getLanguage(buyerJid);
-                    const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
-                    const userBtns = buildUserOrderFailureButtons(orderId, msg, buyerLang);
-                    if (ctx.sendButtons) {
-                        await ctx.sendButtons(buyerJid, userBtns);
-                    } else {
-                        await ctx.sendText(buyerJid, userBtns.text);
-                    }
-                }
-            } catch {}
+            const { buyerJid } = await getOrderDetails(ctx, orderId);
+            await notifyFailureWithButtons(ctx, remoteJid, orderId, msg, mentions, buyerJid, "admin.actionPaidFailed");
         }
         return true;
     }
@@ -143,20 +305,8 @@ export async function handleAdminAction(
                 await (ctx.client as any).updateOrderStatus(orderId, "COMPLETED");
             }
 
-            // Retrieve order info to notify buyer
-            let buyerJid = "";
-            let itemName = "Item";
-            let gamertag = "-";
-            try {
-                const orderInfo = await ctx.client.getOrderStatus(orderId);
-                if (orderInfo) {
-                    buyerJid = orderInfo.platformUserId || "";
-                    itemName = orderInfo.itemName || itemName;
-                    gamertag = orderInfo.gamertag || gamertag;
-                }
-            } catch {}
+            const { buyerJid, itemName, gamertag } = await getOrderDetails(ctx, orderId);
 
-            // Update status in admin logger if present
             if (ctx.adminLogger) {
                 await ctx.adminLogger.updateOrderStatus(orderId, "SUCCESS", {
                     itemName,
@@ -165,13 +315,14 @@ export async function handleAdminAction(
                 });
             }
 
-            // Notify buyer: order completed manually by admin
             if (buyerJid) {
                 const buyerLang = ctx.state.getLanguage(buyerJid);
-                const isEn = buyerLang === "en";
-                const buyerNotice = isEn
-                    ? `🎉 *ORDER COMPLETED!* ✨\n\nOrder *#${orderId}* (*${itemName}*) for Gamertag *${gamertag}* has been successfully completed by Admin! 📦\n\nThank you for shopping with ${config.STORE_NAME.toUpperCase()}! Enjoy your cosmetics! 🎮✨`
-                    : `🎉 *PESANAN SELESAI!* ✨\n\nPesanan *#${orderId}* (*${itemName}*) untuk Gamertag *${gamertag}* telah berhasil diselesaikan oleh Admin! 📦\n\nTerima kasih banyak telah berbelanja di ${config.STORE_NAME.toUpperCase()} kak! Selamat menikmati kosmetik barunya! 🎮✨`;
+                const buyerNotice = t("admin.buyerCompletedNotice", buyerLang, {
+                    orderId,
+                    itemName,
+                    gamertag,
+                    storeUpper: config.STORE_NAME.toUpperCase()
+                });
 
                 try {
                     await ctx.sendText(buyerJid, buyerNotice);
@@ -182,12 +333,12 @@ export async function handleAdminAction(
 
             await ctx.sendText(
                 remoteJid,
-                `✅ Pesanan *#${orderId}* berhasil diselesaikan secara manual oleh ${senderTag}! 📦✨`,
+                t("admin.actionDoneSuccess", "id", { orderId, senderTag }),
                 mentions
             );
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            await ctx.sendText(remoteJid, `❌ Gagal menyelesaikan pesanan *#${orderId}*: ${msg}`, mentions);
+            await ctx.sendText(remoteJid, t("admin.actionDoneFailed", "id", { orderId, error: msg }), mentions);
         }
         return true;
     }
@@ -204,37 +355,13 @@ export async function handleAdminAction(
 
             await ctx.sendText(
                 remoteJid,
-                `🔄 Pesanan *#${orderId}* berhasil dikirim ulang ke antrean pengiriman The Hive oleh ${senderTag}! ⚡`,
+                t("admin.actionReprocessSuccess", "id", { orderId, senderTag }),
                 mentions
             );
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-
-            // Follow-up failure message in group with Retry button
-            try {
-                const { buildAdminOrderFailureButtons } = await import("../utils/interactiveBuilders");
-                const failPayload = buildAdminOrderFailureButtons(orderId, msg, "id");
-                await ctx.sendText(remoteJid, `❌ Gagal memproses ulang pesanan *#${orderId}*: ${msg}\n\n👉 Klik tombol di bawah untuk mencoba kembali setelah server pulih:`, mentions);
-                if (ctx.sendButtons) {
-                    await ctx.sendButtons(remoteJid, failPayload);
-                }
-            } catch {}
-
-            // Notify buyer with Live Chat button
-            try {
-                const orderInfo = await ctx.client.getOrderStatus(orderId);
-                if (orderInfo?.platformUserId) {
-                    const buyerJid = orderInfo.platformUserId;
-                    const buyerLang = ctx.state.getLanguage(buyerJid);
-                    const { buildUserOrderFailureButtons } = await import("../utils/interactiveBuilders");
-                    const userBtns = buildUserOrderFailureButtons(orderId, msg, buyerLang);
-                    if (ctx.sendButtons) {
-                        await ctx.sendButtons(buyerJid, userBtns);
-                    } else {
-                        await ctx.sendText(buyerJid, userBtns.text);
-                    }
-                }
-            } catch {}
+            const { buyerJid } = await getOrderDetails(ctx, orderId);
+            await notifyFailureWithButtons(ctx, remoteJid, orderId, msg, mentions, buyerJid, "admin.actionReprocessFailed");
         }
         return true;
     }
@@ -251,12 +378,12 @@ export async function handleAdminAction(
 
             await ctx.sendText(
                 remoteJid,
-                `🚫 Pesanan *#${orderId}* telah dibatalkan oleh ${senderTag}.`,
+                t("admin.actionCancelSuccess", "id", { orderId, senderTag }),
                 mentions
             );
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            await ctx.sendText(remoteJid, `❌ Gagal membatalkan pesanan *#${orderId}*: ${msg}`, mentions);
+            await ctx.sendText(remoteJid, t("admin.actionCancelFailed", "id", { orderId, error: msg }), mentions);
         }
         return true;
     }
@@ -286,7 +413,7 @@ export async function handleAdminAction(
         }
 
         if (!matched) {
-            await ctx.sendText(remoteJid, `⚠️ Tidak ditemukan sesi live chat aktif untuk *${rawTarget}*.`, mentions);
+            await ctx.sendText(remoteJid, t("admin.ticketSolvedNotFound", "id", { target: rawTarget }), mentions);
             return true;
         }
 
@@ -305,7 +432,7 @@ export async function handleAdminAction(
         const cleanPhone = extractPhoneNumber(targetJid);
         await ctx.sendText(
             remoteJid,
-            `✅ *TIKET LIVE CHAT DISELESAIKAN*\n• Pelanggan: *+${cleanPhone}*\n• Ditangani oleh: ${senderTag}\n• Status: *Bot Aktif Kembali ✅*`,
+            t("admin.ticketSolvedSummary", "id", { phone: cleanPhone, senderTag }),
             mentions
         );
         return true;
