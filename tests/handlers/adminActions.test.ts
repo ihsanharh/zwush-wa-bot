@@ -4,7 +4,7 @@ import type { BotContext } from "../../src/handlers/message";
 import { StateManager } from "../../src/state";
 
 describe("Admin Action Handlers", () => {
-    it("should handle btn_admin_paid by marking paid and reprocessing", async () => {
+    it("should handle btn_admin_paid by marking paid without duplicate retry", async () => {
         const sentTexts: string[] = [];
         const state = new StateManager();
         const mockClient = {
@@ -31,7 +31,7 @@ describe("Admin Action Handlers", () => {
 
         expect(handled).toBe(true);
         expect(mockClient.markOrderPaid).toHaveBeenCalledWith("ORD-101");
-        expect(mockClient.reprocessOrder).toHaveBeenCalledWith("ORD-101");
+        expect(mockClient.reprocessOrder).not.toHaveBeenCalled();
         expect(sentTexts[0]).toContain("LUNAS");
     });
 
@@ -68,7 +68,8 @@ describe("Admin Action Handlers", () => {
         const sentTexts: string[] = [];
         const state = new StateManager();
         const mockClient = {
-            reprocessOrder: mock(async () => ({ success: true }))
+            reprocessOrder: mock(async () => ({ success: true })),
+            getOrderStatus: mock(async () => ({ status: "FAILED" }))
         } as any;
 
         const ctx: BotContext = {
@@ -124,7 +125,7 @@ describe("Admin Action Handlers", () => {
         expect(sentTexts.some((m) => m.jid === "admin-group@g.us")).toBe(true);
     });
 
-    it("should handle standard CoreClient methods (markOrderAsPaid, manualCompleteOrder, retryOrder)", async () => {
+    it("should handle standard CoreClient methods (markOrderAsPaid, manualCompleteOrder)", async () => {
         const sentTexts: string[] = [];
         const state = new StateManager();
         const mockClient = {
@@ -143,72 +144,106 @@ describe("Admin Action Handlers", () => {
 
         await handleAdminAction("123@g.us", "btn_admin_paid_ORD-505", "6281@s.whatsapp.net", true, "id", ctx);
         expect(mockClient.markOrderAsPaid).toHaveBeenCalledWith("ORD-505");
-        expect(mockClient.retryOrder).toHaveBeenCalledWith("ORD-505");
+        expect(mockClient.retryOrder).not.toHaveBeenCalled();
 
         await handleAdminAction("123@g.us", "btn_admin_done_ORD-606", "6281@s.whatsapp.net", true, "id", ctx);
         expect(mockClient.manualCompleteOrder).toHaveBeenCalledWith("ORD-606");
     });
 
-    it("should notify buyer when order is marked as paid and queued", async () => {
-        const sentMessages: Array<{ jid: string; text: string }> = [];
-        const state = new StateManager();
-        const buyerJid = "628999111222@s.whatsapp.net";
-        const mockClient = {
-            markOrderAsPaid: mock(async () => ({ success: true })),
-            retryOrder: mock(async () => ({ success: true })),
-            getOrderStatus: mock(async () => ({
-                orderId: "ORD-707",
-                platformUserId: buyerJid,
-                itemName: "Dragon Pet",
-                gamertag: "Viosca"
-            }))
-        } as any;
+    it("should reject btn_admin_paid when order is CANCELLED, EXPIRED, SUCCESS, or QUEUED", async () => {
+        for (const status of ["CANCELLED", "EXPIRED", "SUCCESS", "QUEUED"]) {
+            const sentTexts: string[] = [];
+            const state = new StateManager();
+            const mockClient = {
+                markOrderAsPaid: mock(async () => ({ success: true })),
+                getOrderStatus: mock(async () => ({ status }))
+            } as any;
 
-        const ctx: BotContext = {
-            client: mockClient,
-            state,
-            sendText: async (jid: string, text: string) => {
-                sentMessages.push({ jid, text });
-            }
-        } as any;
+            const ctx: BotContext = {
+                client: mockClient,
+                state,
+                sendText: async (_jid: string, text: string) => {
+                    sentTexts.push(text);
+                }
+            } as any;
 
-        await handleAdminAction("admin@g.us", "btn_admin_paid_ORD-707", "628admin@s.whatsapp.net", true, "id", ctx);
-
-        // Expect notification sent to buyer
-        const buyerMsg = sentMessages.find((m) => m.jid === buyerJid);
-        expect(buyerMsg).toBeDefined();
-        expect(buyerMsg?.text).toContain("PEMBAYARAN DITERIMA & DIVERIFIKASI");
-        expect(buyerMsg?.text).toContain("antrean pengiriman The Hive");
+            const handled = await handleAdminAction("123@g.us", "btn_admin_paid_ORD-777", "6281@s.whatsapp.net", true, "id", ctx);
+            expect(handled).toBe(true);
+            expect(mockClient.markOrderAsPaid).not.toHaveBeenCalled();
+            expect(sentTexts[0]).toContain("⚠️");
+        }
     });
 
-    it("should notify buyer when order is marked as completed manually by admin", async () => {
-        const sentMessages: Array<{ jid: string; text: string }> = [];
-        const state = new StateManager();
-        const buyerJid = "628999333444@s.whatsapp.net";
-        const mockClient = {
-            manualCompleteOrder: mock(async () => ({ success: true })),
-            getOrderStatus: mock(async () => ({
-                orderId: "ORD-808",
-                platformUserId: buyerJid,
-                itemName: "Ultimate Rank",
-                gamertag: "Steve"
-            }))
-        } as any;
+    it("should reject btn_admin_done when order is CANCELLED, EXPIRED, or SUCCESS", async () => {
+        for (const status of ["CANCELLED", "EXPIRED", "SUCCESS"]) {
+            const sentTexts: string[] = [];
+            const state = new StateManager();
+            const mockClient = {
+                manualCompleteOrder: mock(async () => ({ success: true })),
+                getOrderStatus: mock(async () => ({ status }))
+            } as any;
 
-        const ctx: BotContext = {
-            client: mockClient,
-            state,
-            sendText: async (jid: string, text: string) => {
-                sentMessages.push({ jid, text });
-            }
-        } as any;
+            const ctx: BotContext = {
+                client: mockClient,
+                state,
+                sendText: async (_jid: string, text: string) => {
+                    sentTexts.push(text);
+                }
+            } as any;
 
-        await handleAdminAction("admin@g.us", "btn_admin_done_ORD-808", "628admin@s.whatsapp.net", true, "id", ctx);
+            const handled = await handleAdminAction("123@g.us", "btn_admin_done_ORD-888", "6281@s.whatsapp.net", true, "id", ctx);
+            expect(handled).toBe(true);
+            expect(mockClient.manualCompleteOrder).not.toHaveBeenCalled();
+            expect(sentTexts[0]).toContain("⚠️");
+        }
+    });
 
-        const buyerMsg = sentMessages.find((m) => m.jid === buyerJid);
-        expect(buyerMsg).toBeDefined();
-        expect(buyerMsg?.text).toContain("PESANAN SELESAI");
-        expect(buyerMsg?.text).toContain("diselesaikan oleh Admin");
+    it("should reject btn_admin_reprocess when order is CANCELLED, EXPIRED, SUCCESS, or PENDING_PAYMENT", async () => {
+        for (const status of ["CANCELLED", "EXPIRED", "SUCCESS", "PENDING_PAYMENT"]) {
+            const sentTexts: string[] = [];
+            const state = new StateManager();
+            const mockClient = {
+                retryOrder: mock(async () => ({ success: true })),
+                getOrderStatus: mock(async () => ({ status }))
+            } as any;
+
+            const ctx: BotContext = {
+                client: mockClient,
+                state,
+                sendText: async (_jid: string, text: string) => {
+                    sentTexts.push(text);
+                }
+            } as any;
+
+            const handled = await handleAdminAction("123@g.us", "btn_admin_reprocess_ORD-999", "6281@s.whatsapp.net", true, "id", ctx);
+            expect(handled).toBe(true);
+            expect(mockClient.retryOrder).not.toHaveBeenCalled();
+            expect(sentTexts[0]).toContain("⚠️");
+        }
+    });
+
+    it("should reject btn_admin_cancel when order is CANCELLED or SUCCESS", async () => {
+        for (const status of ["CANCELLED", "SUCCESS"]) {
+            const sentTexts: string[] = [];
+            const state = new StateManager();
+            const mockClient = {
+                cancelOrder: mock(async () => ({ success: true })),
+                getOrderStatus: mock(async () => ({ status }))
+            } as any;
+
+            const ctx: BotContext = {
+                client: mockClient,
+                state,
+                sendText: async (_jid: string, text: string) => {
+                    sentTexts.push(text);
+                }
+            } as any;
+
+            const handled = await handleAdminAction("123@g.us", "btn_admin_cancel_ORD-444", "6281@s.whatsapp.net", true, "id", ctx);
+            expect(handled).toBe(true);
+            expect(mockClient.cancelOrder).not.toHaveBeenCalled();
+            expect(sentTexts[0]).toContain("⚠️");
+        }
     });
 
     it("should send retry button to admin group and live chat button to buyer when reprocess/retry fails", async () => {

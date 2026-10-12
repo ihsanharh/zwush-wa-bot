@@ -297,6 +297,7 @@ client.on("message", async (event) => {
 // 7. Start Webhook Server (Port 3001)
 const webhookSender: BotMessageSender = {
     async sendMessage(jid: string, text: string) {
+        console.log(`[WhatsApp Sending Text to ${jid}]:\n${text.slice(0, 100)}...`);
         await client.message.send(jid, text);
     },
     async sendButtons(jid: string, payload: any) {

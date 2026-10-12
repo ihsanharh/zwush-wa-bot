@@ -17,15 +17,17 @@ async function getOrderDetails(ctx: BotContext, orderId: string) {
     let buyerJid = "";
     let itemName = "Item";
     let gamertag = "-";
+    let status = "";
     try {
         const orderInfo = await ctx.client.getOrderStatus(orderId);
         if (orderInfo) {
             buyerJid = orderInfo.platformUserId || "";
             itemName = orderInfo.itemName || itemName;
             gamertag = orderInfo.gamertag || gamertag;
+            status = orderInfo.status || "";
         }
     } catch {}
-    return { buyerJid, itemName, gamertag };
+    return { buyerJid, itemName, gamertag, status };
 }
 
 async function notifyFailureWithButtons(
@@ -236,61 +238,74 @@ export async function handleAdminAction(
         return true;
     }
 
-    // 1. Mark Paid + Auto Reprocess
+    // 1. Mark Paid
     if (actionId.startsWith("btn_admin_paid_") || actionId.startsWith("admin_paid_")) {
         const orderId = actionId.replace(/^(btn_)?admin_paid_/, "");
         try {
+            const { buyerJid, itemName, gamertag, status } = await getOrderDetails(ctx, orderId);
+            const upperStatus = (status || "").toUpperCase();
+
+            if (upperStatus === "CANCELLED" || upperStatus === "EXPIRED") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah berstatus *${status}*! Tidak dapat ditandai lunas.`,
+                    mentions
+                );
+                return true;
+            }
+
+            if (upperStatus === "SUCCESS") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah selesai (*SUCCESS*) sebelumnya! Tidak dapat ditandai lunas lagi.`,
+                    mentions
+                );
+                return true;
+            }
+
+            if (upperStatus === "QUEUED" || upperStatus === "PROCESSING") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah berstatus *${status}* (sedang diproses)!`,
+                    mentions
+                );
+                return true;
+            }
+
             if (typeof ctx.client.markOrderAsPaid === "function") {
                 await ctx.client.markOrderAsPaid(orderId);
             } else if (typeof (ctx.client as any).markOrderPaid === "function") {
                 await (ctx.client as any).markOrderPaid(orderId);
             }
 
-            const { buyerJid, itemName, gamertag } = await getOrderDetails(ctx, orderId);
-
-            // Notify buyer: payment verified & queued
-            if (buyerJid) {
-                const buyerLang = ctx.state.getLanguage(buyerJid);
-                const buyerNotice = t("admin.buyerPaidNotice", buyerLang, { orderId, itemName });
-                try {
-                    await ctx.sendText(buyerJid, buyerNotice);
-                } catch (notifyErr) {
-                    console.warn(`[adminAction] Failed to notify buyer ${buyerJid} for paid #${orderId}:`, notifyErr);
-                }
+            if (ctx.adminLogger) {
+                await ctx.adminLogger.updateOrderStatus(orderId, "QUEUED", {
+                    itemName,
+                    gamertag,
+                    platformUserId: buyerJid
+                });
             }
 
-            // Directly queue the order
-            try {
-                if (typeof ctx.client.retryOrder === "function") {
-                    await ctx.client.retryOrder(orderId);
-                } else if (typeof (ctx.client as any).reprocessOrder === "function") {
-                    await (ctx.client as any).reprocessOrder(orderId);
-                }
-
-                await ctx.sendText(
-                    remoteJid,
-                    t("admin.actionPaidSuccess", "id", { orderId, senderTag }),
-                    mentions
-                );
-            } catch (reErr: unknown) {
-                const reErrMsg = reErr instanceof Error ? reErr.message : String(reErr);
-                console.warn(`[adminAction] Auto-reprocess after paid failed for #${orderId}:`, reErrMsg);
-
-                if (ctx.adminLogger) {
-                    await ctx.adminLogger.updateOrderStatus(orderId, "FAILED", {
-                        failureReason: reErrMsg,
-                        itemName,
-                        gamertag,
-                        platformUserId: buyerJid
-                    });
-                }
-
-                await notifyFailureWithButtons(ctx, remoteJid, orderId, reErrMsg, mentions, buyerJid, "admin.actionQueueFailed");
-            }
+            await ctx.sendText(
+                remoteJid,
+                t("admin.actionPaidSuccess", "id", { orderId, senderTag }),
+                mentions
+            );
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            const { buyerJid } = await getOrderDetails(ctx, orderId);
-            await notifyFailureWithButtons(ctx, remoteJid, orderId, msg, mentions, buyerJid, "admin.actionPaidFailed");
+            const lowerMsg = msg.toLowerCase();
+            if (
+                lowerMsg.includes("already") ||
+                lowerMsg.includes("selesai") ||
+                lowerMsg.includes("status") ||
+                lowerMsg.includes("cancelled") ||
+                lowerMsg.includes("expired")
+            ) {
+                await ctx.sendText(remoteJid, `⚠️ Gagal menandai lunas: ${msg}`, mentions);
+            } else {
+                const { buyerJid } = await getOrderDetails(ctx, orderId);
+                await notifyFailureWithButtons(ctx, remoteJid, orderId, msg, mentions, buyerJid, "admin.actionPaidFailed");
+            }
         }
         return true;
     }
@@ -299,13 +314,32 @@ export async function handleAdminAction(
     if (actionId.startsWith("btn_admin_done_") || actionId.startsWith("admin_done_")) {
         const orderId = actionId.replace(/^(btn_)?admin_done_/, "");
         try {
+            const { buyerJid, itemName, gamertag, status } = await getOrderDetails(ctx, orderId);
+            const upperStatus = (status || "").toUpperCase();
+
+            if (upperStatus === "CANCELLED" || upperStatus === "EXPIRED") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah berstatus *${status}*! Tidak dapat diselesaikan secara manual.`,
+                    mentions
+                );
+                return true;
+            }
+
+            if (upperStatus === "SUCCESS") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah berstatus *SUCCESS* sebelumnya!`,
+                    mentions
+                );
+                return true;
+            }
+
             if (typeof ctx.client.manualCompleteOrder === "function") {
                 await ctx.client.manualCompleteOrder(orderId);
             } else if (typeof (ctx.client as any).updateOrderStatus === "function") {
                 await (ctx.client as any).updateOrderStatus(orderId, "COMPLETED");
             }
-
-            const { buyerJid, itemName, gamertag } = await getOrderDetails(ctx, orderId);
 
             if (ctx.adminLogger) {
                 await ctx.adminLogger.updateOrderStatus(orderId, "SUCCESS", {
@@ -313,22 +347,6 @@ export async function handleAdminAction(
                     gamertag,
                     platformUserId: buyerJid
                 });
-            }
-
-            if (buyerJid) {
-                const buyerLang = ctx.state.getLanguage(buyerJid);
-                const buyerNotice = t("admin.buyerCompletedNotice", buyerLang, {
-                    orderId,
-                    itemName,
-                    gamertag,
-                    storeUpper: config.STORE_NAME.toUpperCase()
-                });
-
-                try {
-                    await ctx.sendText(buyerJid, buyerNotice);
-                } catch (notifyErr) {
-                    console.warn(`[adminAction] Failed to notify buyer ${buyerJid} for completed #${orderId}:`, notifyErr);
-                }
             }
 
             await ctx.sendText(
@@ -347,6 +365,36 @@ export async function handleAdminAction(
     if (actionId.startsWith("btn_admin_reprocess_") || actionId.startsWith("admin_reprocess_")) {
         const orderId = actionId.replace(/^(btn_)?admin_reprocess_/, "");
         try {
+            const { buyerJid, itemName, gamertag, status } = await getOrderDetails(ctx, orderId);
+            const upperStatus = (status || "").toUpperCase();
+
+            if (upperStatus === "CANCELLED" || upperStatus === "EXPIRED") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah berstatus *${status}*! Tidak dapat diproses ulang.`,
+                    mentions
+                );
+                return true;
+            }
+
+            if (upperStatus === "SUCCESS") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah berstatus *SUCCESS* (sudah selesai)!`,
+                    mentions
+                );
+                return true;
+            }
+
+            if (upperStatus === "PENDING_PAYMENT") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* belum dibayar (*PENDING_PAYMENT*)! Tandai lunas terlebih dahulu sebelum reprocess.`,
+                    mentions
+                );
+                return true;
+            }
+
             if (typeof ctx.client.retryOrder === "function") {
                 await ctx.client.retryOrder(orderId);
             } else if (typeof (ctx.client as any).reprocessOrder === "function") {
@@ -370,6 +418,27 @@ export async function handleAdminAction(
     if (actionId.startsWith("btn_admin_cancel_") || actionId.startsWith("admin_cancel_")) {
         const orderId = actionId.replace(/^(btn_)?admin_cancel_/, "");
         try {
+            const { status } = await getOrderDetails(ctx, orderId);
+            const upperStatus = (status || "").toUpperCase();
+
+            if (upperStatus === "CANCELLED") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah dibatalkan sebelumnya.`,
+                    mentions
+                );
+                return true;
+            }
+
+            if (upperStatus === "SUCCESS") {
+                await ctx.sendText(
+                    remoteJid,
+                    `⚠️ Pesanan *#${orderId}* sudah selesai (*SUCCESS*) dan tidak dapat dibatalkan!`,
+                    mentions
+                );
+                return true;
+            }
+
             if (typeof ctx.client.cancelOrder === "function") {
                 await ctx.client.cancelOrder(orderId, "Cancelled by admin via button");
             } else if (typeof (ctx.client as any).updateOrderStatus === "function") {
