@@ -482,11 +482,14 @@ export function buildAdminPanelQuickReply(
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
     const store = config.STORE_NAME;
     const maintStatus = isMaintenanceOn ? "🔴 ON" : "🟢 OFF";
-    const text = `⚙️ *PANEL KONTROL ADMIN — ${store.toUpperCase()}*\n\nStatus Maintenance: *${maintStatus}*\nSilakan pilih menu kontrol admin:`;
+    const text = `⚙️ *PANEL KONTROL ADMIN — ${store.toUpperCase()}*\n\n` +
+        `• Status Maintenance: *${maintStatus}*\n\n` +
+        `Silakan pilih menu kontrol admin di bawah:\n` +
+        `_(💡 Ketik *voucher* atau *saldo* untuk akses cepat)_`;
     const buttons = [
         { id: "admin_panel_balance", text: t("interactive.adminBtnBalance", lang) },
-        { id: "admin_panel_maintenance", text: t("interactive.adminBtnMaintenance", lang) },
-        { id: "admin_panel_orders", text: t("interactive.adminBtnOrders", lang) }
+        { id: "admin_panel_vouchers", text: "🎟️ Kelola Voucher" },
+        { id: "admin_panel_more", text: "⚙️ Menu Lainnya ➡️" }
     ];
     return buildQuickReplyPayload(text, buttons, { footer: `${store} • Admin Panel` });
 }

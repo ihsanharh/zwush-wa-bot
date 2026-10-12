@@ -33,7 +33,7 @@ import {
 } from "../flows/supportFlow";
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import { handleAdminAction } from "./adminActions";
-import { handleAdminVoucherTextInput } from "./adminVouchers";
+import { handleAdminVoucherAction, handleAdminVoucherTextInput } from "./adminVouchers";
 import {
     buildAdminPanelMenu,
     buildAdminPanelQuickReply,
@@ -248,32 +248,87 @@ async function handleIncomingMessageInternal(
             return;
         }
 
-        // Truly mentioned (@<botPhone>, @<botLid>, or mentionedJid) in the Admin Group -> Reply with Admin Panel
+        // Admin group interactions
         const isAdminGroup = !adminGroupJid || remoteJid === adminGroupJid;
-        if (
-            isAdminGroup &&
-            (trimmed === "@" || isBotMentioned(trimmed, mentionedJids, ctx.botJid, ctx.botLid))
-        ) {
-            const isMaint = ctx.state.isMaintenanceMode ? ctx.state.isMaintenanceMode() : false;
-            try {
-                if (ctx.sendList) {
-                    await ctx.sendList(remoteJid, buildAdminPanelMenu(userLang, isMaint));
-                } else if (ctx.sendButtons) {
-                    await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(userLang, isMaint));
-                } else {
-                    const qr = buildAdminPanelQuickReply(userLang, isMaint);
-                    await ctx.sendText(remoteJid, qr.text, [effectiveSender]);
-                }
-            } catch (err) {
-                console.error("[Admin Panel] Failed to send list menu, falling back to quick reply / text:", err);
-                if (ctx.sendButtons) {
-                    await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(userLang, isMaint));
-                } else {
-                    const qr = buildAdminPanelQuickReply(userLang, isMaint);
-                    await ctx.sendText(remoteJid, qr.text, [effectiveSender]);
-                }
+        if (isAdminGroup) {
+            const isMention = trimmed === "@" || isBotMentioned(trimmed, mentionedJids, ctx.botJid, ctx.botLid);
+
+            // Clean any @bot mentions from command text
+            let cleanCmd = trimmed.trim();
+            if (ctx.botJid) {
+                const phone = extractPhoneNumber(ctx.botJid);
+                if (phone) cleanCmd = cleanCmd.replace(new RegExp(`@${phone}\\b`, "gi"), "");
             }
-            return;
+            if (ctx.botLid) {
+                const lid = extractPhoneNumber(ctx.botLid);
+                if (lid) cleanCmd = cleanCmd.replace(new RegExp(`@${lid}\\b`, "gi"), "");
+            }
+            cleanCmd = cleanCmd.replace(/^@\s*/, "").trim().toLowerCase();
+
+            // 1. Direct Voucher Keywords
+            if (
+                cleanCmd === "voucher" ||
+                cleanCmd === "vouchers" ||
+                cleanCmd === "cek voucher" ||
+                cleanCmd === "kelola voucher" ||
+                cleanCmd.startsWith("!voucher") ||
+                cleanCmd.startsWith("/voucher")
+            ) {
+                await handleAdminVoucherAction(remoteJid, "admin_panel_vouchers", effectiveSender, true, userLang, ctx);
+                return;
+            }
+
+            if (cleanCmd === "list voucher" || cleanCmd === "daftar voucher") {
+                await handleAdminVoucherAction(remoteJid, "btn_admin_voucher_list", effectiveSender, true, userLang, ctx);
+                return;
+            }
+
+            if (cleanCmd === "buat voucher" || cleanCmd === "tambah voucher") {
+                await handleAdminVoucherAction(remoteJid, "btn_admin_voucher_create", effectiveSender, true, userLang, ctx);
+                return;
+            }
+
+            // 2. Direct Saldo Keywords
+            if (cleanCmd === "saldo" || cleanCmd.startsWith("!saldo") || cleanCmd.startsWith("/saldo")) {
+                await handleAdminAction(remoteJid, "admin_panel_balance", effectiveSender, true, userLang, ctx);
+                return;
+            }
+
+            // 3. Direct Orders Keywords
+            if (cleanCmd === "pesanan" || cleanCmd === "orders" || cleanCmd.startsWith("!pesanan") || cleanCmd.startsWith("/orders")) {
+                await handleAdminAction(remoteJid, "admin_panel_orders", effectiveSender, true, userLang, ctx);
+                return;
+            }
+
+            // 4. Direct Maintenance Keywords
+            if (cleanCmd === "maintenance" || cleanCmd.startsWith("!maintenance") || cleanCmd.startsWith("/maintenance")) {
+                await handleAdminAction(remoteJid, "admin_panel_maintenance", effectiveSender, true, userLang, ctx);
+                return;
+            }
+
+            // 5. Truly mentioned (@<botPhone>, @<botLid>, or mentionedJid) -> Reply with Admin Panel
+            if (isMention) {
+                const isMaint = ctx.state.isMaintenanceMode ? ctx.state.isMaintenanceMode() : false;
+                try {
+                    if (ctx.sendList) {
+                        await ctx.sendList(remoteJid, buildAdminPanelMenu(userLang, isMaint));
+                    } else if (ctx.sendButtons) {
+                        await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(userLang, isMaint));
+                    } else {
+                        const qr = buildAdminPanelQuickReply(userLang, isMaint);
+                        await ctx.sendText(remoteJid, qr.text, [effectiveSender]);
+                    }
+                } catch (err) {
+                    console.error("[Admin Panel] Failed to send list menu, falling back to quick reply / text:", err);
+                    if (ctx.sendButtons) {
+                        await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(userLang, isMaint));
+                    } else {
+                        const qr = buildAdminPanelQuickReply(userLang, isMaint);
+                        await ctx.sendText(remoteJid, qr.text, [effectiveSender]);
+                    }
+                }
+                return;
+            }
         }
 
         // Silently drop any other text or slash commands in groups

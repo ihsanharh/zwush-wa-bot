@@ -98,6 +98,24 @@ export async function handleAdminAction(
         return true;
     }
 
+    // 0.05 Admin Panel: More Controls (Orders & Maintenance)
+    if (actionId === "admin_panel_more") {
+        const store = config.STORE_NAME;
+        const text = `⚙️ *MENU KONTROL TAMBAHAN ADMIN — ${store.toUpperCase()}*\n\nSilakan pilih menu:`;
+        const buttons = [
+            { id: "admin_panel_orders", text: t("interactive.adminBtnOrders", _userLang) },
+            { id: "admin_panel_maintenance", text: t("interactive.adminBtnMaintenance", _userLang) },
+            { id: "btn_admin_panel", text: "🔙 Panel Utama" }
+        ];
+        const payload = buildQuickReplyPayload(text, buttons);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, payload);
+        } else {
+            await ctx.sendText(remoteJid, text, mentions);
+        }
+        return true;
+    }
+
     // 0.1 Admin Panel: Balance Summary & Refresh
     if (actionId === "admin_panel_balance" || actionId === "btn_admin_balance_refresh") {
         const forceRefresh = actionId === "btn_admin_balance_refresh";

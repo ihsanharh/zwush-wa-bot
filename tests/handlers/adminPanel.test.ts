@@ -230,6 +230,31 @@ describe("Interactive Admin Panel System", () => {
 
             expect(sentButtons.length).toBe(1);
             expect(sentButtons[0]?.payload.text).toContain("PANEL KONTROL ADMIN");
+            expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_vouchers")).toBe(true);
+        });
+
+        it("should directly open voucher management when admin types 'voucher' or '@bot voucher' in admin group", async () => {
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "voucher",
+                mockContext,
+                adminUser
+            );
+
+            expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]?.payload.text).toContain("MANAJEMEN VOUCHER & DISKON");
+
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "@628222222222 voucher",
+                mockContext,
+                adminUser
+            );
+
+            expect(sentButtons.length).toBe(2);
+            expect(sentButtons[1]?.payload.text).toContain("MANAJEMEN VOUCHER & DISKON");
         });
 
         it("should NOT open Admin Panel on regular conversation in admin group without bot tag", async () => {
@@ -376,6 +401,21 @@ describe("Interactive Admin Panel System", () => {
             expect(sentButtons.length).toBe(1);
             expect(sentButtons[0]?.payload.text).toContain("VOUCHER & DISKON");
             expect(sentButtons[0]?.payload.text).toContain("Diskon Global Toko: *10%*");
+        });
+
+        it("should handle 'admin_panel_more' action and show extra controls", async () => {
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "admin_panel_more",
+                mockContext,
+                adminUser
+            );
+
+            expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]?.payload.text).toContain("MENU KONTROL TAMBAHAN ADMIN");
+            expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_orders")).toBe(true);
+            expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_maintenance")).toBe(true);
         });
 
         it("should return to main menu when clicking 'btn_admin_panel'", async () => {
