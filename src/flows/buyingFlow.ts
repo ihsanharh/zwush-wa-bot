@@ -39,6 +39,7 @@ async function sendItemSelectionAndGamertagPrompt(
         });
 
     const askGamertagText = t("buying.askGamertagPrompt", userLang);
+    const fullText = `${itemCardText}\n\n${askGamertagText}`;
 
     const imgUrl = resolveItemImageUrl(selected);
     let previewBuffer: Buffer | null = null;
@@ -48,22 +49,18 @@ async function sendItemSelectionAndGamertagPrompt(
         previewBuffer = null;
     }
 
-    // Pesan 1: Gambar + pilihan mantap + action buttons
     if (ctx.sendButtons) {
         const sent = await ctx.sendButtons(
             remoteJid,
-            buildGamertagPromptButtons(itemCardText, userLang, previewBuffer || undefined)
+            buildGamertagPromptButtons(fullText, userLang, previewBuffer || undefined)
         );
         const msgId = sent?.key?.id || sent?.id;
         if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
     } else if (previewBuffer) {
-        await ctx.sendImage(remoteJid, previewBuffer, itemCardText);
+        await ctx.sendImage(remoteJid, previewBuffer, fullText);
     } else {
-        await ctx.sendText(remoteJid, itemCardText);
+        await ctx.sendText(remoteJid, fullText);
     }
-
-    // Pesan 2: Tanya input gamertag
-    await ctx.sendText(remoteJid, askGamertagText);
 }
 
 export async function handleBuyingFlow(

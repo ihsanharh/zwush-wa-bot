@@ -122,10 +122,11 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(state.getSession(testJid).step).toBe("AWAITING_GAMERTAG");
         expect(state.getSession(testJid).selectedItem?.name).toBe("Dragon Pet");
 
-        // Verified: Pesan 1 (gambar + pilihan mantap + buttons) & Pesan 2 (tanya input gamertag)
+        // Verified: 1 single message (card info + tanya input gamertag + action buttons)
         expect(sentButtons.length).toBe(1);
         expect(sentImages.length).toBe(0);
         expect(sentButtons[0]!.payload.text).toContain("Pilihan mantap kak");
+        expect(sentButtons[0]!.payload.text).toContain("Gamertag Minecraft Bedrock");
         const btns = sentButtons[0]!.payload.interactiveMessage.nativeFlowMessage.buttons;
         expect(btns.length).toBe(2);
         const b0 = JSON.parse(btns[0].buttonParamsJson);
@@ -133,8 +134,7 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(b0.id).toBe("btn_modify_change_item");
         expect(b1.id).toBe("btn_cancel_order");
 
-        expect(sentTexts.length).toBe(1);
-        expect(sentTexts[0]!.text).toContain("Gamertag Minecraft Bedrock");
+        expect(sentTexts.length).toBe(0);
     });
 
     it("should go back to item selection on btn_modify_change_item during AWAITING_GAMERTAG", async () => {
