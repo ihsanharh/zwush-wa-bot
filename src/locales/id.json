@@ -132,6 +132,7 @@
         "error": "❌ Terjadi kendala saat mengecek pembayaran: {{error}}"
     },
     "buttons": {
+        "buyAgain": "Beli Lagi",
         "browseCatalog": "Beli Kosmetik",
         "orderHistory": "Riwayat Pesanan",
         "settingsAndInfo": "Pengaturan & Info",

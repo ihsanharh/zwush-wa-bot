@@ -658,3 +658,22 @@ export function buildOrderCancelledButtons(
     return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
 }
 
+/**
+ * Builds Order Success / Delivered Notice with quick-reply buttons (e.g. Beli Lagi, Riwayat Pesanan)
+ */
+export function buildOrderSuccessButtons(
+    message: string,
+    lang: Language = "id"
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+} {
+    const store = config.STORE_NAME;
+    const buttons = [
+        { id: "btn_start_buying", text: t("buttons.buyAgain", lang) },
+        { id: "btn_history", text: t("buttons.orderHistory", lang) }
+    ];
+    return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
+}
+

@@ -9,7 +9,7 @@ import {
     t,
     type Language
 } from "../i18n";
-import { buildUserOrderFailureButtons } from "../utils/interactiveBuilders";
+import { buildUserOrderFailureButtons, buildOrderSuccessButtons } from "../utils/interactiveBuilders";
 
 export { formatStatusNotification, formatPlayerNotFoundRetry, formatPlayerNotFoundMaxExceeded };
 
@@ -220,7 +220,16 @@ export function createWebhookApp(
             }
 
             const formattedText = formatStatusNotification(body, buyerLang);
-            await sender.sendMessage(body.platformUserId, formattedText);
+            if (body.status === "SUCCESS" && sender.sendButtons) {
+                try {
+                    await sender.sendButtons(body.platformUserId, buildOrderSuccessButtons(formattedText, buyerLang));
+                } catch (btnErr) {
+                    console.warn(`[Webhook] Failed to send success buttons for #${body.orderId}, falling back to text:`, btnErr);
+                    await sender.sendMessage(body.platformUserId, formattedText);
+                }
+            } else {
+                await sender.sendMessage(body.platformUserId, formattedText);
+            }
 
             if (body.status === "FAILED") {
                 await sendFailureLiveChatButtons(sender, body.platformUserId, body.orderId, body.message, buyerLang);

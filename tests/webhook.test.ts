@@ -37,6 +37,48 @@ describe("Webhook Server", () => {
         expect(sentMessages[0]?.text).toContain("BERHASIL DIKIRIM");
     });
 
+    it("should dispatch interactive quick-reply buttons (Beli Lagi & Riwayat Pesanan) on SUCCESS when sender.sendButtons is provided", async () => {
+        const sentButtons: Array<{ jid: string; payload: any }> = [];
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            }),
+            sendButtons: mock(async (jid: string, payload: any) => {
+                sentButtons.push({ jid, payload });
+            })
+        };
+
+        const app = createWebhookApp({
+            sender: mockSender
+        });
+
+        const payload = {
+            orderId: "ord_success_btns",
+            platform: "whatsapp",
+            platformUserId: "628999999999@s.whatsapp.net",
+            gamertag: "Viosca",
+            itemName: "Dragon Pet",
+            status: "SUCCESS" as const,
+            message: "Gift delivered successfully"
+        };
+
+        const res = await app.request("/webhook/order-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        expect(res.status).toBe(200);
+        expect(sentButtons.length).toBe(1);
+        expect(sentMessages.length).toBe(0);
+        expect(sentButtons[0]?.jid).toBe("628999999999@s.whatsapp.net");
+        expect(sentButtons[0]?.payload.text).toContain("BERHASIL DIKIRIM");
+        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toEqual(["btn_start_buying", "btn_history"]);
+        expect(sentButtons[0]?.payload.buttons[0].text).toBe("Beli Lagi");
+        expect(sentButtons[0]?.payload.buttons[1].text).toBe("Riwayat Pesanan");
+    });
+
     it("should notify customer when order has expired", async () => {
         const sentMessages: Array<{ jid: string; text: string }> = [];
         const mockSender = {

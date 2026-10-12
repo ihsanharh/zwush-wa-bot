@@ -132,6 +132,7 @@
         "error": "❌ An error occurred while checking payment: {{error}}"
     },
     "buttons": {
+        "buyAgain": "Buy Again",
         "browseCatalog": "Buy Cosmetics",
         "orderHistory": "Order History",
         "settingsAndInfo": "Settings & Info",

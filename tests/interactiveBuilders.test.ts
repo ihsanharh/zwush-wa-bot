@@ -14,7 +14,8 @@ import {
     buildSettingsListMenu,
     buildVoucherPromptButtons,
     buildGamertagChangePromptButtons,
-    buildOrderCancelledButtons
+    buildOrderCancelledButtons,
+    buildOrderSuccessButtons
 } from "../src/utils/interactiveBuilders";
 import type { CategoryDefinition } from "../src/utils/categories";
 import type { CatalogItem } from "../src/types";
@@ -267,6 +268,26 @@ describe("interactiveBuilders", () => {
 
         const payloadEn = buildOrderCancelledButtons("Order cancelled.", "en");
         expect(payloadEn.buttons[0]!.text).toBe("Buy Cosmetics");
+        expect(payloadEn.buttons[1]!.text).toBe("Order History");
+    });
+
+    it("should build order success buttons with Beli Lagi and Riwayat Pesanan", () => {
+        const payloadId = buildOrderSuccessButtons("Pesanan telah berhasil dikirim.", "id");
+        expect(payloadId.buttons.length).toBe(2);
+        expect(payloadId.buttons[0]!.id).toBe("btn_start_buying");
+        expect(payloadId.buttons[0]!.text).toBe("Beli Lagi");
+        expect(payloadId.buttons[1]!.id).toBe("btn_history");
+        expect(payloadId.buttons[1]!.text).toBe("Riwayat Pesanan");
+
+        const p0 = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
+        const p1 = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[1].buttonParamsJson);
+        expect(p0.id).toBe("btn_start_buying");
+        expect(p0.display_text).toBe("Beli Lagi");
+        expect(p1.id).toBe("btn_history");
+        expect(p1.display_text).toBe("Riwayat Pesanan");
+
+        const payloadEn = buildOrderSuccessButtons("Order delivered successfully.", "en");
+        expect(payloadEn.buttons[0]!.text).toBe("Buy Again");
         expect(payloadEn.buttons[1]!.text).toBe("Order History");
     });
 });
