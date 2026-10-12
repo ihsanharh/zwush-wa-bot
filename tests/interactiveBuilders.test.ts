@@ -213,16 +213,18 @@ describe("interactiveBuilders", () => {
         expect(withDesc.interactiveMessage.header.imageMessage).toBe(uploadedDesc);
     });
 
-    it("should build voucher prompt buttons with localized cancel button", () => {
+    it("should build voucher prompt buttons with localized cancel button and no legacy buttonsMessage", () => {
         const payloadId = buildVoucherPromptButtons("Masukkan voucher:", "id");
         expect(payloadId.buttons.length).toBe(1);
         expect(payloadId.buttons[0]!.id).toBe("btn_cancel_voucher");
         expect(payloadId.buttons[0]!.text).toBe("Batal");
+        expect((payloadId as any).buttonsMessage).toBeUndefined();
         const pId = JSON.parse(payloadId.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
         expect(pId.display_text).toBe("Batal");
 
         const payloadEn = buildVoucherPromptButtons("Enter voucher:", "en");
         expect(payloadEn.buttons[0]!.text).toBe("Cancel");
+        expect((payloadEn as any).buttonsMessage).toBeUndefined();
         const pEn = JSON.parse(payloadEn.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson);
         expect(pEn.display_text).toBe("Cancel");
     });

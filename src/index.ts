@@ -155,10 +155,14 @@ const botContext: BotContext = {
             payload.buttonsMessage?.contentText ||
             "";
         console.log(`[WhatsApp Sending Buttons to ${jid}]:\n${text ? text.slice(0, 100) + "..." : "(buttons)"}`);
-        return await client.message.send(jid, {
-            interactiveMessage: payload.interactiveMessage,
-            ...(payload.buttonsMessage ? { buttonsMessage: payload.buttonsMessage } : {})
-        });
+        const sendContent: any = {};
+        if (payload.interactiveMessage) {
+            sendContent.interactiveMessage = payload.interactiveMessage;
+        } else if (payload.buttonsMessage) {
+            sendContent.buttonsMessage = payload.buttonsMessage;
+        }
+
+        return await client.message.send(jid, sendContent);
     },
     async uploadMedia(buffer: Buffer, mimetype: string = "image/png") {
         return await client.message.upload(buffer, {

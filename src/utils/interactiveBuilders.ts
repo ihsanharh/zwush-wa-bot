@@ -269,7 +269,6 @@ export function buildVoucherPromptButtons(
     interactiveMessage: any;
     text: string;
     buttons: Array<{ id: string; text: string }>;
-    buttonsMessage?: any;
 } {
     const store = config.STORE_NAME;
     const cancelText = t("buttons.cancel", lang);
@@ -280,24 +279,7 @@ export function buildVoucherPromptButtons(
         }
     ];
 
-    const payload = buildQuickReplyPayload(promptText, buttons, { footer: store });
-
-    return {
-        ...payload,
-        buttonsMessage: {
-            contentText: promptText,
-            footerText: store,
-            headerType: 1,
-            text: promptText,
-            buttons: [
-                {
-                    buttonId: "btn_cancel_voucher",
-                    buttonText: { displayText: cancelText },
-                    type: 1
-                }
-            ]
-        }
-    };
+    return buildQuickReplyPayload(promptText, buttons, { footer: store });
 }
 
 /**

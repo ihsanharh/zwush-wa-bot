@@ -199,8 +199,12 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         state.setGamertag(testJid, "SteveGamer");
 
         // 1. Click 'Pakai Voucher' button
+        sentButtons = [];
         await handleBuyingFlow(testJid, false, "btn_open_voucher", mockContext, "id");
         expect(state.getSession(testJid).step).toBe("AWAITING_VOUCHER_CODE");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]!.payload.interactiveMessage).toBeDefined();
+        expect(sentButtons[0]!.payload.buttonsMessage).toBeUndefined();
 
         // 2. Type voucher code
         await handleBuyingFlow(testJid, false, "HEMAT5K", mockContext, "id");
@@ -223,6 +227,24 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(state.getSession(testJid).gamertag).toBe("SteveGamer");
         // Voucher should be retained and revalidated
         expect(state.getSession(testJid).appliedVoucher?.code).toBe("HEMAT5K");
+    });
+
+    it("should handle invalid voucher error with native flow quick reply buttons", async () => {
+        state.startBuyingFlow(testJid);
+        state.setCategory(testJid, "Regular Pet");
+        state.setItem(testJid, catalogItems[0]!);
+        state.setGamertag(testJid, "SteveGamer");
+
+        await handleBuyingFlow(testJid, false, "btn_open_voucher", mockContext, "id");
+        expect(state.getSession(testJid).step).toBe("AWAITING_VOUCHER_CODE");
+
+        sentButtons = [];
+        await handleBuyingFlow(testJid, false, "KODEPALSU", mockContext, "id");
+        expect(state.getSession(testJid).step).toBe("AWAITING_VOUCHER_CODE");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]!.payload.interactiveMessage).toBeDefined();
+        expect(sentButtons[0]!.payload.buttonsMessage).toBeUndefined();
+        expect(sentButtons[0]!.payload.text).toContain("tidak valid");
     });
 
     it("should open modify drawer list menu on btn_modify_menu", async () => {
