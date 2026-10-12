@@ -563,7 +563,7 @@ async function handleCustomerCancel(
 
     if (pendingOrderId) {
         try {
-            const res = await ctx.client.cancelOrder(pendingOrderId, "Cancelled by buyer");
+            const res = await ctx.client.cancelOrder(pendingOrderId, "Cancelled by buyer", { silent: true });
             if (ctx.adminLogger) {
                 await ctx.adminLogger.updateOrderStatus(res.orderId, "CANCELLED", {
                     failureReason: "Cancelled by buyer",

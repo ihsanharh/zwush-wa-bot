@@ -175,19 +175,20 @@ export class CoreClient {
     /**
      * Cancels a pending order, releasing unique code and reverting voucher quota.
      */
-    async cancelOrder(orderId: string, reason = "Cancelled by user"): Promise<{
+    async cancelOrder(orderId: string, reason = "Cancelled by user", options?: { silent?: boolean }): Promise<{
         success: boolean;
         orderId: string;
         status: string;
         gamertag?: string;
         itemName?: string;
         totalNominal?: number;
+        silent?: boolean;
         message?: string;
     }> {
         const res = await fetch(`${this.baseUrl}/api/orders/${encodeURIComponent(orderId)}/cancel`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reason }),
+            body: JSON.stringify({ reason, silent: options?.silent ?? false }),
             signal: AbortSignal.timeout(15000)
         });
         const data = (await res.json()) as {
@@ -197,6 +198,7 @@ export class CoreClient {
             gamertag?: string;
             itemName?: string;
             totalNominal?: number;
+            silent?: boolean;
             message?: string;
         };
         if (!res.ok || !data.success) {

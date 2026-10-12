@@ -233,5 +233,23 @@ describe("CoreClient", () => {
         expect(res.success).toBe(true);
         expect(sentBody.silent).toBe(true);
     });
+
+    it("should pass silent flag to cancelOrder", async () => {
+        let sentBody: any = null;
+        global.fetch = mock((_url, init) => {
+            sentBody = JSON.parse(init?.body as string);
+            return Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                orderId: "ORD-CANCEL-SILENT",
+                status: "CANCELLED",
+                silent: true
+            }), { status: 200 }));
+        }) as unknown as typeof fetch;
+
+        const res = await client.cancelOrder("ORD-CANCEL-SILENT", "Buyer cancelled", { silent: true });
+        expect(res.success).toBe(true);
+        expect(sentBody.silent).toBe(true);
+        expect(sentBody.reason).toBe("Buyer cancelled");
+    });
 });
 
