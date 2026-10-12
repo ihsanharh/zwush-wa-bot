@@ -390,5 +390,22 @@ describe("Interactive Admin Panel System", () => {
             expect(sentLists.length).toBe(1);
             expect(sentLists[0]?.payload.listMessage.title).toContain("Panel Kontrol Admin");
         });
+
+        it("should fallback to QuickReply buttons if sendList throws an error when clicking 'btn_admin_panel'", async () => {
+            mockContext.sendList = async () => {
+                throw new Error("negative publish ack: error=479");
+            };
+
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "btn_admin_panel",
+                mockContext,
+                adminUser
+            );
+
+            expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]?.jid).toBe(adminGroupJid);
+        });
     });
 });

@@ -13,8 +13,10 @@ import {
     extractQuotedMessageId,
     extractEventTimestampSeconds,
     isEventStale,
-    extractMentionedJids
+    extractMentionedJids,
+    isPrivateChat
 } from "./utils/messageUtils";
+import { buildAdminPanelQuickReply } from "./utils/interactiveBuilders";
 import { AdminGroupLogger } from "./handlers/adminLogger";
 
 console.log(`⚡ Starting ${config.STORE_NAME} WhatsApp Bot...`);
@@ -138,6 +140,17 @@ const botContext: BotContext = {
     },
     async sendList(jid: string, payload: { listMessage: any }) {
         console.log(`[WhatsApp Sending List to ${jid}]: ${payload.listMessage?.title}`);
+        if (!isPrivateChat(jid)) {
+            console.warn(`[WhatsApp] List messages are not supported by WhatsApp server in groups (error 479). Converting to Quick Reply buttons for ${jid}...`);
+            const isMaint = stateManager.isMaintenanceMode ? stateManager.isMaintenanceMode() : false;
+            const lang = stateManager.getLanguage(jid);
+            const qr = buildAdminPanelQuickReply(lang, isMaint);
+            if (botContext.sendButtons) {
+                return await botContext.sendButtons(jid, qr);
+            } else {
+                return await botContext.sendText(jid, qr.text);
+            }
+        }
         return await client.message.send(jid, payload);
     },
     async sendButtons(jid: string, payload: { interactiveMessage?: any; buttonsMessage?: any; headerImage?: Buffer }) {

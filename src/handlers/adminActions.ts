@@ -81,8 +81,14 @@ export async function handleAdminAction(
     if (actionId === "admin_panel" || actionId === "btn_admin_panel") {
         const isMaint = ctx.state.isMaintenanceMode();
         if (ctx.sendList) {
-            await ctx.sendList(remoteJid, buildAdminPanelMenu(_userLang, isMaint));
-        } else if (ctx.sendButtons) {
+            try {
+                await ctx.sendList(remoteJid, buildAdminPanelMenu(_userLang, isMaint));
+                return true;
+            } catch (err) {
+                console.warn("[Admin Panel] sendList failed (e.g. group error 479), falling back to quick reply buttons:", err);
+            }
+        }
+        if (ctx.sendButtons) {
             await ctx.sendButtons(remoteJid, buildAdminPanelQuickReply(_userLang, isMaint));
         } else {
             const qr = buildAdminPanelQuickReply(_userLang, isMaint);
