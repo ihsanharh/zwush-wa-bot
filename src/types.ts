@@ -129,3 +129,32 @@ export interface OrderCheckPaymentResponse {
         time?: string;
     };
 }
+
+export interface VoucherItem {
+    id: string;
+    code: string;
+    discountType: "PERCENT" | "FLAT";
+    discountValue: number;
+    maxUses: number | null;
+    usedCount: number;
+    active: boolean;
+    expiresAt: string | null;
+    createdAt: string;
+}
+
+export interface CreateVoucherInput {
+    code: string;
+    discountType: "PERCENT" | "FLAT";
+    discountValue: number;
+    maxUses?: number | null;
+    expiresAt?: string | null;
+}
+
+export interface UpdateVoucherInput {
+    discountType?: "PERCENT" | "FLAT";
+    discountValue?: number;
+    maxUses?: number | null;
+    active?: boolean;
+    expiresAt?: string | null;
+}
+

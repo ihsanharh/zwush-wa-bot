@@ -2,7 +2,7 @@ import { proto } from "zapo-js";
 import { formatRupiah, formatStatusBadge, t, type Language } from "../i18n";
 import { config } from "../config";
 import type { CategoryDefinition } from "./categories";
-import type { CatalogItem, OrderInfo, PaginationInfo } from "../types";
+import type { CatalogItem, OrderInfo, PaginationInfo, VoucherItem } from "../types";
 
 /**
  * Generic helper to construct interactive native flow quick reply messages.
@@ -713,5 +713,125 @@ export function buildOrderExpiredButtons(
     ];
     return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
 }
+
+/**
+ * Builds Voucher Management Overview Menu (List, Buat, Kembali)
+ */
+export function buildAdminVouchersOverview(
+    discountPercent: number,
+    activeVouchers: number,
+    totalVouchers: number,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const text = `🎟️ *MANAJEMEN VOUCHER & DISKON*\n\n` +
+        `• Diskon Global Toko: *${discountPercent}%*\n` +
+        `• Total Voucher Aktif: *${activeVouchers}* voucher\n` +
+        `• Total Voucher Terdaftar: *${totalVouchers}* voucher\n\n` +
+        `💡 _Diskon toko diterapkan langsung ke seluruh katalog item. Voucher tambahan dapat diklaim pembeli saat konfirmasi order._\n\n` +
+        `Silakan pilih menu manajemen voucher di bawah:`;
+    const buttons = [
+        { id: "btn_admin_voucher_list", text: "📋 List Voucher" },
+        { id: "btn_admin_voucher_create", text: "➕ Buat Voucher" },
+        { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
+    ];
+    return buildQuickReplyPayload(text, buttons);
+}
+
+/**
+ * Builds Voucher List Display with Management Hint & Quick Action Buttons
+ */
+export function buildAdminVoucherListMessage(
+    vouchers: VoucherItem[],
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    let text = `📋 *DAFTAR VOUCHER ZWUSH STORE*\n\n`;
+
+    if (vouchers.length === 0) {
+        text += `_Belum ada voucher yang terdaftar di database._\n\nKlik tombol *[➕ Buat Baru]* di bawah untuk membuat voucher pertama!`;
+    } else {
+        vouchers.slice(0, 15).forEach((v, idx) => {
+            const statusBadge = v.active ? "🟢 Aktif" : "🔴 Nonaktif";
+            const discountStr = v.discountType === "PERCENT"
+                ? `${v.discountValue}%`
+                : `Rp ${v.discountValue.toLocaleString("id-ID")}`;
+            const maxUsesStr = v.maxUses !== null ? `${v.maxUses}` : "∞ (Tanpa Batas)";
+            text += `${idx + 1}. 🏷️ *${v.code}* (${statusBadge})\n` +
+                `   • Diskon: *${discountStr}*\n` +
+                `   • Kuota: *${v.usedCount} / ${maxUsesStr}*\n\n`;
+        });
+        text += `👉 *Ketik KODE voucher* (contoh: *${vouchers[0].code}*) di chat ini untuk mengedit atau menghapus voucher secara permanen!`;
+    }
+
+    const buttons = [
+        { id: "btn_admin_voucher_create", text: "➕ Buat Baru" },
+        { id: "btn_admin_voucher_list", text: "🔄 Refresh" },
+        { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
+    ];
+    return buildQuickReplyPayload(text, buttons);
+}
+
+/**
+ * Builds Individual Voucher Detail Card with Action Buttons
+ */
+export function buildAdminVoucherDetailCard(
+    voucher: VoucherItem,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const statusText = voucher.active ? "🟢 Aktif" : "🔴 Nonaktif";
+    const discountStr = voucher.discountType === "PERCENT"
+        ? `${voucher.discountValue}%`
+        : `Rp ${voucher.discountValue.toLocaleString("id-ID")}`;
+    const maxUsesStr = voucher.maxUses !== null ? `${voucher.maxUses} kali` : "Tanpa Batas";
+    const expiredStr = voucher.expiresAt ? new Date(voucher.expiresAt).toLocaleDateString("id-ID") : "Tanpa Batas";
+
+    const text = `🏷️ *DETAIL VOUCHER: ${voucher.code}*\n\n` +
+        `• Status: *${statusText}*\n` +
+        `• Tipe Potongan: *${discountStr}*\n` +
+        `• Penggunaan: *${voucher.usedCount} / ${maxUsesStr}*\n` +
+        `• Kadaluwarsa: *${expiredStr}*\n\n` +
+        `Silakan pilih tindakan untuk voucher ini:`;
+
+    const toggleText = voucher.active ? "🔴 Nonaktifkan" : "🟢 Aktifkan";
+    const buttons = [
+        { id: `btn_admin_voucher_toggle_${voucher.code}`, text: toggleText },
+        { id: `btn_admin_voucher_edit_menu_${voucher.code}`, text: "✏️ Edit Voucher" },
+        { id: `btn_admin_voucher_del_confirm_${voucher.code}`, text: "🗑️ Hapus Permanen" }
+    ];
+    return buildQuickReplyPayload(text, buttons);
+}
+
+/**
+ * Builds Voucher Edit Menu Buttons (Edit Diskon vs Edit Kuota)
+ */
+export function buildAdminVoucherEditMenu(
+    code: string,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const text = `✏️ *EDIT VOUCHER: ${code}*\n\nPilih bagian voucher yang ingin Anda ubah:`;
+    const buttons = [
+        { id: `btn_admin_voucher_edit_val_${code}`, text: "1. Nilai Diskon" },
+        { id: `btn_admin_voucher_edit_max_${code}`, text: "2. Kuota Maksimal" },
+        { id: "btn_admin_voucher_cancel", text: "❌ Batal" }
+    ];
+    return buildQuickReplyPayload(text, buttons);
+}
+
+/**
+ * Builds Voucher Delete Confirmation Card
+ */
+export function buildAdminVoucherDeleteConfirm(
+    code: string,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const text = `⚠️ *KONFIRMASI HAPUS VOUCHER*\n\n` +
+        `Voucher *${code}* akan *benar-benar dihapus secara permanen dari database*!\n\n` +
+        `Apakah Anda yakin ingin menghapus voucher ini selamanya?`;
+    const buttons = [
+        { id: `btn_admin_voucher_del_exec_${code}`, text: "🗑️ Ya, Hapus Permanen" },
+        { id: "btn_admin_voucher_cancel", text: "❌ Batal" }
+    ];
+    return buildQuickReplyPayload(text, buttons);
+}
+
 
 

@@ -33,6 +33,7 @@ import {
 } from "../flows/supportFlow";
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import { handleAdminAction } from "./adminActions";
+import { handleAdminVoucherTextInput } from "./adminVouchers";
 import {
     buildAdminPanelMenu,
     buildAdminPanelQuickReply,
@@ -226,6 +227,22 @@ async function handleIncomingMessageInternal(
             if (handledAdminAction) return;
         }
 
+        // Admin interactive voucher wizard text input
+        if (isAdmin) {
+            const adminSession = ctx.state.getSession(effectiveSender);
+            if (adminSession.step.startsWith("ADMIN_AWAITING_VOUCHER_")) {
+                const handledVoucherInput = await handleAdminVoucherTextInput(
+                    remoteJid,
+                    trimmed,
+                    effectiveSender,
+                    true,
+                    userLang,
+                    ctx
+                );
+                if (handledVoucherInput) return;
+            }
+        }
+
         // Only admins can trigger bot interactions in groups
         if (!isAdmin) {
             return;
@@ -301,6 +318,18 @@ async function handleIncomingMessageInternal(
     const session = ctx.state.getSession(remoteJid);
     const activeOrderId = ctx.state.getActiveOrderId(remoteJid);
     const buyingActive = isBuyingFlowActive(ctx, remoteJid);
+
+    // Support admin actions and voucher wizard in private chat for admins
+    if (isUserAdmin(remoteJid)) {
+        if (trimmed.startsWith("admin_") || trimmed.startsWith("btn_admin_") || trimmed.startsWith("cmd_")) {
+            const handledAdmin = await handleAdminAction(remoteJid, trimmed, remoteJid, false, userLang, ctx);
+            if (handledAdmin) return;
+        }
+        if (session.step.startsWith("ADMIN_AWAITING_VOUCHER_")) {
+            const handledVoucher = await handleAdminVoucherTextInput(remoteJid, trimmed, remoteJid, false, userLang, ctx);
+            if (handledVoucher) return;
+        }
+    }
 
     // Quick-reply invoice button check (only allowed if there is an active pending order)
     if (trimmed === "btn_check_payment" || trimmed === "act_check_status") {

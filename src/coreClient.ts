@@ -8,7 +8,10 @@ import type {
     OrderRetryResponse,
     VoucherValidationResponse,
     BotBalanceResponse,
-    OrderCheckPaymentResponse
+    OrderCheckPaymentResponse,
+    VoucherItem,
+    CreateVoucherInput,
+    UpdateVoucherInput
 } from "./types";
 import { config } from "./config";
 
@@ -256,6 +259,85 @@ export class CoreClient {
         }
         return data;
     }
+
+    /**
+     * Lists all vouchers (active and inactive) from core service.
+     */
+    async listVouchers(): Promise<VoucherItem[]> {
+        const res = await fetch(`${this.baseUrl}/api/vouchers`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Webhook-Secret": config.WEBHOOK_SECRET
+            },
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as { success: boolean; vouchers: VoucherItem[]; message?: string };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to fetch vouchers (${res.status})`);
+        }
+        return data.vouchers;
+    }
+
+    /**
+     * Creates a new voucher in core service.
+     */
+    async createVoucher(payload: CreateVoucherInput): Promise<VoucherItem> {
+        const res = await fetch(`${this.baseUrl}/api/vouchers`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Webhook-Secret": config.WEBHOOK_SECRET
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as { success: boolean; voucher: VoucherItem; message?: string };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to create voucher (${res.status})`);
+        }
+        return data.voucher;
+    }
+
+    /**
+     * Updates an existing voucher in core service.
+     */
+    async updateVoucher(code: string, payload: UpdateVoucherInput): Promise<VoucherItem> {
+        const res = await fetch(`${this.baseUrl}/api/vouchers/${encodeURIComponent(code)}`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Webhook-Secret": config.WEBHOOK_SECRET
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as { success: boolean; voucher: VoucherItem; message?: string };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to update voucher '${code}' (${res.status})`);
+        }
+        return data.voucher;
+    }
+
+    /**
+     * Permanently deletes a voucher from core service database.
+     */
+    async deleteVoucher(code: string): Promise<boolean> {
+        const res = await fetch(`${this.baseUrl}/api/vouchers/${encodeURIComponent(code)}`, {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Webhook-Secret": config.WEBHOOK_SECRET
+            },
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as { success: boolean; message?: string };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to delete voucher '${code}' (${res.status})`);
+        }
+        return true;
+    }
+
 
     /**
      * Gets The Hive bot token balance and daily sales summary.

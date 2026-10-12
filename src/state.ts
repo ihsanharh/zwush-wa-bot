@@ -14,12 +14,27 @@ export type StepStatus =
     | "AWAITING_RETRY_GAMERTAG"
     | "AWAITING_RETRY_CONFIRMATION"
     | "AWAITING_SUPPORT_CONFIRMATION"
-    | "LIVE_CHAT";
+    | "LIVE_CHAT"
+    | "ADMIN_AWAITING_VOUCHER_CODE"
+    | "ADMIN_AWAITING_VOUCHER_TYPE"
+    | "ADMIN_AWAITING_VOUCHER_VALUE"
+    | "ADMIN_AWAITING_VOUCHER_MAX_USES"
+    | "ADMIN_AWAITING_VOUCHER_ACTION_CODE"
+    | "ADMIN_AWAITING_VOUCHER_EDIT_DISCOUNT"
+    | "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES";
 
 export interface AppliedVoucherInfo {
     code: string;
     discountNominal: number;
     finalPrice: number;
+}
+
+export interface AdminVoucherDraft {
+    code?: string;
+    discountType?: "PERCENT" | "FLAT";
+    discountValue?: number;
+    maxUses?: number | null;
+    targetCode?: string;
 }
 
 export interface RetryOrderInfo {
@@ -38,6 +53,7 @@ export interface UserSession {
     gamertag?: string;
     appliedVoucher?: AppliedVoucherInfo;
     appliedVoucherCode?: string;
+    adminVoucherDraft?: AdminVoucherDraft;
     lastQrKey?: any;
     activeOrderId?: string;
     language?: Language;
@@ -584,4 +600,37 @@ export class StateManager {
         }
         return list;
     }
+
+    /**
+     * Updates admin interactive voucher step and persists draft properties.
+     */
+    setAdminVoucherStep(jid: string, step: StepStatus, draft?: Partial<AdminVoucherDraft>): void {
+        const current = this.getSession(jid);
+        current.step = step;
+        current.adminVoucherDraft = {
+            ...(current.adminVoucherDraft || {}),
+            ...(draft || {})
+        };
+        current.lastUpdated = Date.now();
+        this.sessions.set(jid, current);
+    }
+
+    /**
+     * Gets the active admin voucher draft if any.
+     */
+    getAdminVoucherDraft(jid: string): AdminVoucherDraft | undefined {
+        return this.getSession(jid).adminVoucherDraft;
+    }
+
+    /**
+     * Clears admin interactive voucher step and resets session to IDLE.
+     */
+    clearAdminVoucher(jid: string): void {
+        const current = this.getSession(jid);
+        current.adminVoucherDraft = undefined;
+        current.step = "IDLE";
+        current.lastUpdated = Date.now();
+        this.sessions.set(jid, current);
+    }
 }
+

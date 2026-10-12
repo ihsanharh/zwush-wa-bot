@@ -12,6 +12,7 @@ import {
     buildQuickReplyPayload,
     buildUserOrderFailureButtons
 } from "../utils/interactiveBuilders";
+import { handleAdminVoucherAction } from "./adminVouchers";
 
 async function getOrderDetails(ctx: BotContext, orderId: string) {
     let buyerJid = "";
@@ -220,28 +221,17 @@ export async function handleAdminAction(
         return true;
     }
 
-    // 0.5 Admin Panel: Vouchers & Discount
-    if (actionId === "admin_panel_vouchers") {
-        try {
-            const res = await ctx.client.getBalance(false);
-            const s = res.summary;
-            const text = `${t("interactive.adminVouchersTitle", _userLang)}\n\n` +
-                `• Diskon Global Toko: *${s.discountPercent}%*\n` +
-                `• Total Voucher Aktif: *${s.activeVouchers}* voucher\n\n` +
-                `💡 _Diskon toko diterapkan langsung ke seluruh katalog item. Voucher tambahan dapat diklaim pembeli saat konfirmasi order._`;
-            const payload = buildQuickReplyPayload(text, [
-                { id: "btn_admin_panel", text: t("buttons.adminPanel", _userLang) }
-            ]);
-            if (ctx.sendButtons) {
-                await ctx.sendButtons(remoteJid, payload);
-            } else {
-                await ctx.sendText(remoteJid, text, mentions);
-            }
-        } catch (err: unknown) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            await ctx.sendText(remoteJid, `❌ Gagal memuat data voucher: ${errMsg}`, mentions);
-        }
-        return true;
+    // 0.5 Admin Panel: Vouchers & Discount Management
+    if (actionId === "admin_panel_vouchers" || actionId.startsWith("btn_admin_voucher_")) {
+        const handledVoucher = await handleAdminVoucherAction(
+            remoteJid,
+            actionId,
+            effectiveSender,
+            isGroup,
+            _userLang,
+            ctx
+        );
+        if (handledVoucher) return true;
     }
 
     // 1. Mark Paid
