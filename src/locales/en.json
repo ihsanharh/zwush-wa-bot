@@ -66,7 +66,7 @@
         "reasonCustomerStarted": "Customer started Live Chat Support session via button"
     },
     "history": {
-        "empty": "Hi there! You don't have any order history yet 😊\n\nStart shopping for Hive cosmetics via the Buy Cosmetics button!",
+        "empty": "Hi there! You don't have any order history yet 😊\n\nFeel free to explore our shop from the main menu below!",
         "pageTitle": "📜 *ORDER HISTORY* (Page {{page}}/{{totalPages}})\nRecent orders in {{store}}:\n\n",
         "footer": "💡 _All orders are automatically delivered within 1-3 minutes once payment is verified._",
         "fetchError": "❌ Failed to fetch order history: {{error}}\n\n💡 Please wait a moment and try again."

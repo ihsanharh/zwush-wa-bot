@@ -66,7 +66,7 @@
         "reasonCustomerStarted": "Pelanggan memulai sesi Live Chat Support via tombol"
     },
     "history": {
-        "empty": "Halo kak! Belum ada riwayat pesanan untuk nomor ini nih 😊\n\nYuk mulai belanja kosmetik The Hive melalui menu Beli Kosmetik ya!",
+        "empty": "Halo kak! Belum ada riwayat pesanan nih 😊\n\nYuk mulai berbelanja melalui menu utama di bawah ya kak!",
         "pageTitle": "📜 *RIWAYAT PESANAN KAKAK* (Hal {{page}}/{{totalPages}})\nDaftar pesanan di {{store}}:\n\n",
         "footer": "💡 _Semua pesanan otomatis diproses dalam 1-3 menit setelah pembayaran terverifikasi._",
         "fetchError": "❌ Gagal mengambil riwayat pesanan kak: {{error}}\n\n💡 Mohon tunggu beberapa saat dan coba lagi ya kak."
