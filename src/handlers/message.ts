@@ -44,7 +44,8 @@ import {
     buildDefaultGamertagPromptButtons,
     buildWelcomeButtons,
     buildPaymentPendingButtons,
-    buildOrderExpiredButtons
+    buildOrderExpiredButtons,
+    buildMinecoinsComingSoonButtons
 } from "../utils/interactiveBuilders";
 
 // Re-exports for backward compatibility
@@ -583,6 +584,25 @@ async function handleIncomingMessageInternal(
             if (ctx.sendList) {
                 const defaultGt = ctx.state.getDefaultGamertag ? ctx.state.getDefaultGamertag(remoteJid) : undefined;
                 await ctx.sendList(remoteJid, buildSettingsListMenu(userLang, defaultGt));
+            }
+            return;
+        }
+
+        if (trimmed === "btn_minecoins") {
+            const comingSoon = buildMinecoinsComingSoonButtons(userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, comingSoon);
+            } else {
+                await ctx.sendText(remoteJid, comingSoon.text);
+            }
+            return;
+        }
+
+        if (trimmed === "btn_welcome") {
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildWelcomeButtons(userLang));
+            } else {
+                await ctx.sendText(remoteJid, t("greeting", userLang, { store: config.STORE_NAME }));
             }
             return;
         }

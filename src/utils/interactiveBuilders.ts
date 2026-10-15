@@ -531,11 +531,35 @@ export function buildAdminBalanceButtons(
 export function buildWelcomeButtons(lang: Language = "id"): { interactiveMessage: any } {
     const store = config.STORE_NAME;
     const buttons = [
-        { id: "btn_start_buying", text: t("buttons.browseCatalog", lang) },
-        { id: "btn_history", text: t("buttons.orderHistory", lang) },
+        { id: "btn_start_buying", text: t("buttons.hiveCosmetics", lang) },
+        { id: "btn_minecoins", text: t("buttons.topupMinecoins", lang) },
         { id: "btn_settings", text: t("buttons.settingsAndInfo", lang) }
     ];
-    return buildQuickReplyPayload(t("greeting", lang), buttons, { footer: `${store} • The Hive Bedrock` });
+    return buildQuickReplyPayload(
+        t("greeting", lang, {
+            store,
+            discountText: t("discountTextWithPercent", lang, { percent: config.DISCOUNT_PERCENT })
+        }),
+        buttons,
+        { footer: `${store} • The Hive & Marketplace` }
+    );
+}
+
+/**
+ * Builds Minecoins Coming Soon Informational Card with interactive quick reply buttons
+ */
+export function buildMinecoinsComingSoonButtons(lang: Language = "id"): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+} {
+    const store = config.STORE_NAME;
+    const text = t("minecoinsComingSoon", lang, { store });
+    const buttons = [
+        { id: "btn_start_buying", text: t("buttons.browseCatalog", lang) },
+        { id: "btn_welcome", text: t("buttons.mainMenu", lang) }
+    ];
+    return buildQuickReplyPayload(text, buttons, { footer: `${store} • Minecraft Marketplace` });
 }
 
 /**
@@ -568,6 +592,11 @@ export function buildSettingsListMenu(lang: Language = "id", defaultGamertag?: s
                 {
                     title,
                     rows: [
+                        {
+                            rowId: "btn_history",
+                            title: t("interactive.orderHistoryTitle", lang),
+                            description: t("interactive.orderHistoryDesc", lang)
+                        },
                         {
                             rowId: "act_default_gamertag",
                             title: defaultGtTitle,

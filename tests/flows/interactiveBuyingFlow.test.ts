@@ -320,13 +320,25 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         const b1 = JSON.parse(welcomeBtns[1].buttonParamsJson);
         const b2 = JSON.parse(welcomeBtns[2].buttonParamsJson);
         expect(b0.id).toBe("btn_start_buying");
-        expect(b1.id).toBe("btn_history");
+        expect(b1.id).toBe("btn_minecoins");
         expect(b2.id).toBe("btn_settings");
 
         // Clicking btn_start_buying opens category menu statelessly
         sentLists = [];
         await handleIncomingMessage(testJid, false, "btn_start_buying", mockContext);
         expect(sentLists.length).toBe(1);
+        expect(state.getSession(testJid).step).toBe("IDLE");
+    });
+
+    it("should send minecoins coming soon card on btn_minecoins with voucher perk", async () => {
+        state.clear(testJid);
+        sentButtons = [];
+
+        await handleIncomingMessage(testJid, false, "btn_minecoins", mockContext);
+        expect(sentButtons.length).toBe(1);
+        const text = sentButtons[0]!.payload.text;
+        expect(text).toContain("MINECOINS");
+        expect(text).toContain("voucher");
         expect(state.getSession(testJid).step).toBe("IDLE");
     });
 
