@@ -197,16 +197,23 @@ describe("interactiveBuilders", () => {
     });
 
     it("should build minecoins coming soon interactive buttons card with voucher mention", () => {
-        const payload = buildMinecoinsComingSoonButtons("id");
-        expect(payload.text).toContain("MINECOINS");
-        expect(payload.text).toContain("320 MC");
-        expect(payload.text).toContain("voucher");
-        const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
-        expect(buttons.length).toBe(2);
-        const b0 = JSON.parse(buttons[0].buttonParamsJson);
-        const b1 = JSON.parse(buttons[1].buttonParamsJson);
+        const payloadId = buildMinecoinsComingSoonButtons("id");
+        expect(payloadId.text).toContain("MINECOINS");
+        expect(payloadId.text).toContain("620 MC");
+        expect(payloadId.text).toContain("voucher");
+        const buttonsId = payloadId.interactiveMessage.nativeFlowMessage.buttons;
+        expect(buttonsId.length).toBe(2);
+        const b0 = JSON.parse(buttonsId[0].buttonParamsJson);
+        const b1 = JSON.parse(buttonsId[1].buttonParamsJson);
         expect(b0.id).toBe("btn_start_buying");
         expect(b1.id).toBe("btn_welcome");
+
+        const payloadEn = buildMinecoinsComingSoonButtons("en");
+        expect(payloadEn.text).toContain("MINECOINS");
+        expect(payloadEn.text).toContain("620 MC");
+        expect(payloadEn.text).toContain("voucher");
+        const buttonsEn = payloadEn.interactiveMessage.nativeFlowMessage.buttons;
+        expect(buttonsEn.length).toBe(2);
     });
 
     it("should build gamertag prompt buttons with change item and cancel order", () => {
