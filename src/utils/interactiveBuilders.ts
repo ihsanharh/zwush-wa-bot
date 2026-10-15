@@ -541,7 +541,7 @@ export function buildWelcomeButtons(lang: Language = "id"): { interactiveMessage
 /**
  * Builds Settings & Information List Menu (Drawer)
  */
-export function buildSettingsListMenu(lang: Language = "id"): { listMessage: any } {
+export function buildSettingsListMenu(lang: Language = "id", defaultGamertag?: string): { listMessage: any } {
     const store = config.STORE_NAME;
     const title = t("interactive.settingsTitle", lang);
     const description = t("interactive.settingsDesc", lang);
@@ -549,6 +549,13 @@ export function buildSettingsListMenu(lang: Language = "id"): { listMessage: any
 
     const switchLangTitle = lang === "id" ? t("interactive.switchLangEn", lang) : t("interactive.switchLangId", lang);
     const switchLangDesc = lang === "id" ? t("interactive.switchLangEnDesc", lang) : t("interactive.switchLangIdDesc", lang);
+
+    const defaultGtTitle = defaultGamertag
+        ? `${t("interactive.defaultGamertagTitle", lang)}: ${defaultGamertag}`
+        : t("interactive.defaultGamertagTitle", lang);
+    const defaultGtDesc = defaultGamertag
+        ? t("interactive.defaultGamertagDescSet", lang, { gamertag: defaultGamertag })
+        : t("interactive.defaultGamertagDescNotSet", lang);
 
     return {
         listMessage: {
@@ -561,6 +568,11 @@ export function buildSettingsListMenu(lang: Language = "id"): { listMessage: any
                 {
                     title,
                     rows: [
+                        {
+                            rowId: "act_default_gamertag",
+                            title: defaultGtTitle,
+                            description: defaultGtDesc
+                        },
                         {
                             rowId: "act_switch_lang",
                             title: switchLangTitle,
@@ -666,6 +678,31 @@ export function buildOrderCancelledButtons(
  */
 export function buildOrderSuccessButtons(
     message: string,
+    lang: Language = "id",
+    gamertag?: string,
+    hasDefaultGamertag?: boolean
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+} {
+    const store = config.STORE_NAME;
+    const buyAgainId = hasDefaultGamertag || !gamertag
+        ? "btn_start_buying"
+        : `btn_buy_again_${encodeURIComponent(gamertag)}`;
+    const buttons = [
+        { id: buyAgainId, text: t("buttons.buyAgain", lang) },
+        { id: "btn_history", text: t("buttons.orderHistory", lang) }
+    ];
+    return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
+}
+
+/**
+ * Builds prompt buttons when setting/editing default Gamertag (Batal, Hapus Default Gamertag)
+ */
+export function buildDefaultGamertagPromptButtons(
+    message: string,
+    hasExisting: boolean,
     lang: Language = "id"
 ): {
     interactiveMessage: any;
@@ -674,9 +711,11 @@ export function buildOrderSuccessButtons(
 } {
     const store = config.STORE_NAME;
     const buttons = [
-        { id: "btn_start_buying", text: t("buttons.buyAgain", lang) },
-        { id: "btn_history", text: t("buttons.orderHistory", lang) }
+        { id: "btn_cancel_default_gt", text: t("buttons.cancel", lang) }
     ];
+    if (hasExisting) {
+        buttons.push({ id: "btn_delete_default_gt", text: t("buttons.deleteDefaultGamertag", lang) });
+    }
     return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
 }
 

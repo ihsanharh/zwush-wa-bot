@@ -88,7 +88,7 @@ describe("Interactive Button: btn_check_payment", () => {
         state.setActiveOrderId(testJid, "ORD-NOT-PAID");
         await handleIncomingMessage(testJid, false, "btn_check_payment", mockContext);
         expect(sentButtons.length).toBe(1);
-        expect(sentButtons[0]?.payload.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
+        expect(sentButtons[0]?.payload.text).toContain("PEMBAYARAN BELUM MASUK");
         expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toEqual([
             "btn_check_payment"
         ]);
@@ -127,7 +127,7 @@ describe("Interactive Button: btn_check_payment", () => {
         state.setActiveOrderId(testJid, "ORD-NOT-PAID");
         await handleIncomingMessage(testJid, false, "btn_check_payment", textOnlyContext);
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0]?.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
+        expect(sentMessages[0]?.text).toContain("PEMBAYARAN BELUM MASUK");
     });
 
     it("should allow clicking btn_check_payment on follow-up message even when quoting follow-up stanzaId", async () => {
@@ -142,6 +142,6 @@ describe("Interactive Button: btn_check_payment", () => {
         sentButtons = [];
         await handleIncomingMessage(testJid, false, "btn_check_payment", mockContext, undefined, undefined, "followup-msg-id");
         expect(sentButtons.length).toBe(1);
-        expect(sentButtons[0]?.payload.text).toContain("PEMBAYARAN BELUM TERDETEKSI");
+        expect(sentButtons[0]?.payload.text).toContain("PEMBAYARAN BELUM MASUK");
     });
 });

@@ -14,12 +14,12 @@
     "unknown": "Unknown",
     "statusNotificationFallback": "ℹ️ Order #{{orderId}} status: {{status}}",
     "notification": {
-        "QUEUED": "✅ *PAYMENT RECEIVED!*\n\nYour order *#{{orderId}}* (*{{itemName}}* for *{{gamertag}}*) has been verified 🎉\n\n⏳ Your item is now queued for automated delivery to The Hive. Please allow 1–2 minutes!",
+        "QUEUED": "✅ *PAYMENT VERIFIED!* 🎉\n\nPayment for order *#{{orderId}}* (*{{itemName}}* for *{{gamertag}}*) has been received!\n\n⏳ Your order is now queued for automated delivery to The Hive Bedrock. Please allow 1–2 minutes! 🚀",
         "GIFTING": "🎁 *IN-GAME DELIVERY IN PROGRESS*\n\n{{store}} bot is logging into The Hive to deliver *{{itemName}}* to Gamertag *{{gamertag}}*.\nPlease wait a moment...",
-        "SUCCESS": "🎉 *ORDER DELIVERED SUCCESSFULLY!*\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n🆔 Order ID: #{{orderId}}\n\nPlease check your *Mailbox / Gift Box* in The Hive Bedrock.\nThank you for shopping with *{{store}}*! ✨",
-        "INSUFFICIENT_TOKENS": "ℹ️ *ORDER UPDATE #{{orderId}}*\n\nHi there! We received your payment. Currently our server is restocking gifts for The Hive.\n\nYour order will automatically be delivered as soon as tokens are ready. If you need any assistance, feel free to contact our admin team in the store group! 🥰",
-        "EXPIRED": "⏱️ *ORDER EXPIRED*\n\nThe 15-minute payment window for order *#{{orderId}}* has expired.\nThis QRIS is no longer valid. Please do not make payment.\n\nPlease select Buy Cosmetics from the menu if you wish to place a new order.\n_(If you already transferred after expiry, please contact our admin team in the store group)_",
-        "CANCELLED": "❌ *ORDER CANCELLED*\n\nYour order *#{{orderId}}* (*{{itemName}}*) has been cancelled.\n\nYour unique code & voucher quota have been returned. Feel free to browse cosmetics if you wish to place a new order! 😊",
+        "SUCCESS": "🎉 *ORDER DELIVERED SUCCESSFULLY!* ✨\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n🆔 Order ID: #{{orderId}}\n\nPlease check your *Mailbox / Gift Box* in The Hive Bedrock.\nThank you for shopping with *{{store}}*! Enjoy! 🎮✨",
+        "INSUFFICIENT_TOKENS": "ℹ️ *ORDER UPDATE #{{orderId}}*\n\nHi there! We received your payment safely. Currently our server is restocking gifts for The Hive.\n\nYour order will automatically be delivered as soon as tokens are ready. If you need any assistance, feel free to contact our admin team in the store group! 🥰",
+        "EXPIRED": "⏱️ *ORDER EXPIRED*\n\nThe 15-minute payment window for order *#{{orderId}}* has expired.\nThis QRIS is no longer valid. Please do not make payment.\n\nTap Buy Cosmetics below if you want to place a new order!\n_(If you already transferred after expiry, please contact our admin team in the store group)_",
+        "CANCELLED": "*ORDER CANCELLED*\n\nOrder *#{{orderId}}* (*{{itemName}}*) has been cancelled.\n\nIf you want to place a new order or browse items, feel free to tap Buy Cosmetics below!",
         "FAILED": "❌ *DELIVERY FAILED*\n\nOrder *#{{orderId}}* could not be delivered.\nReason: {{message}}\n\nDon't worry, please contact our admin team in the store group with your order ID.",
         "INELIGIBLE_UPGRADE": "❌ *UPGRADE REJECTED BY THE HIVE!*\n\nOrder *#{{orderId}}* (*{{itemName}}*) could not be delivered because Gamertag *{{gamertag}}* does not have an active Hive+ rank on The Hive (requires 22 full tokens).\n\nDon't worry, your payment is 100% safe! 😊\n👉 Please contact our admin team in the store group to pay the difference for Full Ultimate Rank or request a full refund!",
         "DELAYED_PAYMENT": "⚠️ *PAYMENT RECEIVED (AWAITING VERIFICATION)*\n\nHello! We have received your payment for order *#{{orderId}}* (*{{itemName}}*).\n\nHowever, because the payment notification arrived after the QR time limit, your order is currently awaiting admin verification before in-game gifting.\n\nDon't worry, your payment is 100% safe! Our admin will process your order shortly. 😊\n_Contact our admin team in the store group if you need assistance._"
@@ -53,7 +53,7 @@
         "invoiceText": "🧾 *QRIS PAYMENT INVOICE — {{storeUpper}}*\n\nHi! Your order has been successfully created 🎉\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n{{voucherLine}}💰 Total Payment: *{{formattedAmount}}*\n\n⚠️ *CRITICAL:* Transfer the *EXACT* amount *{{formattedAmount}}* (including the last 3 unique digits) so our system can verify your payment automatically!\n\n⏱️ *Time Limit: 15 Minutes!*\nPlease complete the payment within 15 minutes to avoid QRIS expiration. Thank you for shopping with {{store}}! 🥰\n\n💡 _Already transferred? Click [Check Payment] below if verification is delayed._\n💡 _Forgot voucher or want to cancel? Click [Cancel Order] below._",
         "invoiceVoucherLine": "🏷️ Voucher: *{{code}}* (-{{formattedDiscount}})\n",
         "orderCreateError": "❌ Oops, failed to create order: {{error}}\n\n💡 Please wait a moment and try selecting the item again.",
-        "enterGamertagPrompt": "Please type your *Minecraft Bedrock Gamertag* (example: *Steve123*):",
+        "enterGamertagPrompt": "🎮 Please type your *Minecraft Bedrock Gamertag* (example: *Steve123*):",
         "retryCancelled": "Retry session cancelled. Feel free to contact our admin team in the store group if you need help!",
         "retryConfirm": "📋 *CONFIRM NEW GAMERTAG*\n\n🆔 Order ID: *#{{orderId}}*\n📦 Item: *{{itemName}}*\n👤 New Gamertag: *{{gamertag}}*\n\nPlease make sure the Gamertag spelling and spaces are exact!\n\nIs this Gamertag correct? Please choose an option below:",
         "retrySuccess": "✅ *GAMERTAG UPDATED!*\n\nOrder *#{{orderId}}* is being re-delivered to *{{gamertag}}* on The Hive.\nPlease wait 1–2 minutes... 🎁",
@@ -79,9 +79,9 @@
         "textCatalogItemLinePlain": "{{idx}}. *{{name}}* (~{{originalPrice}}~ ➔ *{{rupiahPrice}}*)\n"
     },
     "cancel": {
-        "orderCancelled": "✅ *ORDER CANCELLED*\n\nYour order *#{{orderId}}* (*{{itemName}}*) has been successfully cancelled.\n\nUnique payment code & voucher quota have been returned. Feel free to open the catalog whenever you want to create a new order! 😊",
+        "orderCancelled": "*ORDER CANCELLED*\n\nOrder *#{{orderId}}* (*{{itemName}}*) has been cancelled.\n\nIf you want to place a new order or browse items, feel free to tap Buy Cosmetics below!",
         "failed": "❌ Failed to cancel order #{{orderId}}: {{error}}",
-        "noPending": "💡 You don't have any active order waiting for payment.\nPlease select Buy Cosmetics to start shopping! 😊"
+        "noPending": "You don't have any active order waiting for payment right now. Tap Buy Cosmetics below to start shopping!"
     },
     "admin": {
         "balanceSummary": "💰 *BOT BALANCE & STORE STATUS — {{storeUpper}}*\n\n🤖 *The Hive Bot Status:*\n• Gamertag: *{{gamertag}}*\n• Status: *{{botStatus}}* ✅\n• Remaining Gift Tokens: *{{tokens}} Token(s)* 🎁\n• Remaining Costume Tokens: *{{costumeTokens}} Token(s)* 🦹\n\n📊 *Today's Sales Summary:*\n• Completed Orders: *{{todayCompleted}} Orders*\n• Total Revenue: *{{todayRevenue}}*\n• Pending Payment: *{{pendingPayment}} Orders*\n• Gifting Queue: *{{giftingQueue}} Orders*\n• Token Deficit (Stuck): *{{insufficientTokens}} Orders*\n• Active Store Discount: *{{discountPercent}}%*\n• Active Vouchers: *{{activeVouchers}} Codes*\n\n💡 _Click Refresh Balance below to sync live tokens directly from The Hive._",
@@ -103,8 +103,8 @@
         "actionReprocessFailed": "❌ Failed to reprocess order *#{{orderId}}*: {{error}}\n\n👉 Click the button below to retry after the server recovers:",
         "actionCancelSuccess": "🚫 Order *#{{orderId}}* has been cancelled by {{senderTag}}.",
         "actionCancelFailed": "❌ Failed to cancel order *#{{orderId}}*: {{error}}",
-        "buyerPaidNotice": "✅ *PAYMENT RECEIVED & VERIFIED!* 🎉\n\nPayment for order *#{{orderId}}* (*{{itemName}}*) has been verified by Admin.\n\n⏳ Your order is now directly queued for delivery in The Hive Bedrock! 🚀",
-        "buyerCompletedNotice": "🎉 *ORDER COMPLETED!* ✨\n\nOrder *#{{orderId}}* (*{{itemName}}*) for Gamertag *{{gamertag}}* has been successfully completed by Admin! 📦\n\nThank you for shopping with {{storeUpper}}! Enjoy your cosmetics! 🎮✨",
+        "buyerPaidNotice": "✅ *PAYMENT VERIFIED!* 🎉\n\nPayment for order *#{{orderId}}* (*{{itemName}}*) has been verified by Admin.\n\n⏳ Your order is now directly queued for delivery in The Hive Bedrock! 🚀",
+        "buyerCompletedNotice": "🎉 *ORDER DELIVERED SUCCESSFULLY!* ✨\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n🆔 Order ID: #{{orderId}}\n\nOrder has been successfully completed by Admin! Item is now available in The Hive Bedrock.\nThank you for shopping with {{storeUpper}}! Enjoy! 🎮✨",
         "solvedBuyerClosing": "✅ *SUPPORT SESSION RESOLVED*\n\nAdmin has resolved this live support session. Our automated bot is now active again! ✨\n\nPlease use the menu below to browse our collection 😊",
         "ticketSolvedSummary": "✅ *LIVE CHAT TICKET SOLVED*\n• Customer: *+{{phone}}*\n• Handled by: {{senderTag}}\n• Status: *Bot Active Again ✅*",
         "ticketSolvedNotFound": "⚠️ No active live chat session found for *{{target}}*."
@@ -117,14 +117,15 @@
     "helpAdminSection": "\n\n🛠️ *ADMIN PANEL:*\n• Mention (@) the bot in the admin group to open Admin Control Panel (Balance Check, Maintenance Mode, Catalog Sync, and Order Management).",
     "faqMessage": "💬 *FAQ & PAYMENT INFO — {{storeUpper}}*\n\n*1. What payment methods are accepted?*\nYou can pay via *QRIS*! Supports all Indonesian e-wallets (GoPay, OVO, DANA, ShopeePay) & Mobile Banking (BCA, Mandiri, BRI, BNI, etc.) 📱\n\n*2. Why is there a 3-digit unique code in the total?*\nThe 3-digit code allows our system to *automatically verify your payment in seconds* without uploading transfer receipts! Please transfer the exact amount including the last 3 digits ✨\n\n*3. How is the item delivered?*\nItems are gifted 100% officially via *The Hive In-Game Gift* feature directly to your Minecraft Bedrock Gamertag 🎁\n\n*4. How long does delivery take?*\nOnce payment is detected, our bot delivers your gift within *1 - 3 minutes* ⚡\n\nAny questions? Feel free to contact our store admin team in the group 😊",
     "languageSwitched": "✅ Language successfully switched to *English*! 🇬🇧\nPlease use the buttons below to start shopping or view guidance.",
-    "cancelSuccess": "Got it! Your order has been cancelled. Whenever you're ready to order again, just click Buy Cosmetics! 😊",
+    "cancelSuccess": "Got it, your order has been cancelled. Whenever you're ready to shop again, just tap Buy Cosmetics below!",
     "invalidGamertag": "Oops, that Minecraft Gamertag is invalid 😅\nGamertags must be 3 to 16 characters (letters, numbers, and spaces only).\nExample: *Steve123*",
     "voucherApplied": "🎟️ *Voucher '{{code}}' applied!*\n💰 Discount: *{{discountFormatted}}*\n💵 New Total: *{{finalFormatted}}*",
+    "voucherRemoved": "🎟️ Voucher removed. Total payment returned to normal price.",
     "voucherInvalid": "⚠️ Voucher *{{code}}* is invalid or not found. Please double-check your code.",
     "voucherExhausted": "⚠️ Usage quota for voucher *{{code}}* has been exhausted.",
     "voucherExpired": "⚠️ Voucher *{{code}}* has expired.",
     "checkPayment": {
-        "success": "✅ *PAYMENT VERIFIED!* 🎉\n\nPayment of *{{formattedAmount}}* for order *#{{orderId}}* (*{{itemName}}*) has been successfully verified!\n\n⏳ Your order is now queued for automated delivery to The Hive Bedrock.",
+        "success": "✅ *PAYMENT VERIFIED!* 🎉\n\nPayment of *{{formattedAmount}}* for order *#{{orderId}}* (*{{itemName}}*) has been successfully verified!\n\n⏳ Your order is now queued for automated delivery to The Hive Bedrock. Please allow 1–2 minutes! 🚀",
         "alreadyPaid": "✅ Order *#{{orderId}}* is already verified with status *{{status}}* 😊",
         "pending": "⏳ *PAYMENT NOT DETECTED YET*\n\nPayment of *{{formattedAmount}}* for order *#{{orderId}}* has not been recorded in our GoPay transactions yet.\n\n💡 _If you just completed the transfer, please wait 1–2 minutes and click [Check Payment] again. Please ensure you transferred the EXACT amount including the 3 unique digits!_",
         "cooldown": "⏳ Please wait *{{seconds}}s* before checking payment for order #{{orderId}} again.",
@@ -157,7 +158,8 @@
         "refreshBalance": "🔄 Refresh Balance",
         "maintOn": "🔴 Enable (ON)",
         "maintOff": "🟢 Disable (OFF)",
-        "maintToggle": "Toggle Maintenance Mode"
+        "maintToggle": "Toggle Maintenance Mode",
+        "deleteDefaultGamertag": "Delete Default Gamertag"
     },
     "interactive": {
         "categoryListTitle": "{{store}} Catalog",
@@ -184,6 +186,9 @@
         "switchLangEn": "Switch to English 🇬🇧",
         "switchLangIdDesc": "Ubah bahasa bot ke Bahasa Indonesia",
         "switchLangEnDesc": "Change bot language to English",
+        "defaultGamertagTitle": "Default Gamertag",
+        "defaultGamertagDescNotSet": "Set default Gamertag for 1-click automatic ordering",
+        "defaultGamertagDescSet": "Saved: {{gamertag}} • Click to change or delete",
         "adminPanelTitle": "Admin Control Panel — {{store}}",
         "adminPanelDesc": "Select an admin control option below:",
         "adminPanelBtn": "Open Admin Panel",
@@ -200,5 +205,11 @@
         "adminSupportSolvedPrompt": "💡 *After assisting the customer, click the button below to re-enable the bot:*",
         "defaultFailureReason": "The Hive delivery issue",
         "defaultAdminFailureReason": "The Hive processing issue"
+    },
+    "settings": {
+        "askDefaultGamertagPrompt": "🎮 Please type the *Minecraft Bedrock Gamertag* you want to save as default (example: *Steve123*):",
+        "defaultGamertagSaved": "✅ *DEFAULT GAMERTAG SAVED!* 🎮\n\nGamertag *{{gamertag}}* has been saved. Your future orders will automatically use this Gamertag!",
+        "defaultGamertagDeleted": "🗑️ Default Gamertag has been deleted.",
+        "cancelDefaultPrompt": "Default Gamertag setup cancelled."
     }
 }

@@ -244,7 +244,7 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(sentButtons.length).toBe(1);
         expect(sentButtons[0]!.payload.interactiveMessage).toBeDefined();
         expect(sentButtons[0]!.payload.buttonsMessage).toBeUndefined();
-        expect(sentButtons[0]!.payload.text).toContain("tidak valid");
+        expect(sentButtons[0]!.payload.text).toContain("ga valid");
     });
 
     it("should open modify drawer list menu on btn_modify_menu", async () => {
@@ -349,7 +349,7 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         // Clicking cancel button during active order step cancels the session and provides re-buy buttons
         await handleIncomingMessage(testJid, false, "btn_cancel_order", mockContext);
         expect(state.getSession(testJid).step).toBe("IDLE");
-        expect(sentButtons[sentButtons.length - 1]!.payload.text).toContain("dibatalkan");
+        expect(sentButtons[sentButtons.length - 1]!.payload.text).toContain("dibatalin");
         const cancelButtons = sentButtons[sentButtons.length - 1]!.payload.buttons;
         expect(cancelButtons.map((b: any) => b.id)).toContain("btn_start_buying");
 
@@ -452,14 +452,14 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         // Menu was NOT opened; instead, user received invalidGamertag prompt
         expect(sentButtons.length).toBe(0);
         expect(sentTexts.length).toBe(1);
-        expect(sentTexts[0]!.text).toContain("Gamertag tidak valid");
+        expect(sentTexts[0]!.text).toContain("ga valid");
 
         sentTexts = [];
         await handleIncomingMessage(testJid, false, "/randome", mockContext);
         // Unrecognized command was NOT sent; user received invalidGamertag prompt
         expect(sentTexts.length).toBe(1);
         expect(sentTexts[0]!.text).not.toContain("tidak dikenali");
-        expect(sentTexts[0]!.text).toContain("Gamertag tidak valid");
+        expect(sentTexts[0]!.text).toContain("ga valid");
 
         // 3. User clicks old btn_check_payment while in AWAITING_GAMERTAG
         sentTexts = [];
@@ -742,5 +742,69 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(state.getSession(testJid).step).toBe("LIVE_CHAT");
         expect(sentTexts.length).toBe(1);
     });
+
+    it("should auto-fill gamertag and skip prompt when using btn_buy_again_Gamertag", async () => {
+        // User clicks Beli Lagi with gamertag payload
+        await handleIncomingMessage(testJid, false, "btn_buy_again_VioscaMC", mockContext);
+        expect(state.getSession(testJid).gamertag).toBe("VioscaMC");
+        expect(sentLists.length).toBe(1); // Category menu sent
+
+        // User picks an item
+        sentButtons = [];
+        await handleIncomingMessage(testJid, false, "item_pet-1", mockContext);
+
+        // Skips AWAITING_GAMERTAG and directly goes to AWAITING_CONFIRMATION
+        expect(state.getSession(testJid).step).toBe("AWAITING_CONFIRMATION");
+        expect(state.getSession(testJid).gamertag).toBe("VioscaMC");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("VioscaMC");
+        expect(sentButtons[0]?.payload.text).toContain("Dragon Pet");
+    });
+
+    it("should auto-fill gamertag from StateManager defaultGamertag and skip prompt on item selection", async () => {
+        state.setDefaultGamertag(testJid, "NotchBedrock");
+
+        // User selects item directly
+        sentButtons = [];
+        await handleIncomingMessage(testJid, false, "item_pet-1", mockContext);
+
+        // Skips AWAITING_GAMERTAG and directly enters AWAITING_CONFIRMATION
+        expect(state.getSession(testJid).step).toBe("AWAITING_CONFIRMATION");
+        expect(state.getSession(testJid).gamertag).toBe("NotchBedrock");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("NotchBedrock");
+        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toContain("btn_confirm_order");
+    });
+
+    it("should manage Default Gamertag via settings flow (prompt, save, and delete)", async () => {
+        // Open default gamertag prompt from settings
+        await handleIncomingMessage(testJid, false, "act_default_gamertag", mockContext);
+        expect(state.getSession(testJid).step).toBe("AWAITING_DEFAULT_GAMERTAG");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("Gamertag Minecraft Bedrock");
+
+        // User enters a valid gamertag
+        sentButtons = [];
+        await handleIncomingMessage(testJid, false, "ProPlayer99", mockContext);
+        expect(state.getDefaultGamertag(testJid)).toBe("ProPlayer99");
+        expect(state.getSession(testJid).step).toBe("IDLE");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("DEFAULT GAMERTAG TERSIMPAN");
+
+        // Open prompt again, now should have delete option
+        sentButtons = [];
+        await handleIncomingMessage(testJid, false, "act_default_gamertag", mockContext);
+        expect(state.getSession(testJid).step).toBe("AWAITING_DEFAULT_GAMERTAG");
+        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toContain("btn_delete_default_gt");
+
+        // User clicks delete
+        sentButtons = [];
+        await handleIncomingMessage(testJid, false, "btn_delete_default_gt", mockContext);
+        expect(state.getDefaultGamertag(testJid)).toBeUndefined();
+        expect(state.getSession(testJid).step).toBe("IDLE");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("Default Gamertag berhasil dihapus");
+    });
 });
+
 

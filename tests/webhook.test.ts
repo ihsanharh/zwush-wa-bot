@@ -74,7 +74,7 @@ describe("Webhook Server", () => {
         expect(sentMessages.length).toBe(0);
         expect(sentButtons[0]?.jid).toBe("628999999999@s.whatsapp.net");
         expect(sentButtons[0]?.payload.text).toContain("BERHASIL DIKIRIM");
-        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toEqual(["btn_start_buying", "btn_history"]);
+        expect(sentButtons[0]?.payload.buttons.map((b: any) => b.id)).toEqual(["btn_buy_again_Viosca", "btn_history"]);
         expect(sentButtons[0]?.payload.buttons[0].text).toBe("Beli Lagi");
         expect(sentButtons[0]?.payload.buttons[1].text).toBe("Riwayat Pesanan");
     });
@@ -178,7 +178,7 @@ describe("Webhook Server", () => {
 
         expect(res.status).toBe(200);
         expect(sentMessages.length).toBe(1);
-        expect(sentMessages[0]?.text).toContain("PEMBAYARAN DITERIMA");
+        expect(sentMessages[0]?.text).toContain("PEMBAYARAN DIVERIFIKASI");
         expect(mockQrDeleter).toHaveBeenCalled();
     });
 
@@ -225,7 +225,7 @@ describe("Webhook Server", () => {
         // 1 message sent to buyer (delay reassurance)
         expect(sentMessages.length).toBe(1);
         expect(sentMessages[0]?.jid).toBe("628999@s.whatsapp.net");
-        expect(sentMessages[0]?.text).toContain("antre restock");
+        expect(sentMessages[0]?.text).toContain("restock");
         expect(sentMessages[0]?.text).toContain("admin");
     });
 

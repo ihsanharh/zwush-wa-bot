@@ -41,6 +41,7 @@ import {
     buildOrderCancelledButtons,
     buildOrderHistoryButtons,
     buildSettingsListMenu,
+    buildDefaultGamertagPromptButtons,
     buildWelcomeButtons,
     buildPaymentPendingButtons,
     buildOrderExpiredButtons
@@ -444,11 +445,81 @@ async function handleIncomingMessageInternal(
         }
     }
 
+    // Default Gamertag configuration flow
+    if (session.step === "AWAITING_DEFAULT_GAMERTAG") {
+        if (
+            trimmed === "btn_cancel_default_gt" ||
+            trimmed === "act_cancel" ||
+            trimmed === "batal" ||
+            trimmed === "cancel"
+        ) {
+            session.step = "IDLE";
+            session.lastUpdated = Date.now();
+            const cancelMsg = t("settings.cancelDefaultPrompt", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(cancelMsg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, cancelMsg);
+            }
+            return;
+        }
+
+        if (trimmed === "btn_delete_default_gt") {
+            if (ctx.state.removeDefaultGamertag) {
+                ctx.state.removeDefaultGamertag(remoteJid);
+            }
+            session.step = "IDLE";
+            session.lastUpdated = Date.now();
+            const deletedNotice = t("settings.defaultGamertagDeleted", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(deletedNotice, userLang));
+            } else {
+                await ctx.sendText(remoteJid, deletedNotice);
+            }
+            return;
+        }
+
+        // Validate gamertag format (3 to 16 alphanumeric characters or spaces)
+        if (!/^[a-zA-Z0-9 ]{3,16}$/.test(trimmed)) {
+            await ctx.sendText(remoteJid, t("invalidGamertag", userLang));
+            return;
+        }
+
+        if (ctx.state.setDefaultGamertag) {
+            ctx.state.setDefaultGamertag(remoteJid, trimmed);
+        }
+        session.step = "IDLE";
+        session.lastUpdated = Date.now();
+        const savedMsg = t("settings.defaultGamertagSaved", userLang, { gamertag: trimmed });
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(savedMsg, userLang));
+        } else {
+            await ctx.sendText(remoteJid, savedMsg);
+        }
+        return;
+    }
+
     // Quick-entry buttons from welcome greeting (only active when session is IDLE and no active pending order)
     if ((session.step === "IDLE" || !buyingActive) && !activeOrderId) {
-        if (trimmed === "btn_start_buying") {
+        if (trimmed === "btn_start_buying" || trimmed.startsWith("btn_buy_again")) {
             if (ctx.state.clearAdminVoucher) {
                 ctx.state.clearAdminVoucher(remoteJid);
+            }
+            if (trimmed.startsWith("btn_buy_again_")) {
+                const encodedGt = trimmed.replace("btn_buy_again_", "");
+                try {
+                    const decodedGt = decodeURIComponent(encodedGt).trim();
+                    if (decodedGt.length >= 3 && decodedGt.length <= 16) {
+                        session.gamertag = decodedGt;
+                    }
+                } catch {
+                    session.gamertag = encodedGt.trim();
+                }
+            } else if (trimmed === "btn_start_buying" && !session.gamertag && ctx.state.getDefaultGamertag) {
+                const defaultGt = ctx.state.getDefaultGamertag(remoteJid);
+                if (defaultGt) {
+                    session.gamertag = defaultGt;
+                }
             }
             if (session.step !== "IDLE") {
                 session.step = "IDLE";
@@ -487,7 +558,36 @@ async function handleIncomingMessageInternal(
 
         if (trimmed === "btn_settings") {
             if (ctx.sendList) {
-                await ctx.sendList(remoteJid, buildSettingsListMenu(userLang));
+                const defaultGt = ctx.state.getDefaultGamertag ? ctx.state.getDefaultGamertag(remoteJid) : undefined;
+                await ctx.sendList(remoteJid, buildSettingsListMenu(userLang, defaultGt));
+            }
+            return;
+        }
+
+        if (trimmed === "act_default_gamertag") {
+            session.step = "AWAITING_DEFAULT_GAMERTAG";
+            session.lastUpdated = Date.now();
+            const existingGt = ctx.state.getDefaultGamertag ? ctx.state.getDefaultGamertag(remoteJid) : undefined;
+            const promptText = t("settings.askDefaultGamertagPrompt", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildDefaultGamertagPromptButtons(promptText, Boolean(existingGt), userLang));
+            } else {
+                await ctx.sendText(remoteJid, promptText);
+            }
+            return;
+        }
+
+        if (trimmed === "btn_delete_default_gt") {
+            if (ctx.state.removeDefaultGamertag) {
+                ctx.state.removeDefaultGamertag(remoteJid);
+            }
+            session.step = "IDLE";
+            session.lastUpdated = Date.now();
+            const deletedNotice = t("settings.defaultGamertagDeleted", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(deletedNotice, userLang));
+            } else {
+                await ctx.sendText(remoteJid, deletedNotice);
             }
             return;
         }

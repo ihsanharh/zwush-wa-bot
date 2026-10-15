@@ -185,9 +185,10 @@ describe("interactiveBuilders", () => {
         const payload = buildSettingsListMenu("id");
         expect(payload.listMessage).toBeDefined();
         const rows = payload.listMessage.sections[0].rows;
-        expect(rows.length).toBe(2);
-        expect(rows[0].rowId).toBe("act_switch_lang");
-        expect(rows[1].rowId).toBe("act_view_faq");
+        expect(rows.length).toBe(3);
+        expect(rows[0].rowId).toBe("act_default_gamertag");
+        expect(rows[1].rowId).toBe("act_switch_lang");
+        expect(rows[2].rowId).toBe("act_view_faq");
         // Verify no CS/support row exists in settings drawer
         const rowIds = rows.map((r: any) => r.rowId);
         expect(rowIds).not.toContain("btn_support_confirm");

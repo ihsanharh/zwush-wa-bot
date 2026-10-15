@@ -77,6 +77,26 @@ export async function handleBuyingFlow(
     const session = ctx.state.getSession(remoteJid);
 
     // 0. Stateless Catalog Browsing (only handled when session is IDLE and no active pending order)
+    if (trimmed.startsWith("btn_buy_again_")) {
+        const encodedGt = trimmed.replace("btn_buy_again_", "");
+        try {
+            const decodedGt = decodeURIComponent(encodedGt).trim();
+            if (decodedGt.length >= 3 && decodedGt.length <= 16) {
+                session.gamertag = decodedGt;
+            }
+        } catch {
+            session.gamertag = encodedGt.trim();
+        }
+        session.step = "IDLE";
+        session.lastUpdated = Date.now();
+        if (ctx.sendList) {
+            await ctx.sendList(remoteJid, buildCategoryListMenu(CATEGORIES, userLang));
+        } else {
+            await ctx.sendText(remoteJid, renderOrderCategoryMenu(userLang));
+        }
+        return true;
+    }
+
     if (session.step === "IDLE" && !ctx.state.getActiveOrderId(remoteJid)) {
         if (trimmed.startsWith("cat_")) {
             const cat = findCategory(trimmed);
@@ -160,6 +180,14 @@ export async function handleBuyingFlow(
                         });
                     } catch {
                         ctx.state.clearAppliedVoucher(remoteJid);
+                    }
+                }
+
+                // Auto-fill default gamertag if session doesn't have one
+                if (!session.gamertag && ctx.state.getDefaultGamertag) {
+                    const defaultGt = ctx.state.getDefaultGamertag(remoteJid);
+                    if (defaultGt) {
+                        session.gamertag = defaultGt;
                     }
                 }
 
@@ -304,6 +332,14 @@ export async function handleBuyingFlow(
                 }
             }
 
+            // Auto-fill default gamertag if session doesn't have one
+            if (!session.gamertag && ctx.state.getDefaultGamertag) {
+                const defaultGt = ctx.state.getDefaultGamertag(remoteJid);
+                if (defaultGt) {
+                    session.gamertag = defaultGt;
+                }
+            }
+
             // If user already entered gamertag previously, skip gamertag prompt and go directly to confirmation
             if (session.gamertag) {
                 session.step = "AWAITING_CONFIRMATION";
@@ -346,7 +382,12 @@ export async function handleBuyingFlow(
     if (session.step === "AWAITING_RETRY_GAMERTAG") {
         if (trimmed === "act_cancel" || trimmed === "btn_cancel_order") {
             ctx.state.clearRetryOrder(remoteJid);
-            await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
+            const cancelMsg = t("buying.retryCancelled", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(cancelMsg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, cancelMsg);
+            }
             return true;
         }
 
@@ -422,7 +463,12 @@ export async function handleBuyingFlow(
 
         if (trimmed === "act_cancel" || trimmed === "btn_cancel_order") {
             ctx.state.clearRetryOrder(remoteJid);
-            await ctx.sendText(remoteJid, t("buying.retryCancelled", userLang));
+            const cancelMsg = t("buying.retryCancelled", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(cancelMsg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, cancelMsg);
+            }
             return true;
         }
         return true;
@@ -463,7 +509,12 @@ export async function handleBuyingFlow(
                 return true;
             }
             ctx.state.clear(remoteJid);
-            await ctx.sendText(remoteJid, t("cancelSuccess", userLang));
+            const cancelMsg = t("cancelSuccess", userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildOrderCancelledButtons(cancelMsg, userLang));
+            } else {
+                await ctx.sendText(remoteJid, cancelMsg);
+            }
             return true;
         }
 

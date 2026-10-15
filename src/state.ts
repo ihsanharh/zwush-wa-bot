@@ -21,7 +21,8 @@ export type StepStatus =
     | "ADMIN_AWAITING_VOUCHER_MAX_USES"
     | "ADMIN_AWAITING_VOUCHER_ACTION_CODE"
     | "ADMIN_AWAITING_VOUCHER_EDIT_DISCOUNT"
-    | "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES";
+    | "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES"
+    | "AWAITING_DEFAULT_GAMERTAG";
 
 export interface AppliedVoucherInfo {
     code: string;
@@ -77,16 +78,22 @@ export interface UserSession {
 export class StateManager {
     private readonly sessions = new Map<string, UserSession>();
     private readonly userLanguages = new Map<string, Language>();
+    private readonly defaultGamertags = new Map<string, string>();
     private readonly orderRetryAttempts = new Map<string, number>();
     private readonly ttlMs: number;
     private readonly stateFilePath: string;
+    private readonly userPreferencesFilePath: string;
     private maintenanceMode: boolean;
 
-    constructor(ttlMs = 5 * 60 * 1000, stateFilePath?: string) {
+    constructor(ttlMs = 5 * 60 * 1000, stateFilePath?: string, userPreferencesFilePath?: string) {
         this.ttlMs = ttlMs;
         const authDir = path.dirname(config.AUTH_PATH || "./.auth/state.sqlite");
         this.stateFilePath = stateFilePath || path.join(authDir, "maintenance_state.json");
+        this.userPreferencesFilePath = userPreferencesFilePath !== undefined
+            ? userPreferencesFilePath
+            : (process.env.NODE_ENV === "test" ? "" : path.join(authDir, "user_preferences.json"));
         this.maintenanceMode = this.loadPersistedMaintenanceMode();
+        this.loadPersistedUserPreferences();
     }
 
     private loadPersistedMaintenanceMode(): boolean {
@@ -151,6 +158,87 @@ export class StateManager {
         if (session) {
             session.language = lang;
         }
+        this.persistUserPreferences();
+    }
+
+    private loadPersistedUserPreferences(): void {
+        try {
+            if (!this.userPreferencesFilePath || !fs.existsSync(this.userPreferencesFilePath)) {
+                return;
+            }
+            const raw = fs.readFileSync(this.userPreferencesFilePath, "utf-8");
+                const data = JSON.parse(raw);
+                if (data.languages && typeof data.languages === "object") {
+                    for (const [jid, lang] of Object.entries(data.languages)) {
+                        if (lang === "id" || lang === "en") {
+                            this.userLanguages.set(jid, lang);
+                        }
+                    }
+                }
+                if (data.defaultGamertags && typeof data.defaultGamertags === "object") {
+                    for (const [jid, gt] of Object.entries(data.defaultGamertags)) {
+                        if (typeof gt === "string" && gt.trim().length > 0) {
+                            this.defaultGamertags.set(jid, gt.trim());
+                        }
+                    }
+                }
+        } catch (err) {
+            console.warn("[StateManager] Failed to read persisted user preferences:", err);
+        }
+    }
+
+    private persistUserPreferences(): void {
+        try {
+            if (!this.userPreferencesFilePath) {
+                return;
+            }
+            const dir = path.dirname(this.userPreferencesFilePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            const languagesObj: Record<string, string> = {};
+            for (const [jid, lang] of this.userLanguages.entries()) {
+                languagesObj[jid] = lang;
+            }
+            const defaultGamertagsObj: Record<string, string> = {};
+            for (const [jid, gt] of this.defaultGamertags.entries()) {
+                defaultGamertagsObj[jid] = gt;
+            }
+            fs.writeFileSync(
+                this.userPreferencesFilePath,
+                JSON.stringify({ languages: languagesObj, defaultGamertags: defaultGamertagsObj, updatedAt: new Date().toISOString() }, null, 2),
+                "utf-8"
+            );
+        } catch (err) {
+            console.warn("[StateManager] Failed to persist user preferences:", err);
+        }
+    }
+
+    /**
+     * Gets default Gamertag for a user JID if configured.
+     */
+    getDefaultGamertag(jid: string): string | undefined {
+        return this.defaultGamertags.get(jid);
+    }
+
+    /**
+     * Sets or updates default Gamertag for a user JID.
+     */
+    setDefaultGamertag(jid: string, gamertag?: string): void {
+        if (gamertag && gamertag.trim().length > 0) {
+            this.defaultGamertags.set(jid, gamertag.trim());
+        } else {
+            this.defaultGamertags.delete(jid);
+        }
+        this.persistUserPreferences();
+    }
+
+    /**
+     * Removes configured default Gamertag for a user JID.
+     */
+    removeDefaultGamertag(jid: string): void {
+        this.defaultGamertags.delete(jid);
+        this.persistUserPreferences();
     }
 
     /**
