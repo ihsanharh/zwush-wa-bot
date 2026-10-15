@@ -51,6 +51,25 @@ const client = new WaClient({ store, sessionId: "default" }, new ConsoleLogger("
 const coreClient = new CoreClient(config.CORE_API_URL);
 const stateManager = new StateManager();
 
+// Migrate/sync any locally cached user preferences to zwush-core database in background
+(async () => {
+    try {
+        const { languages, defaultGamertags } = stateManager.getAllPreferences();
+        const allJids = new Set([...Object.keys(languages), ...Object.keys(defaultGamertags)]);
+        if (allJids.size > 0) {
+            console.log(`[Preferences Sync] Syncing ${allJids.size} user preference(s) to zwush-core database...`);
+            for (const jid of allJids) {
+                const lang = (languages[jid] as Language) || "id";
+                const gt = defaultGamertags[jid] || null;
+                await coreClient.updateUserProfile(jid, { gamertag: gt, language: lang }).catch(() => {});
+            }
+            console.log("[Preferences Sync] Synchronization to zwush-core completed.");
+        }
+    } catch (err: unknown) {
+        console.warn("[Preferences Sync] Warning during initial preferences sync:", err);
+    }
+})();
+
 const adminLogger = new AdminGroupLogger(
     {
         logGroupJid: config.LOG_GROUP_JID || "",

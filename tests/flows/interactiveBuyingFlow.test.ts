@@ -805,6 +805,40 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(sentButtons.length).toBe(1);
         expect(sentButtons[0]?.payload.text).toContain("Default Gamertag berhasil dihapus");
     });
+
+    it("should sync user profile from coreClient on incoming message and push updates on changes", async () => {
+        let updateCalledWith: any = null;
+        (mockContext.client as any).getUserProfile = async (jid: string) => ({
+            platformUserId: jid,
+            platform: "whatsapp",
+            gamertag: "SyncedGamer",
+            language: "en" as const
+        });
+        (mockContext.client as any).updateUserProfile = async (_jid: string, data: any) => {
+            updateCalledWith = data;
+            return { platformUserId: _jid, platform: "whatsapp", gamertag: data.gamertag, language: data.language || "en" };
+        };
+
+        // User sends greeting
+        await handleIncomingMessage(testJid, false, "halo", mockContext);
+
+        // StateManager should now have SyncedGamer and language en
+        expect(state.getDefaultGamertag(testJid)).toBe("SyncedGamer");
+        expect(state.getLanguage(testJid)).toBe("en");
+        expect(state.isUserSynced(testJid)).toBe(true);
+
+        // Switch language
+        await handleIncomingMessage(testJid, false, "act_switch_lang", mockContext);
+        expect(state.getLanguage(testJid)).toBe("id");
+        expect(updateCalledWith).toEqual({ language: "id" });
+
+        // Save new default gamertag
+        await handleIncomingMessage(testJid, false, "act_default_gamertag", mockContext);
+        await handleIncomingMessage(testJid, false, "NewGamertag", mockContext);
+        expect(state.getDefaultGamertag(testJid)).toBe("NewGamertag");
+        expect(updateCalledWith).toEqual({ gamertag: "NewGamertag" });
+    });
 });
+
 
 

@@ -169,6 +169,19 @@ async function handleIncomingMessageInternal(
 
     // Determine sender identity and language preference
     const effectiveSender = isGroup ? (participant || remoteJid) : remoteJid;
+
+    // Sync user preferences with zwush-core database if not yet cached in memory
+    if (!isGroup && ctx.state.isUserSynced && !ctx.state.isUserSynced(remoteJid) && ctx.client?.getUserProfile) {
+        try {
+            const profile = await ctx.client.getUserProfile(remoteJid);
+            if (profile && ctx.state.syncUserProfile) {
+                ctx.state.syncUserProfile(remoteJid, profile);
+            }
+        } catch {
+            ctx.state.markUserSynced?.(remoteJid);
+        }
+    }
+
     const userLang = ctx.state.getLanguage(effectiveSender);
     const isAdmin = isUserAdmin(remoteJid, fromMe, effectiveSender, ctx.adminLogger);
 
@@ -468,6 +481,11 @@ async function handleIncomingMessageInternal(
             if (ctx.state.removeDefaultGamertag) {
                 ctx.state.removeDefaultGamertag(remoteJid);
             }
+            if (ctx.client?.updateUserProfile) {
+                ctx.client.updateUserProfile(remoteJid, { gamertag: null }).catch((err: unknown) => {
+                    console.warn("[Message] Failed to delete gamertag on core:", err);
+                });
+            }
             session.step = "IDLE";
             session.lastUpdated = Date.now();
             const deletedNotice = t("settings.defaultGamertagDeleted", userLang);
@@ -487,6 +505,11 @@ async function handleIncomingMessageInternal(
 
         if (ctx.state.setDefaultGamertag) {
             ctx.state.setDefaultGamertag(remoteJid, trimmed);
+        }
+        if (ctx.client?.updateUserProfile) {
+            ctx.client.updateUserProfile(remoteJid, { gamertag: trimmed }).catch((err: unknown) => {
+                console.warn("[Message] Failed to save gamertag to core:", err);
+            });
         }
         session.step = "IDLE";
         session.lastUpdated = Date.now();
@@ -581,6 +604,11 @@ async function handleIncomingMessageInternal(
             if (ctx.state.removeDefaultGamertag) {
                 ctx.state.removeDefaultGamertag(remoteJid);
             }
+            if (ctx.client?.updateUserProfile) {
+                ctx.client.updateUserProfile(remoteJid, { gamertag: null }).catch((err: unknown) => {
+                    console.warn("[Message] Failed to delete gamertag on core:", err);
+                });
+            }
             session.step = "IDLE";
             session.lastUpdated = Date.now();
             const deletedNotice = t("settings.defaultGamertagDeleted", userLang);
@@ -595,6 +623,11 @@ async function handleIncomingMessageInternal(
         if (trimmed === "act_switch_lang") {
             const nextLang: Language = userLang === "id" ? "en" : "id";
             ctx.state.setLanguage(remoteJid, nextLang);
+            if (ctx.client?.updateUserProfile) {
+                ctx.client.updateUserProfile(remoteJid, { language: nextLang }).catch((err: unknown) => {
+                    console.warn("[Message] Failed to update language on core:", err);
+                });
+            }
             if (ctx.sendButtons) {
                 await ctx.sendButtons(remoteJid, buildWelcomeButtons(nextLang));
             } else {

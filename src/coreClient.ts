@@ -11,8 +11,11 @@ import type {
     OrderCheckPaymentResponse,
     VoucherItem,
     CreateVoucherInput,
-    UpdateVoucherInput
+    UpdateVoucherInput,
+    UserProfile,
+    UserProfileResponse
 } from "./types";
+import type { Language } from "./i18n";
 import { config } from "./config";
 
 export class CoreClient {
@@ -429,4 +432,41 @@ export class CoreClient {
         }
         throw new Error(`Unsupported status update: ${status}`);
     }
+
+    /**
+     * Gets user profile and preferences (gamertag, language) from core service.
+     */
+    async getUserProfile(platformUserId: string): Promise<UserProfile> {
+        const url = `${this.baseUrl}/api/users/${encodeURIComponent(platformUserId)}`;
+        const res = await fetch(url, {
+            signal: AbortSignal.timeout(10000)
+        });
+        const data = (await res.json()) as UserProfileResponse;
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to fetch user profile (${res.status})`);
+        }
+        return data.user;
+    }
+
+    /**
+     * Updates user profile and preferences (gamertag, language) in core service.
+     */
+    async updateUserProfile(
+        platformUserId: string,
+        data: { gamertag?: string | null; language?: Language; platform?: string }
+    ): Promise<UserProfile> {
+        const url = `${this.baseUrl}/api/users/${encodeURIComponent(platformUserId)}`;
+        const res = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+            signal: AbortSignal.timeout(10000)
+        });
+        const result = (await res.json()) as UserProfileResponse;
+        if (!res.ok || !result.success) {
+            throw new Error(result.message || `Failed to update user profile (${res.status})`);
+        }
+        return result.user;
+    }
 }
+

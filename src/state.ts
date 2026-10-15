@@ -79,6 +79,7 @@ export class StateManager {
     private readonly sessions = new Map<string, UserSession>();
     private readonly userLanguages = new Map<string, Language>();
     private readonly defaultGamertags = new Map<string, string>();
+    private readonly syncedUsers = new Set<string>();
     private readonly orderRetryAttempts = new Map<string, number>();
     private readonly ttlMs: number;
     private readonly stateFilePath: string;
@@ -240,6 +241,56 @@ export class StateManager {
         this.defaultGamertags.delete(jid);
         this.persistUserPreferences();
     }
+
+    /**
+     * Checks if user profile has been fetched/synced from zwush-core.
+     */
+    isUserSynced(jid: string): boolean {
+        return this.syncedUsers.has(jid);
+    }
+
+    /**
+     * Marks user as synced in memory.
+     */
+    markUserSynced(jid: string): void {
+        this.syncedUsers.add(jid);
+    }
+
+    /**
+     * Synchronizes user preferences from core service into StateManager.
+     */
+    syncUserProfile(jid: string, profile: { gamertag?: string | null; language?: Language }): void {
+        this.syncedUsers.add(jid);
+        if (profile.language) {
+            this.userLanguages.set(jid, profile.language);
+            const session = this.sessions.get(jid);
+            if (session) {
+                session.language = profile.language;
+            }
+        }
+        if (profile.gamertag) {
+            this.defaultGamertags.set(jid, profile.gamertag);
+        } else if (profile.gamertag === null) {
+            this.defaultGamertags.delete(jid);
+        }
+        this.persistUserPreferences();
+    }
+
+    /**
+     * Returns a snapshot of all user preferences currently cached.
+     */
+    getAllPreferences(): { languages: Record<string, string>; defaultGamertags: Record<string, string> } {
+        const languages: Record<string, string> = {};
+        for (const [jid, lang] of this.userLanguages.entries()) {
+            languages[jid] = lang;
+        }
+        const defaultGamertags: Record<string, string> = {};
+        for (const [jid, gt] of this.defaultGamertags.entries()) {
+            defaultGamertags[jid] = gt;
+        }
+        return { languages, defaultGamertags };
+    }
+
 
     /**
      * Gets or creates user session, resetting if timed out.

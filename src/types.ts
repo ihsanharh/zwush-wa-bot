@@ -158,3 +158,19 @@ export interface UpdateVoucherInput {
     expiresAt?: string | null;
 }
 
+export interface UserProfile {
+    platformUserId: string;
+    platform: string;
+    gamertag: string | null;
+    language: Language;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+}
+
+export interface UserProfileResponse {
+    success: boolean;
+    user: UserProfile;
+    message?: string;
+}
+
+
