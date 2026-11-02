@@ -3,6 +3,7 @@ import {
     t,
     type Language,
     formatRupiah,
+    formatCurrency,
     formatStatusNotification
 } from "../src/i18n";
 import type { OrderNotificationPayload } from "../src/types";
@@ -12,6 +13,21 @@ describe("i18n Module", () => {
         expect(formatRupiah(25000)).toBe("Rp 25.000");
         expect(formatRupiah(55012)).toBe("Rp 55.012");
     });
+
+    it("should format all QRIS partner currencies correctly", () => {
+        expect(formatCurrency(25000, "IDR")).toBe("Rp 25.000");
+        expect(formatCurrency(2.49, "USD")).toBe("$2.49");
+        expect(formatCurrency(18, "CNY")).toBe("¥18");
+        expect(formatCurrency(229, "INR")).toBe("₹229");
+        expect(formatCurrency(10.5, "MYR")).toBe("RM 10.50");
+        expect(formatCurrency(3.5, "SGD")).toBe("S$3.50");
+        expect(formatCurrency(89, "THB")).toBe("฿89");
+        expect(formatCurrency(350, "JPY")).toBe("¥350");
+        expect(formatCurrency(3200, "KRW")).toBe("₩3.200");
+        expect(formatCurrency(120.5, "PHP")).toBe("₱120.50");
+        expect(formatCurrency(2.49, "EUR")).toBe("€2.49");
+    });
+
 
     it("should provide Indonesian texts by default", () => {
         const text = t("helpMessage", "id");

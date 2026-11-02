@@ -10,9 +10,62 @@ export const locales = {
     en: enLocale,
 };
 
-export function formatRupiah(amount: number): string {
-    return `Rp ${amount.toLocaleString("id-ID")}`;
+export interface MarketConfig {
+    code: string;
+    name: string;
+    flag: string;
+    symbol: string;
+    prefix: boolean;
+    decimals: number;
+    qrisPartner: boolean;
 }
+
+export const SUPPORTED_CURRENCIES: Record<string, MarketConfig> = {
+    IDR: { code: "IDR", name: "Indonesia (Rupiah)", flag: "🇮🇩", symbol: "Rp ", prefix: true, decimals: 0, qrisPartner: true },
+    MYR: { code: "MYR", name: "Malaysia (Ringgit)", flag: "🇲🇾", symbol: "RM ", prefix: true, decimals: 2, qrisPartner: true },
+    SGD: { code: "SGD", name: "Singapore (Dollar)", flag: "🇸🇬", symbol: "S$", prefix: true, decimals: 2, qrisPartner: true },
+    THB: { code: "THB", name: "Thailand (Baht)", flag: "🇹🇭", symbol: "฿", prefix: true, decimals: 0, qrisPartner: true },
+    JPY: { code: "JPY", name: "Japan (Yen)", flag: "🇯🇵", symbol: "¥", prefix: true, decimals: 0, qrisPartner: true },
+    KRW: { code: "KRW", name: "South Korea (Won)", flag: "🇰🇷", symbol: "₩", prefix: true, decimals: 0, qrisPartner: true },
+    CNY: { code: "CNY", name: "China (Yuan)", flag: "🇨🇳", symbol: "¥", prefix: true, decimals: 0, qrisPartner: true },
+    PHP: { code: "PHP", name: "Philippines (Peso)", flag: "🇵🇭", symbol: "₱", prefix: true, decimals: 2, qrisPartner: true },
+    INR: { code: "INR", name: "India (Rupee)", flag: "🇮🇳", symbol: "₹", prefix: true, decimals: 0, qrisPartner: true },
+    USD: { code: "USD", name: "United States (Dollar)", flag: "🇺🇸", symbol: "$", prefix: true, decimals: 2, qrisPartner: false },
+    EUR: { code: "EUR", name: "Eurozone (Euro)", flag: "🇪🇺", symbol: "€", prefix: true, decimals: 2, qrisPartner: false },
+};
+
+export function formatCurrency(amount: number, currency = "IDR"): string {
+    const cur = (currency || "IDR").toUpperCase();
+    const cfg = SUPPORTED_CURRENCIES[cur];
+
+    if (!cfg) {
+        return `${cur} ${amount}`;
+    }
+
+    if (cur === "IDR") {
+        return `Rp ${amount.toLocaleString("id-ID")}`;
+    }
+
+    if (cur === "KRW") {
+        return `₩${amount.toLocaleString("id-ID")}`;
+    }
+
+    if (cfg.decimals === 0) {
+        const numStr = Math.round(amount).toLocaleString("en-US");
+        return cfg.prefix ? `${cfg.symbol}${numStr}` : `${numStr} ${cfg.symbol}`;
+    }
+
+    const numStr = amount.toLocaleString("en-US", {
+        minimumFractionDigits: cfg.decimals,
+        maximumFractionDigits: cfg.decimals,
+    });
+    return cfg.prefix ? `${cfg.symbol}${numStr}` : `${numStr} ${cfg.symbol}`;
+}
+
+export function formatRupiah(amount: number): string {
+    return formatCurrency(amount, "IDR");
+}
+
 
 export function formatStatusBadge(status: string, lang: Language = "id", failureReason?: string | null): string {
     const key = `status.${status}`;

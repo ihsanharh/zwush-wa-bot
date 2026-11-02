@@ -7,6 +7,8 @@ export interface CatalogItem {
     originalPrice: number;
     rupiahPrice: number;
     discountPercent: number;
+    currency?: string;
+    displayPrice?: number;
     imageUrl?: string | null;
     active: boolean;
     sku?: string;
@@ -14,6 +16,7 @@ export interface CatalogItem {
 
 export interface CatalogResponse {
     success: boolean;
+    currency?: string;
     items: CatalogItem[];
     count: number;
 }
@@ -163,6 +166,7 @@ export interface UserProfile {
     platform: string;
     gamertag: string | null;
     language: Language;
+    currency?: string;
     createdAt?: string | null;
     updatedAt?: string | null;
 }
