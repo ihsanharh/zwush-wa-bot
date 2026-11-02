@@ -92,7 +92,8 @@ export function buildPaginatedItemListMenu(
     const pageItems = activeItems.slice(startIdx, startIdx + pageSize);
 
     const itemRows = pageItems.map((item) => {
-        const priceStr = formatRupiah(item.rupiahPrice);
+        const cur = item.currency || "IDR";
+        const priceStr = formatCurrency(item.displayPrice ?? item.rupiahPrice, cur);
         const discountStr = item.discountPercent ? ` (${item.discountPercent}% OFF)` : "";
         return {
             rowId: `item_${item.sku || item.name}`,

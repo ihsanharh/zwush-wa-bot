@@ -850,7 +850,44 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(state.getDefaultGamertag(testJid)).toBe("NewGamertag");
         expect(updateCalledWith).toEqual({ gamertag: "NewGamertag" });
     });
+
+    it("should display selected item card in user currency and show dual-currency on QRIS invoice", async () => {
+        state.setCurrency(testJid, "USD");
+        mockContext.client.getCatalog = async () => [
+            {
+                id: "pet-usd",
+                name: "USD Dragon Pet",
+                category: "Regular Pet",
+                tokenCost: 10,
+                minecoins: 660,
+                rupiahPrice: 25000,
+                originalPrice: 4.99,
+                displayPrice: 2.49,
+                currency: "USD",
+                discountPercent: 50,
+                active: true,
+            },
+        ];
+
+        // Select item
+        await handleBuyingFlow(testJid, false, "item_pet-usd", mockContext, "en");
+        const promptBtn = sentButtons[sentButtons.length - 1];
+        expect(promptBtn.payload.text).toContain("$2.49");
+
+        // Submit gamertag
+        await handleBuyingFlow(testJid, false, "SteveUSD", mockContext, "en");
+        const confirmBtn = sentButtons[sentButtons.length - 1];
+        expect(confirmBtn.payload.interactiveMessage.body.text).toContain("$2.49");
+
+        // Confirm order -> invoice
+        await handleBuyingFlow(testJid, false, "btn_confirm_order", mockContext, "en");
+        const invoiceBtn = sentButtons[sentButtons.length - 1];
+        const invoiceText = invoiceBtn.payload.interactiveMessage.body.text;
+        expect(invoiceText).toContain("$2.49");
+        expect(invoiceText).toContain("Rp 25.000");
+    });
 });
+
 
 
 

@@ -1,6 +1,6 @@
 import type { BotContext } from "../handlers/message";
 import type { CatalogItem } from "../types";
-import { formatRupiah, t, type Language } from "../i18n";
+import { formatRupiah, formatCurrency, t, type Language } from "../i18n";
 import { config } from "../config";
 import { generateQrisBuffer } from "../qr";
 import { getItemImageBuffer, resolveItemImageUrl } from "../poster";
@@ -26,16 +26,20 @@ async function sendItemSelectionAndGamertagPrompt(
     userLang: Language,
     ctx: BotContext
 ): Promise<void> {
+    const userCurrency = (ctx.state.getCurrency ? ctx.state.getCurrency(remoteJid) : "IDR").toUpperCase();
+    const displayPrice = selected.displayPrice ?? selected.rupiahPrice;
+    const originalPrice = selected.originalPrice;
+
     const itemCardText = selected.discountPercent && selected.discountPercent > 0
         ? t("buying.selectedItemCard", userLang, {
             itemName: selected.name,
-            rupiahPrice: formatRupiah(selected.rupiahPrice),
+            rupiahPrice: formatCurrency(displayPrice, userCurrency),
             discountPercent: selected.discountPercent,
-            originalPrice: formatRupiah(selected.originalPrice)
+            originalPrice: formatCurrency(originalPrice, userCurrency)
         })
         : t("buying.selectedItemCardNoDiscount", userLang, {
             itemName: selected.name,
-            rupiahPrice: formatRupiah(selected.rupiahPrice)
+            rupiahPrice: formatCurrency(displayPrice, userCurrency)
         });
 
     const askGamertagText = t("buying.askGamertagPrompt", userLang);
@@ -75,6 +79,7 @@ export async function handleBuyingFlow(
     if (!trimmed) return false;
     const lower = trimmed.toLowerCase();
     const session = ctx.state.getSession(remoteJid);
+    const userCurrency = (ctx.state.getCurrency ? ctx.state.getCurrency(remoteJid) : "IDR").toUpperCase();
 
     // 0. Stateless Catalog Browsing (only handled when session is IDLE and no active pending order)
     if (trimmed.startsWith("btn_buy_again_")) {
@@ -104,8 +109,8 @@ export async function handleBuyingFlow(
             if (cat) {
                 session.selectedCategory = cat.dbCategory;
                 session.catalogPage = 1;
-                await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
-                const catalog = await ctx.client.getCatalog();
+                await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang, userCurrency);
+                const catalog = await ctx.client.getCatalog(userCurrency);
                 if (ctx.sendList) {
                     await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, 1, 8, userLang));
                 }
@@ -128,7 +133,7 @@ export async function handleBuyingFlow(
             ctx.state.setCatalogPage(remoteJid, pageNum);
             const cat = CATEGORIES.find((c) => c.dbCategory === session.selectedCategory);
             if (cat) {
-                const catalog = await ctx.client.getCatalog();
+                const catalog = await ctx.client.getCatalog(userCurrency);
                 if (ctx.sendList) {
                     await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, pageNum, 8, userLang));
                 }
@@ -138,7 +143,7 @@ export async function handleBuyingFlow(
 
         if (trimmed.startsWith("item_")) {
             const itemId = trimmed.replace(/^item_/, "");
-            const catalog = await ctx.client.getCatalog();
+            const catalog = await ctx.client.getCatalog(userCurrency);
             const selectedCat = session.selectedCategory;
             const categoryItems = selectedCat
                 ? catalog.filter((i) => i.active && i.category === selectedCat)
@@ -203,10 +208,11 @@ export async function handleBuyingFlow(
                         });
                     }
 
+                    const displayPrice = selected.displayPrice ?? (appliedVoucher ? appliedVoucher.finalPrice : selected.rupiahPrice);
                     const summaryText = t("buying.confirmPrompt", userLang, {
                         itemName: selected.name,
                         gamertag: session.gamertag,
-                        formattedPrice: formatRupiah(appliedVoucher ? appliedVoucher.finalPrice : selected.rupiahPrice),
+                        formattedPrice: formatCurrency(displayPrice, userCurrency),
                         voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
                     });
 
@@ -254,8 +260,8 @@ export async function handleBuyingFlow(
             if (cat) {
                 session.selectedCategory = cat.dbCategory;
                 session.catalogPage = 1;
-                await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang);
-                const catalog = await ctx.client.getCatalog();
+                await sendCategoryOrderPoster(remoteJid, cat, ctx, userLang, userCurrency);
+                const catalog = await ctx.client.getCatalog(userCurrency);
                 if (ctx.sendList) {
                     await ctx.sendList(remoteJid, buildPaginatedItemListMenu(catalog, cat, 1, 8, userLang));
                 }
@@ -283,7 +289,7 @@ export async function handleBuyingFlow(
             return true;
         }
 
-        const catalog = await ctx.client.getCatalog();
+        const catalog = await ctx.client.getCatalog(userCurrency);
         const selectedCat = session.selectedCategory;
         const categoryItems = selectedCat
             ? catalog.filter((i) => i.active && i.category === selectedCat)
@@ -352,10 +358,11 @@ export async function handleBuyingFlow(
                     });
                 }
 
+                const displayPrice = selected.displayPrice ?? (appliedVoucher ? appliedVoucher.finalPrice : selected.rupiahPrice);
                 const summaryText = t("buying.confirmPrompt", userLang, {
                     itemName: selected.name,
                     gamertag: session.gamertag,
-                    formattedPrice: formatRupiah(appliedVoucher ? appliedVoucher.finalPrice : selected.rupiahPrice),
+                    formattedPrice: formatCurrency(displayPrice, userCurrency),
                     voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
                 });
 
@@ -492,10 +499,11 @@ export async function handleBuyingFlow(
                         formattedDiscount: formatRupiah(appliedVoucher.discountNominal)
                     });
                 }
+                const displayPrice = item.displayPrice ?? (appliedVoucher ? appliedVoucher.finalPrice : item.rupiahPrice);
                 const summaryText = t("buying.confirmPrompt", userLang, {
                     itemName: item.name,
                     gamertag: session.gamertag,
-                    formattedPrice: formatRupiah(appliedVoucher ? appliedVoucher.finalPrice : item.rupiahPrice),
+                    formattedPrice: formatCurrency(displayPrice, userCurrency),
                     voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
                 });
                 if (ctx.sendButtons) {
@@ -542,7 +550,7 @@ export async function handleBuyingFlow(
             session.lastUpdated = Date.now();
             const cat = findCategory(session.selectedCategory);
             if (cat) {
-                const catalog = await ctx.client.getCatalog();
+                const catalog = await ctx.client.getCatalog(userCurrency);
                 if (ctx.sendList) {
                     await ctx.sendList(
                         remoteJid,
@@ -606,10 +614,11 @@ export async function handleBuyingFlow(
             });
         }
 
+        const displayPrice = item.displayPrice ?? (appliedVoucher ? appliedVoucher.finalPrice : item.rupiahPrice);
         const summaryText = t("buying.confirmPrompt", userLang, {
             itemName: item.name,
             gamertag,
-            formattedPrice: formatRupiah(appliedVoucher ? appliedVoucher.finalPrice : item.rupiahPrice),
+            formattedPrice: formatCurrency(displayPrice, userCurrency),
             voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
         });
 
@@ -663,10 +672,11 @@ export async function handleBuyingFlow(
         if (trimmed === "btn_remove_voucher") {
             ctx.state.clearAppliedVoucher(remoteJid);
             const item = session.selectedItem!;
+            const displayPrice = item.displayPrice ?? item.rupiahPrice;
             const summaryText = t("buying.confirmPrompt", userLang, {
                 itemName: item.name,
                 gamertag: session.gamertag!,
-                formattedPrice: formatRupiah(item.rupiahPrice),
+                formattedPrice: formatCurrency(displayPrice, userCurrency),
                 voucherLine: ""
             });
             if (ctx.sendButtons) {
@@ -714,7 +724,7 @@ export async function handleBuyingFlow(
             session.lastUpdated = Date.now();
             const cat = findCategory(session.selectedCategory);
             if (cat) {
-                const catalog = await ctx.client.getCatalog();
+                const catalog = await ctx.client.getCatalog(userCurrency);
                 if (ctx.sendList) {
                     await ctx.sendList(
                         remoteJid,
@@ -820,12 +830,20 @@ export async function handleBuyingFlow(
                     })
                     : "";
 
+                const idrNominalFormatted = formatRupiah(order.totalNominal);
+                let formattedAmount = idrNominalFormatted;
+                if (userCurrency !== "IDR") {
+                    const itemDisplayPrice = item.displayPrice ?? item.rupiahPrice;
+                    const displayFormatted = formatCurrency(itemDisplayPrice, userCurrency);
+                    formattedAmount = `${displayFormatted} (~${idrNominalFormatted})`;
+                }
+
                 const invoice = t("buying.invoiceText", userLang, {
                     orderId: order.orderId,
                     itemName: item.name,
                     gamertag,
                     voucherLine,
-                    formattedAmount: formatRupiah(order.totalNominal),
+                    formattedAmount,
                     store: config.STORE_NAME
                 });
 
@@ -881,10 +899,11 @@ export async function handleBuyingFlow(
             session.step = "AWAITING_CONFIRMATION";
             session.lastUpdated = Date.now();
             const item = session.selectedItem!;
+            const displayPrice = item.displayPrice ?? (session.appliedVoucher ? session.appliedVoucher.finalPrice : item.rupiahPrice);
             const summaryText = t("buying.confirmPrompt", userLang, {
                 itemName: item.name,
                 gamertag: session.gamertag!,
-                formattedPrice: formatRupiah(session.appliedVoucher ? session.appliedVoucher.finalPrice : item.rupiahPrice),
+                formattedPrice: formatCurrency(displayPrice, userCurrency),
                 voucherLine: session.appliedVoucher
                     ? "\n" + t("buying.invoiceVoucherLine", userLang, {
                         code: session.appliedVoucher.code,
@@ -921,10 +940,11 @@ export async function handleBuyingFlow(
             session.step = "AWAITING_CONFIRMATION";
             session.lastUpdated = Date.now();
 
+            const displayPrice = item.displayPrice ?? res.finalPrice;
             const summaryText = t("buying.confirmPrompt", userLang, {
                 itemName: item.name,
                 gamertag: session.gamertag!,
-                formattedPrice: formatRupiah(res.finalPrice),
+                formattedPrice: formatCurrency(displayPrice, userCurrency),
                 voucherLine: "\n" + t("buying.invoiceVoucherLine", userLang, {
                     code: res.code,
                     formattedDiscount: formatRupiah(res.discountNominal)

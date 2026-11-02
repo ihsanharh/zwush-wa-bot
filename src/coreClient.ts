@@ -28,10 +28,14 @@ export class CoreClient {
     /**
      * Fetches the active catalog from the core service.
      */
-    async getCatalog(retries = 3): Promise<CatalogItem[]> {
+    async getCatalog(currencyOrRetries?: string | number, retriesCount = 3): Promise<CatalogItem[]> {
+        const currency = typeof currencyOrRetries === "string" ? currencyOrRetries : undefined;
+        const retries = typeof currencyOrRetries === "number" ? currencyOrRetries : retriesCount;
+        const query = currency ? `?currency=${encodeURIComponent(currency)}` : "";
+
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                const res = await fetch(`${this.baseUrl}/api/catalog`, {
+                const res = await fetch(`${this.baseUrl}/api/catalog${query}`, {
                     signal: AbortSignal.timeout(10000)
                 });
                 if (!res.ok) {
