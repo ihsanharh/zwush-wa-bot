@@ -52,6 +52,32 @@ describe("Category Poster Generator", () => {
         expect(Buffer.isBuffer(cached)).toBe(true);
     });
 
+    it("should generate category poster in single selected currency (USD) without forced Rp", async () => {
+        const cat = CATEGORIES[1]!;
+        const items: CatalogItem[] = [
+            {
+                id: "pet-1",
+                name: "Dragon Pet",
+                category: cat.dbCategory,
+                tokenCost: 10,
+                minecoins: 660,
+                originalPrice: 4.99,
+                displayPrice: 2.49,
+                rupiahPrice: 40000,
+                currency: "USD",
+                discountPercent: 50,
+                imageUrl: null,
+                active: true,
+            },
+        ];
+        const bufferUsd = await generateCategoryPoster(cat, items, "en", "USD");
+        expect(bufferUsd).toBeDefined();
+        expect(Buffer.isBuffer(bufferUsd)).toBe(true);
+        expect(bufferUsd[0]).toBe(0x89);
+        expect(bufferUsd[1]).toBe(0x50);
+    });
+
+
     describe("wrapItemName", () => {
         it("keeps short item names on a single line", () => {
             const lines = wrapItemName("Dragon Pet", 16);

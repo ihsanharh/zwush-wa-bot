@@ -2,7 +2,7 @@ import sharp from "sharp";
 import type { CatalogItem } from "./types";
 import type { CategoryDefinition } from "./utils/categories";
 import { config } from "./config";
-import { formatRupiah, t, type Language } from "./i18n";
+import { formatRupiah, formatCurrency, t, type Language } from "./i18n";
 
 const posterCache = new Map<string, Buffer>();
 const itemImageCache = new Map<string, Buffer>();
@@ -132,15 +132,17 @@ export function stripEmojis(str: string): string {
 export async function generateCategoryPoster(
     category: CategoryDefinition,
     items: CatalogItem[],
-    lang: Language = "id"
+    lang: Language = "id",
+    currency: string = "IDR"
 ): Promise<Buffer> {
     const activeItems = items.filter((i) => i.active && i.category === category.dbCategory);
     if (activeItems.length === 0) {
         throw new Error(`No active items for category: ${category.dbCategory}`);
     }
 
+    const cur = (currency || "IDR").toUpperCase();
     const discountPercent = activeItems[0]?.discountPercent ?? 0;
-    const cacheKey = `${category.dbCategory}_d${discountPercent}_${lang}`;
+    const cacheKey = `${category.dbCategory}_d${discountPercent}_${lang}_${cur}`;
     const cached = posterCache.get(cacheKey);
     if (cached) {
         return cached;
@@ -223,10 +225,11 @@ export async function generateCategoryPoster(
         }
 
         // Voucher style % discount badge
+        const promoPrice = item.displayPrice ?? item.rupiahPrice;
         const itemDiscount = item.discountPercent > 0
             ? item.discountPercent
-            : (item.originalPrice > item.rupiahPrice
-                ? Math.round((1 - item.rupiahPrice / item.originalPrice) * 100)
+            : (item.originalPrice > promoPrice
+                ? Math.round((1 - promoPrice / item.originalPrice) * 100)
                 : 0);
 
         let voucherBadgeSvg = "";
@@ -273,11 +276,11 @@ export async function generateCategoryPoster(
             ${nameSvg}
 
             <!-- Original Price -->
-            <text x="${textStartX}" y="${y + (isCompact ? 66 : 73)}" fill="#94a3b8" font-size="11" font-family="sans-serif" text-decoration="line-through">${formatRupiah(item.originalPrice)}</text>
+            <text x="${textStartX}" y="${y + (isCompact ? 66 : 73)}" fill="#94a3b8" font-size="11" font-family="sans-serif" text-decoration="line-through">${escapeXml(formatCurrency(item.originalPrice, cur))}</text>
 
-            <!-- Rupiah Price Promo -->
+            <!-- Display Price Promo -->
             <rect x="${textStartX - 2}" y="${y + (isCompact ? 76 : 85)}" width="130" height="${isCompact ? 22 : 24}" rx="5" fill="#14532d" />
-            <text x="${textStartX + 8}" y="${y + (isCompact ? 92 : 102)}" fill="#4ade80" font-size="13" font-weight="bold" font-family="sans-serif">${formatRupiah(item.rupiahPrice)}</text>
+            <text x="${textStartX + 8}" y="${y + (isCompact ? 92 : 102)}" fill="#4ade80" font-size="13" font-weight="bold" font-family="sans-serif">${escapeXml(formatCurrency(item.displayPrice ?? item.rupiahPrice, cur))}</text>
         </g>
         `;
     });

@@ -1,4 +1,4 @@
-import { formatStatusBadge, formatRupiah, t, type Language } from "../i18n";
+import { formatStatusBadge, formatRupiah, formatCurrency, t, type Language } from "../i18n";
 import { generateCategoryPoster, getItemImageBuffer } from "../poster";
 import type { CatalogItem } from "../types";
 import type { BotContext } from "../handlers/message";
@@ -45,9 +45,11 @@ export async function sendCategoryOrderPoster(
     remoteJid: string,
     cat: CategoryDefinition,
     ctx: BotContext,
-    lang: Language = "id"
+    lang: Language = "id",
+    currency: string = "IDR"
 ): Promise<void> {
-    const catalog = await ctx.client.getCatalog();
+    const userCurrency = (currency || ctx.state?.getCurrency?.(remoteJid) || "IDR").toUpperCase();
+    const catalog = await ctx.client.getCatalog(userCurrency);
     const categoryItems = catalog.filter((i) => i.active && i.category === cat.dbCategory);
 
     if (categoryItems.length === 0) {
@@ -64,9 +66,11 @@ export async function sendCategoryOrderPoster(
             bannerBuffer = null;
         }
 
+        const priceItem = categoryItems[0];
+        const displayPrice = priceItem ? (priceItem.displayPrice ?? priceItem.rupiahPrice) : 20000;
         const costumeMsg = t("catalog.costumesPrompt", lang, {
             count: categoryItems.length,
-            price: formatRupiah(categoryItems[0]?.rupiahPrice ?? 20000)
+            price: formatCurrency(displayPrice, userCurrency)
         });
 
         if (bannerBuffer) {
@@ -91,7 +95,7 @@ export async function sendCategoryOrderPoster(
         });
 
     try {
-        const posterBuffer = await generateCategoryPoster(cat, catalog, lang);
+        const posterBuffer = await generateCategoryPoster(cat, catalog, lang, userCurrency);
         await ctx.sendImage(remoteJid, posterBuffer, caption);
         return;
     } catch (err: unknown) {
