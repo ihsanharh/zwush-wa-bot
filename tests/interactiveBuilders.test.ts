@@ -12,6 +12,7 @@ import {
     buildAdminSupportSolvedButtons,
     buildWelcomeButtons,
     buildSettingsListMenu,
+    buildCurrencySelectionMenu,
     buildVoucherPromptButtons,
     buildGamertagChangePromptButtons,
     buildOrderCancelledButtons,
@@ -182,19 +183,29 @@ describe("interactiveBuilders", () => {
         expect(p2.display_text).toBe("Pengaturan & Info");
     });
 
-    it("should build settings list menu with order history and without exposing support button", () => {
-        const payload = buildSettingsListMenu("id");
+    it("should build settings list menu with order history, currency switch, and without exposing support button", () => {
+        const payload = buildSettingsListMenu("id", "TestGamer", "USD");
         expect(payload.listMessage).toBeDefined();
         const rows = payload.listMessage.sections[0].rows;
-        expect(rows.length).toBe(4);
+        expect(rows.length).toBe(5);
         expect(rows[0].rowId).toBe("btn_history");
         expect(rows[1].rowId).toBe("act_default_gamertag");
         expect(rows[2].rowId).toBe("act_switch_lang");
-        expect(rows[3].rowId).toBe("act_view_faq");
+        expect(rows[3].rowId).toBe("act_switch_currency");
+        expect(rows[3].title).toContain("USD");
+        expect(rows[4].rowId).toBe("act_view_faq");
         // Verify no CS/support row exists in settings drawer
         const rowIds = rows.map((r: any) => r.rowId);
         expect(rowIds).not.toContain("btn_support_confirm");
+
+        const currencyMenu = buildCurrencySelectionMenu("id", "USD");
+        expect(currencyMenu.listMessage.sections[0].rows.length).toBeGreaterThanOrEqual(10);
+        const usdRow = currencyMenu.listMessage.sections[0].rows.find((r: any) => r.rowId === "curr_USD");
+        expect(usdRow).toBeDefined();
+        expect(usdRow.title).toContain("USD");
+        expect(usdRow.title).toContain("✓");
     });
+
 
     it("should build minecoins coming soon interactive buttons card with voucher mention", () => {
         const payloadId = buildMinecoinsComingSoonButtons("id");

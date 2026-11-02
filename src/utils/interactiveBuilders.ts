@@ -1,5 +1,5 @@
 import { proto } from "zapo-js";
-import { formatRupiah, formatStatusBadge, t, type Language } from "../i18n";
+import { formatRupiah, formatCurrency, formatStatusBadge, t, SUPPORTED_CURRENCIES, type Language } from "../i18n";
 import { config } from "../config";
 import type { CategoryDefinition } from "./categories";
 import type { CatalogItem, OrderInfo, PaginationInfo, VoucherItem } from "../types";
@@ -565,7 +565,11 @@ export function buildMinecoinsComingSoonButtons(lang: Language = "id"): {
 /**
  * Builds Settings & Information List Menu (Drawer)
  */
-export function buildSettingsListMenu(lang: Language = "id", defaultGamertag?: string): { listMessage: any } {
+export function buildSettingsListMenu(
+    lang: Language = "id",
+    defaultGamertag?: string,
+    currency: string = "IDR"
+): { listMessage: any } {
     const store = config.STORE_NAME;
     const title = t("interactive.settingsTitle", lang);
     const description = t("interactive.settingsDesc", lang);
@@ -573,6 +577,11 @@ export function buildSettingsListMenu(lang: Language = "id", defaultGamertag?: s
 
     const switchLangTitle = lang === "id" ? t("interactive.switchLangEn", lang) : t("interactive.switchLangId", lang);
     const switchLangDesc = lang === "id" ? t("interactive.switchLangEnDesc", lang) : t("interactive.switchLangIdDesc", lang);
+
+    const currCode = (currency || "IDR").toUpperCase();
+    const currConfig = SUPPORTED_CURRENCIES[currCode] || SUPPORTED_CURRENCIES.IDR;
+    const switchCurrTitle = `${t("interactive.switchCurrencyTitle", lang)}: ${currConfig.flag} ${currConfig.code}`;
+    const switchCurrDesc = t("interactive.switchCurrencyDesc", lang, { currency: currConfig.code });
 
     const defaultGtTitle = defaultGamertag
         ? `${t("interactive.defaultGamertagTitle", lang)}: ${defaultGamertag}`
@@ -608,6 +617,11 @@ export function buildSettingsListMenu(lang: Language = "id", defaultGamertag?: s
                             description: switchLangDesc
                         },
                         {
+                            rowId: "act_switch_currency",
+                            title: switchCurrTitle,
+                            description: switchCurrDesc
+                        },
+                        {
                             rowId: "act_view_faq",
                             title: t("interactive.faqTitle", lang),
                             description: t("interactive.faqDesc", lang)
@@ -618,6 +632,48 @@ export function buildSettingsListMenu(lang: Language = "id", defaultGamertag?: s
         }
     };
 }
+
+/**
+ * Builds Currency Selection List Menu
+ */
+export function buildCurrencySelectionMenu(
+    lang: Language = "id",
+    currentCurrency: string = "IDR"
+): { listMessage: any } {
+    const store = config.STORE_NAME;
+    const title = t("interactive.currencyMenuTitle", lang);
+    const description = t("interactive.currencyMenuDesc", lang);
+    const buttonText = t("interactive.currencyMenuBtn", lang);
+    const curUpper = (currentCurrency || "IDR").toUpperCase();
+
+    const rows = Object.values(SUPPORTED_CURRENCIES).map((curr) => {
+        const isSelected = curr.code === curUpper;
+        return {
+            rowId: `curr_${curr.code}`,
+            title: `${curr.flag} ${curr.code} - ${curr.name}${isSelected ? " ✓" : ""}`,
+            description: curr.qrisPartner
+                ? t("interactive.currencyQrisPartner", lang)
+                : t("interactive.currencyGlobalRef", lang),
+        };
+    });
+
+    return {
+        listMessage: {
+            title,
+            description,
+            buttonText,
+            footerText: `${store} • Minecraft Marketplace`,
+            listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
+            sections: [
+                {
+                    title,
+                    rows,
+                },
+            ],
+        },
+    };
+}
+
 
 /**
  * Builds Paginated Order History Buttons (Card text + Quick Reply buttons)

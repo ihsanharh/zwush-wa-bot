@@ -58,6 +58,7 @@ export interface UserSession {
     lastQrKey?: any;
     activeOrderId?: string;
     language?: Language;
+    currency?: string;
     lastUpdated: number;
     lastCancelledAt?: number;
     lastBackAt?: number;
@@ -78,6 +79,7 @@ export interface UserSession {
 export class StateManager {
     private readonly sessions = new Map<string, UserSession>();
     private readonly userLanguages = new Map<string, Language>();
+    private readonly userCurrencies = new Map<string, string>();
     private readonly defaultGamertags = new Map<string, string>();
     private readonly syncedUsers = new Set<string>();
     private readonly orderRetryAttempts = new Map<string, number>();
@@ -162,6 +164,26 @@ export class StateManager {
         this.persistUserPreferences();
     }
 
+    /**
+     * Gets user currency preference, default 'IDR'.
+     */
+    getCurrency(jid: string): string {
+        return this.userCurrencies.get(jid) || "IDR";
+    }
+
+    /**
+     * Sets user currency preference.
+     */
+    setCurrency(jid: string, currency: string): void {
+        const cur = (currency || "IDR").toUpperCase();
+        this.userCurrencies.set(jid, cur);
+        const session = this.sessions.get(jid);
+        if (session) {
+            session.currency = cur;
+        }
+        this.persistUserPreferences();
+    }
+
     private loadPersistedUserPreferences(): void {
         try {
             if (!this.userPreferencesFilePath || !fs.existsSync(this.userPreferencesFilePath)) {
@@ -180,6 +202,13 @@ export class StateManager {
                     for (const [jid, gt] of Object.entries(data.defaultGamertags)) {
                         if (typeof gt === "string" && gt.trim().length > 0) {
                             this.defaultGamertags.set(jid, gt.trim());
+                        }
+                    }
+                }
+                if (data.currencies && typeof data.currencies === "object") {
+                    for (const [jid, cur] of Object.entries(data.currencies)) {
+                        if (typeof cur === "string" && cur.trim().length > 0) {
+                            this.userCurrencies.set(jid, cur.trim().toUpperCase());
                         }
                     }
                 }
@@ -205,9 +234,13 @@ export class StateManager {
             for (const [jid, gt] of this.defaultGamertags.entries()) {
                 defaultGamertagsObj[jid] = gt;
             }
+            const currenciesObj: Record<string, string> = {};
+            for (const [jid, cur] of this.userCurrencies.entries()) {
+                currenciesObj[jid] = cur;
+            }
             fs.writeFileSync(
                 this.userPreferencesFilePath,
-                JSON.stringify({ languages: languagesObj, defaultGamertags: defaultGamertagsObj, updatedAt: new Date().toISOString() }, null, 2),
+                JSON.stringify({ languages: languagesObj, defaultGamertags: defaultGamertagsObj, currencies: currenciesObj, updatedAt: new Date().toISOString() }, null, 2),
                 "utf-8"
             );
         } catch (err) {
@@ -259,13 +292,20 @@ export class StateManager {
     /**
      * Synchronizes user preferences from core service into StateManager.
      */
-    syncUserProfile(jid: string, profile: { gamertag?: string | null; language?: Language }): void {
+    syncUserProfile(jid: string, profile: { gamertag?: string | null; language?: Language; currency?: string }): void {
         this.syncedUsers.add(jid);
         if (profile.language) {
             this.userLanguages.set(jid, profile.language);
             const session = this.sessions.get(jid);
             if (session) {
                 session.language = profile.language;
+            }
+        }
+        if (profile.currency) {
+            this.userCurrencies.set(jid, profile.currency.toUpperCase());
+            const session = this.sessions.get(jid);
+            if (session) {
+                session.currency = profile.currency.toUpperCase();
             }
         }
         if (profile.gamertag) {
@@ -305,6 +345,7 @@ export class StateManager {
             const fresh: UserSession = {
                 step: "IDLE",
                 language: this.getLanguage(jid),
+                currency: this.getCurrency(jid),
                 lastUpdated: Date.now()
             };
             this.sessions.set(jid, fresh);
@@ -316,6 +357,7 @@ export class StateManager {
             const fresh: UserSession = {
                 step: "IDLE",
                 language: this.getLanguage(jid),
+                currency: this.getCurrency(jid),
                 lastUpdated: Date.now()
             };
             this.sessions.set(jid, fresh);

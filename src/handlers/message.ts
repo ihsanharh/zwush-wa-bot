@@ -1,7 +1,7 @@
 import type { CoreClient } from "../coreClient";
 import type { StateManager } from "../state";
 import type { AdminGroupLogger } from "./adminLogger";
-import { formatStatusBadge, formatRupiah, t, type Language } from "../i18n";
+import { formatStatusBadge, formatRupiah, t, SUPPORTED_CURRENCIES, type Language } from "../i18n";
 import { config } from "../config";
 import {
     CATEGORIES,
@@ -41,6 +41,7 @@ import {
     buildOrderCancelledButtons,
     buildOrderHistoryButtons,
     buildSettingsListMenu,
+    buildCurrencySelectionMenu,
     buildDefaultGamertagPromptButtons,
     buildWelcomeButtons,
     buildPaymentPendingButtons,
@@ -583,7 +584,8 @@ async function handleIncomingMessageInternal(
         if (trimmed === "btn_settings") {
             if (ctx.sendList) {
                 const defaultGt = ctx.state.getDefaultGamertag ? ctx.state.getDefaultGamertag(remoteJid) : undefined;
-                await ctx.sendList(remoteJid, buildSettingsListMenu(userLang, defaultGt));
+                const userCur = ctx.state.getCurrency ? ctx.state.getCurrency(remoteJid) : "IDR";
+                await ctx.sendList(remoteJid, buildSettingsListMenu(userLang, defaultGt, userCur));
             }
             return;
         }
@@ -652,6 +654,38 @@ async function handleIncomingMessageInternal(
                 await ctx.sendButtons(remoteJid, buildWelcomeButtons(nextLang));
             } else {
                 await ctx.sendText(remoteJid, t("languageSwitched", nextLang));
+            }
+            return;
+        }
+
+        if (trimmed === "act_switch_currency") {
+            const userCur = ctx.state.getCurrency ? ctx.state.getCurrency(remoteJid) : "IDR";
+            if (ctx.sendList) {
+                await ctx.sendList(remoteJid, buildCurrencySelectionMenu(userLang, userCur));
+            }
+            return;
+        }
+
+        const currMatch = trimmed.match(/^curr_([A-Z]{3})$/);
+        if (currMatch) {
+            const selectedCurrency = currMatch[1];
+            if (ctx.state.setCurrency) {
+                ctx.state.setCurrency(remoteJid, selectedCurrency);
+            }
+            if (ctx.client?.updateUserProfile) {
+                ctx.client.updateUserProfile(remoteJid, { currency: selectedCurrency }).catch((err: unknown) => {
+                    console.warn("[Message] Failed to update currency on core:", err);
+                });
+            }
+            const currCfg = SUPPORTED_CURRENCIES[selectedCurrency] || { flag: "🌐", code: selectedCurrency };
+            const confirmationText = t("interactive.currencyChanged", userLang, {
+                currency: selectedCurrency,
+                flag: currCfg.flag
+            });
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buildWelcomeButtons(userLang));
+            } else {
+                await ctx.sendText(remoteJid, confirmationText);
             }
             return;
         }
