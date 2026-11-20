@@ -84,7 +84,10 @@
         "noPending": "Lagi ga ada pesanan yang nunggu pembayaran nih kak. Kalo mau order, langsung klik tombol Beli Kosmetik di bawah ya!"
     },
     "admin": {
-        "balanceSummary": "💰 *SALDO & STATUS BOT — {{storeUpper}}*\n\n🤖 *Status Bot The Hive:*\n• Gamertag: *{{gamertag}}*\n• Status: *{{botStatus}}* ✅\n• Sisa Token Gift: *{{tokens}} Token* 🎁\n• Sisa Token Costume: *{{costumeTokens}} Token* 🦹\n\n📊 *Ringkasan Penjualan Hari Ini:*\n• Pesanan Selesai: *{{todayCompleted}} Pesanan*\n• Total Omset: *{{todayRevenue}}*\n• Menunggu Pembayaran: *{{pendingPayment}} Pesanan*\n• Antrean Gifting: *{{giftingQueue}} Pesanan*\n• Tertahan Stok Token: *{{insufficientTokens}} Pesanan*\n• Diskon Toko Aktif: *{{discountPercent}}%*\n• Voucher Aktif: *{{activeVouchers}} Kode*\n\n💡 _Klik tombol *Sync Saldo & Katalog* di bawah untuk menyinkronkan token & katalog langsung dari The Hive._",
+        "balanceSummary": "💰 *SALDO & STATUS BOT — {{storeUpper}}*\n\n🤖 *Status Bot The Hive:*\n• Status: *{{botStatus}}* ✅\n• Total Token Gift: *{{tokens}} Token* 🎁\n• Total Token Costume: *{{costumeTokens}} Token* 🦹\n{{accountsSection}}\n📊 *Ringkasan Penjualan Hari Ini:*\n• Pesanan Selesai: *{{todayCompleted}} Pesanan*\n• Total Omset: *{{todayRevenue}}*\n• Menunggu Pembayaran: *{{pendingPayment}} Pesanan*\n• Antrean Gifting: *{{giftingQueue}} Pesanan*\n• Tertahan Stok Token: *{{insufficientTokens}} Pesanan*\n• Diskon Toko Aktif: *{{discountPercent}}%*\n• Voucher Aktif: *{{activeVouchers}} Kode*\n\n💡 _Klik *👥 Akun Gifting* untuk kelola akun atau *Sync Saldo & Katalog* untuk menyinkronkan katalog._",
+        "balanceAccountsSummary": "• Akun Aktif: *{{activeCount}}/{{totalCount}} akun*\n",
+        "balanceAccountRow": "  ◦ *{{gamertag}}*: *{{tokens}} Token* ({{status}})\n",
+        "balanceSingleFallback": "• Akun Aktif: *1 akun* (*{{gamertag}}*)\n",
         "balanceOnline": "ONLINE / SIAP",
         "balanceOffline": "OFFLINE / TERPUTUS",
         "balanceFetching": "🔄 Menyinkronkan saldo token & katalog langsung dari The Hive...",

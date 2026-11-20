@@ -133,11 +133,30 @@ export async function handleAdminAction(
                 : t("admin.balanceOffline", _userLang);
             const s = res.summary;
 
+            let accountsSection = "";
+            if (Array.isArray(res.accounts) && res.accounts.length > 0) {
+                const activeCount = res.accounts.filter((a) => a.status === "ACTIVE").length;
+                accountsSection += t("admin.balanceAccountsSummary", _userLang, {
+                    activeCount,
+                    totalCount: res.accounts.length
+                });
+                for (const acc of res.accounts) {
+                    accountsSection += t("admin.balanceAccountRow", _userLang, {
+                        gamertag: acc.gamertag,
+                        tokens: acc.tokenBalance,
+                        status: acc.status
+                    });
+                }
+            } else {
+                accountsSection = t("admin.balanceSingleFallback", _userLang, { gamertag });
+            }
+
             const out = t("admin.balanceSummary", _userLang, {
                 gamertag,
                 botStatus,
                 tokens,
                 costumeTokens,
+                accountsSection,
                 todayCompleted: s.todayCompleted,
                 todayRevenue: formatRupiah(s.todayRevenue),
                 pendingPayment: s.pendingPayment,

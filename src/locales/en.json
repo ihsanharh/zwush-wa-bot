@@ -84,7 +84,10 @@
         "noPending": "You don't have any active order waiting for payment right now. Tap Buy Cosmetics below to start shopping!"
     },
     "admin": {
-        "balanceSummary": "💰 *BOT BALANCE & STORE STATUS — {{storeUpper}}*\n\n🤖 *The Hive Bot Status:*\n• Gamertag: *{{gamertag}}*\n• Status: *{{botStatus}}* ✅\n• Remaining Gift Tokens: *{{tokens}} Token(s)* 🎁\n• Remaining Costume Tokens: *{{costumeTokens}} Token(s)* 🦹\n\n📊 *Today's Sales Summary:*\n• Completed Orders: *{{todayCompleted}} Orders*\n• Total Revenue: *{{todayRevenue}}*\n• Pending Payment: *{{pendingPayment}} Orders*\n• Gifting Queue: *{{giftingQueue}} Orders*\n• Token Deficit (Stuck): *{{insufficientTokens}} Orders*\n• Active Store Discount: *{{discountPercent}}%*\n• Active Vouchers: *{{activeVouchers}} Codes*\n\n💡 _Click *Sync Token & Catalog* below to sync live tokens & catalog from The Hive._",
+        "balanceSummary": "💰 *BOT BALANCE & STORE STATUS — {{storeUpper}}*\n\n🤖 *The Hive Bot Status:*\n• Status: *{{botStatus}}* ✅\n• Total Gift Tokens: *{{tokens}} Token(s)* 🎁\n• Total Costume Tokens: *{{costumeTokens}} Token(s)* 🦹\n{{accountsSection}}\n📊 *Today's Sales Summary:*\n• Completed Orders: *{{todayCompleted}} Orders*\n• Total Revenue: *{{todayRevenue}}*\n• Pending Payment: *{{pendingPayment}} Orders*\n• Gifting Queue: *{{giftingQueue}} Orders*\n• Token Deficit (Stuck): *{{insufficientTokens}} Orders*\n• Active Store Discount: *{{discountPercent}}%*\n• Active Vouchers: *{{activeVouchers}} Codes*\n\n💡 _Tap *👥 Gift Accounts* to manage accounts or *Sync Token & Catalog* to refresh catalog._",
+        "balanceAccountsSummary": "• Active Accounts: *{{activeCount}}/{{totalCount}} account(s)*\n",
+        "balanceAccountRow": "  ◦ *{{gamertag}}*: *{{tokens}} Token(s)* ({{status}})\n",
+        "balanceSingleFallback": "• Active Accounts: *1 account* (*{{gamertag}}*)\n",
         "balanceOnline": "ONLINE / READY",
         "balanceOffline": "OFFLINE / DISCONNECTED",
         "balanceFetching": "🔄 Syncing live token balance & catalog directly from The Hive...",

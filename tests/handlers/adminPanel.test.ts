@@ -302,6 +302,39 @@ describe("Interactive Admin Panel System", () => {
             expect(sentButtons[0]?.payload.text).toContain("150 Token");
         });
 
+        it("should display multi-account breakdown without single Gamertag line when accounts are returned", async () => {
+            mockContext.client.getBalance = mock(async () => ({
+                bot: { gamertag: "ZwushGift01 (+1)", tokens: 32, costumeTokens: 2, status: "ONLINE" },
+                accounts: [
+                    { id: "a1", gamertag: "ZwushGift01", tokenBalance: 20, costumeTokens: 2, status: "ACTIVE" },
+                    { id: "a2", gamertag: "ZwushGift02", tokenBalance: 12, costumeTokens: 0, status: "ACTIVE" }
+                ],
+                summary: {
+                    todayCompleted: 5,
+                    todayRevenue: 150000,
+                    pendingPayment: 0,
+                    giftingQueue: 0,
+                    insufficientTokens: 0,
+                    discountPercent: 40,
+                    activeVouchers: 2
+                }
+            })) as any;
+
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "admin_panel_balance",
+                mockContext,
+                adminUser
+            );
+
+            const text = sentButtons[0]?.payload.text || "";
+            expect(text).not.toContain("Gamertag:");
+            expect(text).toContain("Akun Aktif: *2/2 akun*");
+            expect(text).toContain("ZwushGift01*: *20 Token*");
+            expect(text).toContain("ZwushGift02*: *12 Token*");
+        });
+
         it("should handle 'btn_admin_balance_refresh' via unified token + catalog sync", async () => {
             await handleIncomingMessage(
                 adminGroupJid,
