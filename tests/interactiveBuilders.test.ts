@@ -167,36 +167,33 @@ describe("interactiveBuilders", () => {
         expect(p0.display_text).toContain("Solved");
     });
 
-    it("should build welcome buttons with 3 quick-reply options (Catalog, History, Settings)", () => {
+    it("should build welcome buttons with 2 quick-reply options (Catalog, Settings)", () => {
         const payload = buildWelcomeButtons("id");
         const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
-        expect(buttons.length).toBe(3);
+        expect(buttons.length).toBe(2);
         const p0 = JSON.parse(buttons[0].buttonParamsJson);
         const p1 = JSON.parse(buttons[1].buttonParamsJson);
-        const p2 = JSON.parse(buttons[2].buttonParamsJson);
         expect(p0.id).toBe("btn_start_buying");
         expect(p0.display_text).toBe("Beli Kosmetik");
-        expect(p1.id).toBe("btn_history");
-        expect(p1.display_text).toBe("Riwayat Pesanan");
-        expect(p2.id).toBe("btn_settings");
-        expect(p2.display_text).toBe("Pengaturan & Info");
+        expect(p1.id).toBe("btn_settings");
+        expect(p1.display_text).toBe("Pengaturan & Info");
         expect(payload.interactiveMessage.body.text).not.toContain("Minecoins");
         expect(payload.interactiveMessage.footer.text).not.toContain("Marketplace");
     });
 
-    it("should build settings list menu with currency switch and without exposing history or support button", () => {
+    it("should build settings list menu with order history, currency switch, and without support button", () => {
         const payload = buildSettingsListMenu("id", "TestGamer", "USD");
         expect(payload.listMessage).toBeDefined();
         const rows = payload.listMessage.sections[0].rows;
-        expect(rows.length).toBe(4);
+        expect(rows.length).toBe(5);
         expect(rows[0].rowId).toBe("act_default_gamertag");
         expect(rows[1].rowId).toBe("act_switch_lang");
         expect(rows[2].rowId).toBe("act_switch_currency");
         expect(rows[2].title).toContain("USD");
-        expect(rows[3].rowId).toBe("act_view_faq");
-        // Verify no CS/support or duplicate history row exists in settings drawer
+        expect(rows[3].rowId).toBe("btn_history");
+        expect(rows[4].rowId).toBe("act_view_faq");
+        // Verify no CS/support button exists in settings drawer
         const rowIds = rows.map((r: any) => r.rowId);
-        expect(rowIds).not.toContain("btn_history");
         expect(rowIds).not.toContain("btn_support_confirm");
 
         const currencyMenu = buildCurrencySelectionMenu("id", "USD");

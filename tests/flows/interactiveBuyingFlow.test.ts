@@ -315,13 +315,11 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         await handleIncomingMessage(testJid, false, "halo", mockContext);
         expect(sentButtons.length).toBe(1);
         const welcomeBtns = sentButtons[0]!.payload.interactiveMessage.nativeFlowMessage.buttons;
-        expect(welcomeBtns.length).toBe(3);
+        expect(welcomeBtns.length).toBe(2);
         const b0 = JSON.parse(welcomeBtns[0].buttonParamsJson);
         const b1 = JSON.parse(welcomeBtns[1].buttonParamsJson);
-        const b2 = JSON.parse(welcomeBtns[2].buttonParamsJson);
         expect(b0.id).toBe("btn_start_buying");
-        expect(b1.id).toBe("btn_history");
-        expect(b2.id).toBe("btn_settings");
+        expect(b1.id).toBe("btn_settings");
 
         // Clicking btn_start_buying opens category menu statelessly
         sentLists = [];

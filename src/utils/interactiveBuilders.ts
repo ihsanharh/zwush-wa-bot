@@ -560,13 +560,12 @@ export function buildAdminAccountsButtons(
 }
 
 /**
- * Builds Welcome Quick-Reply Buttons (Catalog, History, Settings)
+ * Builds Welcome Quick-Reply Buttons (Catalog, Settings)
  */
 export function buildWelcomeButtons(lang: Language = "id"): { interactiveMessage: any } {
     const store = config.STORE_NAME;
     const buttons = [
         { id: "btn_start_buying", text: t("buttons.browseCatalog", lang) },
-        { id: "btn_history", text: t("buttons.orderHistory", lang) },
         { id: "btn_settings", text: t("buttons.settingsAndInfo", lang) }
     ];
     return buildQuickReplyPayload(t("greeting", lang), buttons, { footer: t("interactive.footerDefault", lang) });
@@ -625,6 +624,11 @@ export function buildSettingsListMenu(
                             rowId: "act_switch_currency",
                             title: switchCurrTitle,
                             description: switchCurrDesc
+                        },
+                        {
+                            rowId: "btn_history",
+                            title: t("buttons.orderHistory", lang),
+                            description: t("interactive.orderHistoryDesc", lang)
                         },
                         {
                             rowId: "act_view_faq",
