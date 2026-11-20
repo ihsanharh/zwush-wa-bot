@@ -318,8 +318,12 @@ async function handleIncomingMessageInternal(
                 return;
             }
 
-            // 2. Direct Saldo Keywords
-            if (cleanCmd === "saldo" || cleanCmd.startsWith("!saldo") || cleanCmd.startsWith("/saldo")) {
+            // 2. Direct Saldo Keywords (with refresh/sync routes to unified sync)
+            if (cleanCmd === "saldo" || cleanCmd.startsWith("saldo ") || cleanCmd.startsWith("!saldo") || cleanCmd.startsWith("/saldo")) {
+                if (cleanCmd.includes("refresh") || cleanCmd.includes("sync")) {
+                    await handleAdminAction(remoteJid, "admin_panel_sync", effectiveSender, true, userLang, ctx);
+                    return;
+                }
                 await handleAdminAction(remoteJid, "admin_panel_balance", effectiveSender, true, userLang, ctx);
                 return;
             }
@@ -336,9 +340,11 @@ async function handleIncomingMessageInternal(
                 return;
             }
 
-            // 5. Direct Catalog Sync Keywords
+            // 5. Direct Balance & Catalog Sync Keywords
             if (
                 cleanCmd === "sync" ||
+                cleanCmd === "sync saldo" ||
+                cleanCmd === "refresh saldo" ||
                 cleanCmd === "sync katalog" ||
                 cleanCmd === "sync catalog" ||
                 cleanCmd === "refresh katalog" ||

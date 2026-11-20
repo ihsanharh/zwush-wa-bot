@@ -121,11 +121,10 @@ export async function handleAdminAction(
         return true;
     }
 
-    // 0.1 Admin Panel: Balance Summary & Refresh
-    if (actionId === "admin_panel_balance" || actionId === "btn_admin_balance_refresh") {
-        const forceRefresh = actionId === "btn_admin_balance_refresh";
+    // 0.1 Admin Panel: Balance Summary (cached; live refresh uses unified sync below)
+    if (actionId === "admin_panel_balance") {
         try {
-            const res = await ctx.client.getBalance(forceRefresh);
+            const res = await ctx.client.getBalance(false);
             const gamertag = res.bot.gamertag;
             const tokens = res.bot.tokens;
             const costumeTokens = res.bot.costumeTokens ?? 0;
@@ -196,8 +195,8 @@ export async function handleAdminAction(
         return true;
     }
 
-    // 0.3 Admin Panel: Catalog Sync
-    if (actionId === "admin_panel_sync") {
+    // 0.3 Admin Panel: Unified Token Balance & Catalog Sync
+    if (actionId === "admin_panel_sync" || actionId === "btn_admin_balance_refresh") {
         try {
             await ctx.client.syncCatalog(remoteJid);
             clearPosterCache();

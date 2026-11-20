@@ -301,7 +301,7 @@ describe("Interactive Admin Panel System", () => {
             expect(sentButtons[0]?.payload.text).toContain("150 Token");
         });
 
-        it("should handle 'btn_admin_balance_refresh' and force-refresh balance", async () => {
+        it("should handle 'btn_admin_balance_refresh' via unified token + catalog sync", async () => {
             await handleIncomingMessage(
                 adminGroupJid,
                 false,
@@ -310,8 +310,30 @@ describe("Interactive Admin Panel System", () => {
                 adminUser
             );
 
-            expect(mockContext.client.getBalance).toHaveBeenCalledWith(true);
+            expect(mockContext.client.syncCatalog).toHaveBeenCalledWith(adminGroupJid);
             expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI SALDO & KATALOG");
+        });
+
+        it("should route 'saldo refresh' and '/saldo refresh' in admin group to unified sync", async () => {
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "saldo refresh",
+                mockContext,
+                adminUser
+            );
+
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "/saldo refresh",
+                mockContext,
+                adminUser
+            );
+
+            expect(mockContext.client.syncCatalog).toHaveBeenCalledTimes(2);
+            expect(mockContext.client.syncCatalog).toHaveBeenCalledWith(adminGroupJid);
         });
 
         it("should handle 'admin_panel_maintenance' and show toggle buttons", async () => {
@@ -370,7 +392,7 @@ describe("Interactive Admin Panel System", () => {
 
             expect(mockContext.client.syncCatalog).toHaveBeenCalled();
             expect(sentButtons.length).toBe(1);
-            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI KATALOG");
+            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI SALDO & KATALOG");
         });
 
         it("should handle 'admin_panel_orders' and show order counts", async () => {
@@ -430,7 +452,7 @@ describe("Interactive Admin Panel System", () => {
 
             expect(mockContext.client.syncCatalog).toHaveBeenCalledWith(adminGroupJid);
             expect(sentButtons.length).toBe(1);
-            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI KATALOG");
+            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI SALDO & KATALOG");
 
             await handleIncomingMessage(
                 adminGroupJid,

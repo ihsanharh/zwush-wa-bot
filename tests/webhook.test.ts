@@ -590,7 +590,7 @@ describe("Webhook Server", () => {
         expect(onCatalogSynced).toHaveBeenCalledTimes(1);
         expect(sentButtonsList.length).toBe(1);
         expect(sentButtonsList[0]?.jid).toBe("120363413508967055@g.us");
-        expect(sentButtonsList[0]?.payload.text).toContain("SINKRONISASI KATALOG SELESAI");
+        expect(sentButtonsList[0]?.payload.text).toContain("SINKRONISASI SALDO & KATALOG SELESAI");
         expect(sentButtonsList[0]?.payload.text).toContain("52 item");
         expect(sentButtonsList[0]?.payload.text).toContain("Spring Dragon Pet");
         expect(sentButtonsList[0]?.payload.text).toContain("Galaxy Hat");
@@ -663,7 +663,7 @@ describe("Webhook Server", () => {
         expect(onCatalogSynced).toHaveBeenCalledTimes(0);
         expect(sentMessages.length).toBe(1);
         expect(sentMessages[0]?.jid).toBe("120363413508967055@g.us");
-        expect(sentMessages[0]?.text).toContain("SINKRONISASI KATALOG GAGAL");
+        expect(sentMessages[0]?.text).toContain("SINKRONISASI SALDO & KATALOG GAGAL");
         expect(sentMessages[0]?.text).toContain("Connection timed out after 1 attempt");
     });
 });

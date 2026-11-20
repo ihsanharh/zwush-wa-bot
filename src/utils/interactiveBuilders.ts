@@ -450,7 +450,7 @@ export function buildAdminPanelMenu(
                         {
                             rowId: "admin_panel_sync",
                             title: t("interactive.adminBtnSync", lang),
-                            description: "Sinkronisasi katalog item Hive via gibot"
+                            description: "Sinkronisasi saldo token & katalog item Hive via gibot"
                         }
                     ]
                 },

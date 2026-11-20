@@ -302,7 +302,7 @@ export function createWebhookApp(
                 onCatalogSynced();
 
                 const addedItems = Array.isArray(body.added) ? body.added : [];
-                let msg = `✅ *SINKRONISASI KATALOG SELESAI!* 🎉\n\n`;
+                let msg = `✅ *SINKRONISASI SALDO & KATALOG SELESAI!* 🎉\n\n`;
                 msg += `• Total Item Katalog: *${body.updated ?? 0} item*\n`;
                 if (typeof body.tokens === "number") {
                     msg += `• Sisa Token Gift: *${body.tokens} Token*`;
@@ -323,12 +323,13 @@ export function createWebhookApp(
                 } else {
                     msg += `\nℹ️ _Tidak ada item baru; daftar item & harga yang ada telah diperbarui._\n`;
                 }
-                msg += `\n🖼️ Cache poster katalog otomatis di-refresh.`;
+                msg += `\n🖼️ Cache poster katalog & saldo token otomatis diperbarui.`;
 
                 if (targetJid) {
                     if (sender.sendButtons) {
                         try {
                             const payload = buildQuickReplyPayload(msg, [
+                                { id: "admin_panel_balance", text: t("interactive.adminBtnBalance", "id") },
                                 { id: "btn_admin_panel", text: t("buttons.adminPanel", "id") }
                             ]);
                             await sender.sendButtons(targetJid, payload);
@@ -341,9 +342,20 @@ export function createWebhookApp(
                     }
                 }
             } else {
-                const msg = `❌ *SINKRONISASI KATALOG GAGAL*\n\nKendala: *${body.error || "Unknown error"}*`;
+                const msg = `❌ *SINKRONISASI SALDO & KATALOG GAGAL*\n\nKendala: *${body.error || "Unknown error"}*`;
                 if (targetJid) {
-                    await sender.sendMessage(targetJid, msg);
+                    if (sender.sendButtons) {
+                        try {
+                            const payload = buildQuickReplyPayload(msg, [
+                                { id: "admin_panel_sync", text: t("interactive.adminBtnSync", "id") }
+                            ]);
+                            await sender.sendButtons(targetJid, payload);
+                        } catch {
+                            await sender.sendMessage(targetJid, msg);
+                        }
+                    } else {
+                        await sender.sendMessage(targetJid, msg);
+                    }
                 }
             }
 
