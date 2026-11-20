@@ -300,6 +300,35 @@ describe("Interactive Admin Voucher Management", () => {
         expect(mockContext.state.getAdminVoucherStep(adminUser)).toBeUndefined();
         expect(sentButtons[sentButtons.length - 1]?.payload.text).toContain("*0%*");
     });
+
+    it("scopes global discount wizard to adminGroupJid so admin private DM does not hijack or cancel it", async () => {
+        // Ensure adminUser is recognized as an admin even in private DM
+        mockContext.adminLogger.isAdminUser = (jid: string) => jid === adminUser;
+
+        await handleIncomingMessage(adminGroupJid, false, "admin_panel_discount", mockContext, adminUser);
+        expect(mockContext.state.getAdminVoucherStep(adminUser, adminGroupJid)).toBe(
+            "ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT"
+        );
+        expect(mockContext.state.getAdminVoucherStep(adminUser, adminUser)).toBeUndefined();
+
+        // Admin texts bot privately ("hi") -> receives normal buyer greeting, NOT invalid discount warning!
+        sentButtons = [];
+        sentTexts = [];
+        await handleIncomingMessage(adminUser, false, "hi", mockContext);
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.jid).toBe(adminUser);
+        expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "btn_start_buying")).toBe(true);
+        expect(mockContext.client.setGlobalDiscount).not.toHaveBeenCalled();
+        expect(mockContext.state.getAdminVoucherStep(adminUser, adminGroupJid)).toBe(
+            "ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT"
+        );
+
+        // Admin replies with discount value back in Admin Group -> succeeds!
+        sentButtons = [];
+        await handleIncomingMessage(adminGroupJid, false, "20", mockContext, adminUser);
+        expect(mockContext.client.setGlobalDiscount).toHaveBeenCalledWith(20);
+        expect(mockContext.state.getAdminVoucherStep(adminUser, adminGroupJid)).toBeUndefined();
+    });
 });
 
 

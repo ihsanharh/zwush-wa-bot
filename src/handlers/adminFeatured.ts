@@ -58,8 +58,8 @@ async function sendStep2MessagePrompt(
     ctx: BotContext,
     mentions?: string[]
 ): Promise<void> {
-    ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_MESSAGE", draft);
-    const updatedDraft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+    ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_MESSAGE", draft, remoteJid);
+    const updatedDraft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
     const promptText = t("adminFeatured.step2MessagePrompt", userLang);
     const buttons: Array<{ id: string; text: string }> = [];
     if (updatedDraft?.isEditing && updatedDraft.existingMessage) {
@@ -78,8 +78,8 @@ async function sendStep3ItemPrompt(
     mentions?: string[],
     customPromptText?: string
 ): Promise<void> {
-    ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_ITEM", draft);
-    const updatedDraft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+    ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_ITEM", draft, remoteJid);
+    const updatedDraft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
     const promptText = customPromptText || t("adminFeatured.step3ItemPrompt", userLang);
     const buttons: Array<{ id: string; text: string }> = [];
     if (updatedDraft?.isEditing && updatedDraft.existingItemName) {
@@ -97,13 +97,18 @@ async function sendStep4PreviewAndConfirm(
     ctx: BotContext,
     mentions?: string[]
 ): Promise<void> {
-    ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_CONFIRM", {
-        itemName: selectedItem.name,
-        itemId: selectedItem.id,
-        candidateItems: undefined
-    });
+    ctx.state.setAdminFeaturedStep?.(
+        effectiveSender,
+        "ADMIN_AWAITING_FEATURED_CONFIRM",
+        {
+            itemName: selectedItem.name,
+            itemId: selectedItem.id,
+            candidateItems: undefined
+        },
+        remoteJid
+    );
 
-    const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+    const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
     const previewBuffer = draft?.imageBase64
         ? Buffer.from(draft.imageBase64, "base64")
         : draft?.existingImageBuffer;
@@ -248,14 +253,19 @@ export async function handleAdminFeaturedAction(
         }
 
         const isEditing = Boolean(current?.configured);
-        ctx.state.clearAdminFeatured?.(effectiveSender);
-        ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_IMAGE", {
-            isEditing,
-            existingImageBuffer: existingImg?.buffer,
-            existingImageMimetype: existingImg?.mimetype || current?.imageMimetype || undefined,
-            existingMessage: current?.customMessage || undefined,
-            existingItemName: current?.itemName || undefined
-        });
+        ctx.state.clearAdminFeatured?.(effectiveSender, remoteJid);
+        ctx.state.setAdminFeaturedStep?.(
+            effectiveSender,
+            "ADMIN_AWAITING_FEATURED_IMAGE",
+            {
+                isEditing,
+                existingImageBuffer: existingImg?.buffer,
+                existingImageMimetype: existingImg?.mimetype || current?.imageMimetype || undefined,
+                existingMessage: current?.customMessage || undefined,
+                existingItemName: current?.itemName || undefined
+            },
+            remoteJid
+        );
 
         const canKeepOldImage = isEditing && Boolean(current?.hasImage);
         const promptText = canKeepOldImage
@@ -273,7 +283,7 @@ export async function handleAdminFeaturedAction(
 
     // 5. Cancel Wizard
     if (actionId === "btn_admin_featured_cancel") {
-        ctx.state.clearAdminFeatured?.(effectiveSender);
+        ctx.state.clearAdminFeatured?.(effectiveSender, remoteJid);
         const cancelMsg = t("adminFeatured.cancelled", userLang);
         await sendButtonsOrFallback(
             ctx,
@@ -289,7 +299,7 @@ export async function handleAdminFeaturedAction(
 
     // 6. Keep Old Image (Edit Step 1 -> Step 2)
     if (actionId === "btn_admin_featured_keep_image") {
-        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
         if (!draft || !draft.isEditing) {
             return await handleAdminFeaturedAction(
                 remoteJid,
@@ -317,7 +327,7 @@ export async function handleAdminFeaturedAction(
 
     // 7. Keep Old Message (Edit Step 2 -> Step 3)
     if (actionId === "btn_admin_featured_keep_message") {
-        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
         if (!draft?.existingMessage) {
             return await handleAdminFeaturedAction(
                 remoteJid,
@@ -341,7 +351,7 @@ export async function handleAdminFeaturedAction(
 
     // 8. Keep Old Item (Edit Step 3 -> Step 4 Preview & Confirm)
     if (actionId === "btn_admin_featured_keep_item") {
-        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
         if (!draft?.existingItemName) {
             return await handleAdminFeaturedAction(
                 remoteJid,
@@ -380,7 +390,7 @@ export async function handleAdminFeaturedAction(
     // 9. Pick candidate item from 2-3 matches
     if (actionId.startsWith("btn_admin_featured_pick_")) {
         const idx = parseInt(actionId.replace("btn_admin_featured_pick_", ""), 10);
-        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
         const candidate = !Number.isNaN(idx) ? draft?.candidateItems?.[idx] : undefined;
         if (!candidate) {
             return true;
@@ -413,7 +423,7 @@ export async function handleAdminFeaturedAction(
     // 10. Save & Enable or Save (OFF)
     if (actionId === "btn_admin_featured_save_on" || actionId === "btn_admin_featured_save_off") {
         const enabled = actionId === "btn_admin_featured_save_on";
-        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+        const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
         if (!draft?.itemName || !draft?.customMessage || (!draft.imageBase64 && !draft.keepExistingImage)) {
             return await handleAdminFeaturedAction(
                 remoteJid,
@@ -434,7 +444,7 @@ export async function handleAdminFeaturedAction(
                     ? { imageBase64: draft.imageBase64, imageMimetype: draft.imageMimetype }
                     : {})
             });
-            ctx.state.clearAdminFeatured?.(effectiveSender);
+            ctx.state.clearAdminFeatured?.(effectiveSender, remoteJid);
 
             const priceStr = saved.item ? formatRupiah(saved.item.rupiahPrice) : "-";
             const successText = enabled
@@ -478,13 +488,13 @@ export async function handleAdminFeaturedInput(
     ctx: BotContext,
     incomingImage?: IncomingImageAttachment
 ): Promise<boolean> {
-    const step = ctx.state.getAdminFeaturedStep?.(effectiveSender);
+    const step = ctx.state.getAdminFeaturedStep?.(effectiveSender, remoteJid);
     if (!step || !step.startsWith("ADMIN_AWAITING_FEATURED_")) {
         return false;
     }
 
     const mentions = _isGroup && effectiveSender ? [effectiveSender] : undefined;
-    const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender);
+    const draft = ctx.state.getAdminFeaturedDraft?.(effectiveSender, remoteJid);
 
     // Step 1: Expect promo image (with optional caption shortcut)
     if (step === "ADMIN_AWAITING_FEATURED_IMAGE") {
@@ -562,7 +572,7 @@ export async function handleAdminFeaturedInput(
         }
 
         if (caption.length > MAX_MESSAGE_LENGTH) {
-            ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_MESSAGE", imagePatch);
+            ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_MESSAGE", imagePatch, remoteJid);
             const tooLongText = t("adminFeatured.step2MessageTooLong", userLang, { length: caption.length });
             const buttons: Array<{ id: string; text: string }> = [];
             if (draft?.isEditing && draft.existingMessage) {
@@ -653,9 +663,14 @@ export async function handleAdminFeaturedInput(
         }
 
         if (matches.length <= 3) {
-            ctx.state.setAdminFeaturedStep?.(effectiveSender, "ADMIN_AWAITING_FEATURED_ITEM", {
-                candidateItems: matches.map((m) => ({ id: m.id, name: m.name }))
-            });
+            ctx.state.setAdminFeaturedStep?.(
+                effectiveSender,
+                "ADMIN_AWAITING_FEATURED_ITEM",
+                {
+                    candidateItems: matches.map((m) => ({ id: m.id, name: m.name }))
+                },
+                remoteJid
+            );
             const buttons = matches.map((m, idx) => ({
                 id: `btn_admin_featured_pick_${idx}`,
                 text: truncateButtonLabel(m.name)

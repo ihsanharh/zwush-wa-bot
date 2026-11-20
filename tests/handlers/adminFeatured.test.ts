@@ -395,4 +395,82 @@ describe("Admin Featured Bundle Management & Setup Wizard", () => {
         expect(sentButtons.length).toBe(0);
         expect(sentTexts.length).toBe(0);
     });
+
+    it("scopes group wizard to adminGroupJid so admin private DM does not hijack or cancel it", async () => {
+        // 1. Admin starts Featured setup in Admin Group
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_featured_setup", mockContext, adminUser);
+        expect(state.getAdminFeaturedStep(adminUser, adminGroupJid)).toBe("ADMIN_AWAITING_FEATURED_IMAGE");
+        expect(state.getAdminFeaturedStep(adminUser, adminUser)).toBeUndefined();
+
+        // 2. Admin messages the bot privately ("hi") -> receives normal buyer greeting, NOT wizard error!
+        sentButtons = [];
+        sentTexts = [];
+        await handleIncomingMessage(adminUser, false, "hi", mockContext);
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]!.jid).toBe(adminUser);
+        expect(sentButtons[0]!.payload.buttons.some((b: any) => b.id === "btn_start_buying")).toBe(true);
+        expect(state.getAdminFeaturedStep(adminUser, adminGroupJid)).toBe("ADMIN_AWAITING_FEATURED_IMAGE");
+
+        // 3. Admin sends a captionless photo in private DM -> ignored (does not advance group wizard)
+        sentButtons = [];
+        sentTexts = [];
+        await handleIncomingMessage(
+            adminUser,
+            false,
+            "",
+            mockContext,
+            undefined,
+            undefined,
+            undefined,
+            [],
+            {
+                mimetype: "image/jpeg",
+                caption: "",
+                download: async () => jpegBuf
+            }
+        );
+        expect(sentButtons.length).toBe(0);
+        expect(state.getAdminFeaturedStep(adminUser, adminGroupJid)).toBe("ADMIN_AWAITING_FEATURED_IMAGE");
+
+        // 4. Admin continues setup back in Admin Group -> advances normally
+        sentButtons = [];
+        await handleIncomingMessage(
+            adminGroupJid,
+            false,
+            "Promo grup!",
+            mockContext,
+            adminUser,
+            undefined,
+            undefined,
+            [],
+            {
+                mimetype: "image/jpeg",
+                caption: "Promo grup!",
+                download: async () => jpegBuf
+            }
+        );
+        expect(state.getAdminFeaturedStep(adminUser, adminGroupJid)).toBe("ADMIN_AWAITING_FEATURED_ITEM");
+    });
+
+    it("keeps Featured wizard strictly per-user so buyers and other admins cannot see or interrupt it", async () => {
+        const otherAdmin = "628888888888@s.whatsapp.net";
+        mockContext.adminLogger!.addAdminUser(otherAdmin);
+
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_featured_setup", mockContext, adminUser);
+        expect(state.getAdminFeaturedStep(adminUser, adminGroupJid)).toBe("ADMIN_AWAITING_FEATURED_IMAGE");
+
+        // Regular buyer messaging "batal" or "Black Friday" gets normal buyer greeting and touches nothing
+        sentButtons = [];
+        await handleIncomingMessage(buyerUser, false, "batal", mockContext);
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]!.payload.buttons.some((b: any) => b.id === "btn_start_buying")).toBe(true);
+        expect(state.getAdminFeaturedStep(adminUser, adminGroupJid)).toBe("ADMIN_AWAITING_FEATURED_IMAGE");
+
+        // Second admin texting or clicking cancel in Admin Group does not disturb adminUser's wizard
+        sentButtons = [];
+        await handleIncomingMessage(adminGroupJid, false, "halo semua", mockContext, otherAdmin);
+        expect(sentButtons.length).toBe(0);
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_featured_cancel", mockContext, otherAdmin);
+        expect(state.getAdminFeaturedStep(adminUser, adminGroupJid)).toBe("ADMIN_AWAITING_FEATURED_IMAGE");
+    });
 });

@@ -806,32 +806,47 @@ export class StateManager {
         return list;
     }
 
-    private adminVoucherSessions = new Map<string, { step: StepStatus; draft: AdminVoucherDraft; lastUpdated: number }>();
+    private adminVoucherSessions = new Map<
+        string,
+        { step: StepStatus; draft: AdminVoucherDraft; chatJid?: string; lastUpdated: number }
+    >();
 
     /**
      * Updates admin interactive voucher step and persists draft properties in isolated admin storage.
      */
-    setAdminVoucherStep(jid: string, step: StepStatus, draft?: Partial<AdminVoucherDraft>): void {
+    setAdminVoucherStep(
+        jid: string,
+        step: StepStatus,
+        draft?: Partial<AdminVoucherDraft>,
+        chatJid?: string
+    ): void {
         const existing = this.adminVoucherSessions.get(jid);
+        const sameChat =
+            existing &&
+            (chatJid === undefined || existing.chatJid === undefined || existing.chatJid === chatJid);
         const nextDraft: AdminVoucherDraft = {
-            ...(existing?.draft || {}),
+            ...(sameChat ? existing.draft : {}),
             ...(draft || {})
         };
         this.adminVoucherSessions.set(jid, {
             step,
             draft: nextDraft,
+            chatJid: chatJid ?? (sameChat ? existing.chatJid : undefined),
             lastUpdated: Date.now()
         });
     }
 
     /**
-     * Gets the active admin voucher step.
+     * Gets the active admin voucher step, optionally scoped to chatJid.
      */
-    getAdminVoucherStep(jid: string): StepStatus | undefined {
+    getAdminVoucherStep(jid: string, chatJid?: string): StepStatus | undefined {
         const adminSession = this.adminVoucherSessions.get(jid);
         if (adminSession) {
             if (Date.now() - adminSession.lastUpdated > 300000) {
                 this.adminVoucherSessions.delete(jid);
+                return undefined;
+            }
+            if (chatJid !== undefined && adminSession.chatJid !== undefined && adminSession.chatJid !== chatJid) {
                 return undefined;
             }
             return adminSession.step;
@@ -840,16 +855,29 @@ export class StateManager {
     }
 
     /**
-     * Gets the active admin voucher draft if any.
+     * Gets the active admin voucher draft if any, optionally scoped to chatJid.
      */
-    getAdminVoucherDraft(jid: string): AdminVoucherDraft | undefined {
-        return this.adminVoucherSessions.get(jid)?.draft;
+    getAdminVoucherDraft(jid: string, chatJid?: string): AdminVoucherDraft | undefined {
+        const adminSession = this.adminVoucherSessions.get(jid);
+        if (!adminSession) return undefined;
+        if (Date.now() - adminSession.lastUpdated > 300000) {
+            this.adminVoucherSessions.delete(jid);
+            return undefined;
+        }
+        if (chatJid !== undefined && adminSession.chatJid !== undefined && adminSession.chatJid !== chatJid) {
+            return undefined;
+        }
+        return adminSession.draft;
     }
 
     /**
      * Clears admin interactive voucher step and resets wizard state.
      */
-    clearAdminVoucher(jid: string): void {
+    clearAdminVoucher(jid: string, chatJid?: string): void {
+        const existing = this.adminVoucherSessions.get(jid);
+        if (chatJid !== undefined && existing?.chatJid !== undefined && existing.chatJid !== chatJid) {
+            return;
+        }
         this.adminVoucherSessions.delete(jid);
         const current = this.sessions.get(jid);
         if (current && current.step.startsWith("ADMIN_AWAITING_VOUCHER_")) {
@@ -859,32 +887,47 @@ export class StateManager {
         }
     }
 
-    private adminFeaturedSessions = new Map<string, { step: StepStatus; draft: AdminFeaturedDraft; lastUpdated: number }>();
+    private adminFeaturedSessions = new Map<
+        string,
+        { step: StepStatus; draft: AdminFeaturedDraft; chatJid?: string; lastUpdated: number }
+    >();
 
     /**
      * Updates admin featured bundle wizard step and merges draft properties in isolated admin storage.
      */
-    setAdminFeaturedStep(jid: string, step: StepStatus, draft?: Partial<AdminFeaturedDraft>): void {
+    setAdminFeaturedStep(
+        jid: string,
+        step: StepStatus,
+        draft?: Partial<AdminFeaturedDraft>,
+        chatJid?: string
+    ): void {
         const existing = this.adminFeaturedSessions.get(jid);
+        const sameChat =
+            existing &&
+            (chatJid === undefined || existing.chatJid === undefined || existing.chatJid === chatJid);
         const nextDraft: AdminFeaturedDraft = {
-            ...(existing?.draft || {}),
+            ...(sameChat ? existing.draft : {}),
             ...(draft || {})
         };
         this.adminFeaturedSessions.set(jid, {
             step,
             draft: nextDraft,
+            chatJid: chatJid ?? (sameChat ? existing.chatJid : undefined),
             lastUpdated: Date.now()
         });
     }
 
     /**
-     * Gets the active admin featured wizard step (5-minute TTL).
+     * Gets the active admin featured wizard step (5-minute TTL), optionally scoped to chatJid.
      */
-    getAdminFeaturedStep(jid: string): StepStatus | undefined {
+    getAdminFeaturedStep(jid: string, chatJid?: string): StepStatus | undefined {
         const adminSession = this.adminFeaturedSessions.get(jid);
         if (adminSession) {
             if (Date.now() - adminSession.lastUpdated > 300000) {
                 this.adminFeaturedSessions.delete(jid);
+                return undefined;
+            }
+            if (chatJid !== undefined && adminSession.chatJid !== undefined && adminSession.chatJid !== chatJid) {
                 return undefined;
             }
             return adminSession.step;
@@ -893,21 +936,29 @@ export class StateManager {
     }
 
     /**
-     * Gets the active admin featured bundle draft if any.
+     * Gets the active admin featured bundle draft if any, optionally scoped to chatJid.
      */
-    getAdminFeaturedDraft(jid: string): AdminFeaturedDraft | undefined {
+    getAdminFeaturedDraft(jid: string, chatJid?: string): AdminFeaturedDraft | undefined {
         const adminSession = this.adminFeaturedSessions.get(jid);
-        if (adminSession && Date.now() - adminSession.lastUpdated > 300000) {
+        if (!adminSession) return undefined;
+        if (Date.now() - adminSession.lastUpdated > 300000) {
             this.adminFeaturedSessions.delete(jid);
             return undefined;
         }
-        return adminSession?.draft;
+        if (chatJid !== undefined && adminSession.chatJid !== undefined && adminSession.chatJid !== chatJid) {
+            return undefined;
+        }
+        return adminSession.draft;
     }
 
     /**
      * Clears admin featured bundle wizard step and resets draft state.
      */
-    clearAdminFeatured(jid: string): void {
+    clearAdminFeatured(jid: string, chatJid?: string): void {
+        const existing = this.adminFeaturedSessions.get(jid);
+        if (chatJid !== undefined && existing?.chatJid !== undefined && existing.chatJid !== chatJid) {
+            return;
+        }
         this.adminFeaturedSessions.delete(jid);
     }
 }

@@ -205,9 +205,9 @@ async function handleIncomingMessageInternal(
         ctx.adminLogger.addAdminUser(participant);
     }
 
-    // Drop captionless images unless sender is an admin actively uploading a featured bundle image
+    // Drop captionless images unless sender is an admin actively uploading a featured bundle image in this chat
     if (!trimmed && incomingImage) {
-        const featStep = isAdmin ? ctx.state.getAdminFeaturedStep?.(effectiveSender) : undefined;
+        const featStep = isAdmin ? ctx.state.getAdminFeaturedStep?.(effectiveSender, remoteJid) : undefined;
         if (featStep !== "ADMIN_AWAITING_FEATURED_IMAGE") {
             return;
         }
@@ -267,7 +267,7 @@ async function handleIncomingMessageInternal(
         // Admin interactive voucher wizard text input
         if (isAdmin) {
             const adminStep = ctx.state.getAdminVoucherStep
-                ? ctx.state.getAdminVoucherStep(effectiveSender)
+                ? ctx.state.getAdminVoucherStep(effectiveSender, remoteJid)
                 : ctx.state.getSession(effectiveSender).step;
             if (adminStep && adminStep.startsWith("ADMIN_AWAITING_VOUCHER_")) {
                 const handledVoucherInput = await handleAdminVoucherTextInput(
@@ -281,7 +281,7 @@ async function handleIncomingMessageInternal(
                 if (handledVoucherInput) return;
             }
 
-            const featuredStep = ctx.state.getAdminFeaturedStep?.(effectiveSender);
+            const featuredStep = ctx.state.getAdminFeaturedStep?.(effectiveSender, remoteJid);
             if (featuredStep && featuredStep.startsWith("ADMIN_AWAITING_FEATURED_")) {
                 const handledFeaturedInput = await handleAdminFeaturedInput(
                     remoteJid,
@@ -381,13 +381,13 @@ async function handleIncomingMessageInternal(
             if (handledAdmin) return;
         }
         const adminStep = ctx.state.getAdminVoucherStep
-            ? ctx.state.getAdminVoucherStep(remoteJid)
+            ? ctx.state.getAdminVoucherStep(remoteJid, remoteJid)
             : session.step;
         if (adminStep && adminStep.startsWith("ADMIN_AWAITING_VOUCHER_")) {
             const handledVoucher = await handleAdminVoucherTextInput(remoteJid, trimmed, remoteJid, false, userLang, ctx);
             if (handledVoucher) return;
         }
-        const featuredStep = ctx.state.getAdminFeaturedStep?.(effectiveSender);
+        const featuredStep = ctx.state.getAdminFeaturedStep?.(effectiveSender, remoteJid);
         if (featuredStep && featuredStep.startsWith("ADMIN_AWAITING_FEATURED_")) {
             const handledFeatured = await handleAdminFeaturedInput(
                 remoteJid,
@@ -510,7 +510,10 @@ async function handleIncomingMessageInternal(
     if ((session.step === "IDLE" || !buyingActive) && !activeOrderId) {
         if (trimmed === "btn_start_buying" || trimmed.startsWith("btn_buy_again")) {
             if (ctx.state.clearAdminVoucher) {
-                ctx.state.clearAdminVoucher(remoteJid);
+                ctx.state.clearAdminVoucher(remoteJid, remoteJid);
+            }
+            if (ctx.state.clearAdminFeatured) {
+                ctx.state.clearAdminFeatured(remoteJid, remoteJid);
             }
             if (trimmed.startsWith("btn_buy_again_")) {
                 const encodedGt = trimmed.replace("btn_buy_again_", "");
@@ -670,8 +673,8 @@ async function handleIncomingMessageInternal(
 
         // Route direct featured-bundle Buy clicks into buying flow; drop other stale IDLE buttons
         if (trimmed.startsWith("btn_featured_buy_")) {
-            ctx.state.clearAdminVoucher?.(remoteJid);
-            ctx.state.clearAdminFeatured?.(remoteJid);
+            ctx.state.clearAdminVoucher?.(remoteJid, remoteJid);
+            ctx.state.clearAdminFeatured?.(remoteJid, remoteJid);
             if (session.step !== "IDLE") {
                 session.step = "IDLE";
             }

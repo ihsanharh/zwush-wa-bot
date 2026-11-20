@@ -22,7 +22,7 @@ async function applyGlobalDiscount(
     try {
         const updatedPercent = await ctx.client.setGlobalDiscount(percent);
         clearPosterCache();
-        ctx.state.clearAdminVoucher(effectiveSender);
+        ctx.state.clearAdminVoucher(effectiveSender, remoteJid);
 
         const successText = t("adminVoucher.globalDiscountSuccess", userLang, { percent: updatedPercent });
         const buttons = buildQuickReplyPayload(successText, [
@@ -83,7 +83,7 @@ export async function handleAdminVoucherAction(
     if (actionId === "btn_admin_voucher_list") {
         try {
             const vouchers = await ctx.client.listVouchers();
-            ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_ACTION_CODE");
+            ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_ACTION_CODE", undefined, remoteJid);
             const listMsg = buildAdminVoucherListMessage(vouchers, userLang);
             if (ctx.sendButtons) {
                 await ctx.sendButtons(remoteJid, listMsg);
@@ -99,7 +99,7 @@ export async function handleAdminVoucherAction(
 
     // 3. Start Create Voucher (Step 1)
     if (actionId === "btn_admin_voucher_create") {
-        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_CODE", {});
+        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_CODE", {}, remoteJid);
         const promptText = t("adminVoucher.createStep1Prompt", userLang);
         const buttons = buildQuickReplyPayload(promptText, [
             { id: "btn_admin_voucher_cancel", text: t("adminVoucher.btnCancel", userLang) }
@@ -114,7 +114,7 @@ export async function handleAdminVoucherAction(
 
     // 4. Cancel active voucher flow
     if (actionId === "btn_admin_voucher_cancel") {
-        ctx.state.clearAdminVoucher(effectiveSender);
+        ctx.state.clearAdminVoucher(effectiveSender, remoteJid);
         const cancelText = t("adminVoucher.cancelled", userLang);
         const menuPayload = buildQuickReplyPayload(cancelText, [
             { id: "admin_panel_vouchers", text: t("adminVoucher.btnMenu", userLang) },
@@ -131,9 +131,9 @@ export async function handleAdminVoucherAction(
     // 5. Select discount type (Step 2)
     if (actionId === "btn_admin_voucher_type_percent" || actionId === "btn_admin_voucher_type_flat") {
         const type = actionId === "btn_admin_voucher_type_percent" ? "PERCENT" : "FLAT";
-        const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
+        const draft = ctx.state.getAdminVoucherDraft(effectiveSender, remoteJid);
         const code = draft?.code || "VOUCHER";
-        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_VALUE", { discountType: type });
+        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_VALUE", { discountType: type }, remoteJid);
 
         const promptText = type === "PERCENT"
             ? t("adminVoucher.createStep3PercentPrompt", userLang, { code })
@@ -196,7 +196,12 @@ export async function handleAdminVoucherAction(
     // 8. Edit Discount Value Prompt
     if (actionId.startsWith("btn_admin_voucher_edit_val_")) {
         const code = actionId.replace("btn_admin_voucher_edit_val_", "").trim().toUpperCase();
-        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_EDIT_DISCOUNT", { targetCode: code });
+        ctx.state.setAdminVoucherStep(
+            effectiveSender,
+            "ADMIN_AWAITING_VOUCHER_EDIT_DISCOUNT",
+            { targetCode: code },
+            remoteJid
+        );
         const text = t("adminVoucher.editDiscountPrompt", userLang, { code });
         const buttons = buildQuickReplyPayload(text, [
             { id: "btn_admin_voucher_cancel", text: t("adminVoucher.btnCancel", userLang) }
@@ -212,7 +217,12 @@ export async function handleAdminVoucherAction(
     // 9. Edit Quota Prompt
     if (actionId.startsWith("btn_admin_voucher_edit_max_")) {
         const code = actionId.replace("btn_admin_voucher_edit_max_", "").trim().toUpperCase();
-        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES", { targetCode: code });
+        ctx.state.setAdminVoucherStep(
+            effectiveSender,
+            "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES",
+            { targetCode: code },
+            remoteJid
+        );
         const text = t("adminVoucher.editQuotaPrompt", userLang, { code });
         const buttons = buildQuickReplyPayload(text, [
             { id: "btn_admin_voucher_cancel", text: t("adminVoucher.btnCancel", userLang) }
@@ -270,7 +280,7 @@ export async function handleAdminVoucherAction(
         } catch {
             // fallback to 0 when balance summary is unavailable
         }
-        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT", {});
+        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT", {}, remoteJid);
         const promptText = t("adminVoucher.globalDiscountPrompt", userLang, { currentPercent });
         const buttons = buildQuickReplyPayload(promptText, [
             { id: "btn_admin_voucher_global_discount_0", text: t("adminVoucher.btnGlobalDiscountOff", userLang) },
@@ -306,13 +316,13 @@ export async function handleAdminVoucherTextInput(
 ): Promise<boolean> {
     const text = rawText.trim();
     const adminStep = ctx.state.getAdminVoucherStep
-        ? ctx.state.getAdminVoucherStep(effectiveSender)
+        ? ctx.state.getAdminVoucherStep(effectiveSender, remoteJid)
         : ctx.state.getSession(effectiveSender).step;
     const mentions = isGroup && effectiveSender ? [effectiveSender] : undefined;
 
     // Check cancellation keyword
     if (text.toLowerCase() === "batal" || text.toLowerCase() === "cancel") {
-        ctx.state.clearAdminVoucher(effectiveSender);
+        ctx.state.clearAdminVoucher(effectiveSender, remoteJid);
         const cancelText = t("adminVoucher.cancelled", userLang);
         const buttons = buildQuickReplyPayload(cancelText, [
             { id: "admin_panel_vouchers", text: t("adminVoucher.btnMenu", userLang) },
@@ -342,7 +352,7 @@ export async function handleAdminVoucherTextInput(
             return true;
         }
 
-        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_TYPE", { code });
+        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_TYPE", { code }, remoteJid);
         const promptText = t("adminVoucher.createStep2Prompt", userLang, { code });
         const buttons = buildQuickReplyPayload(promptText, [
             { id: "btn_admin_voucher_type_percent", text: t("adminVoucher.btnTypePercent", userLang) },
@@ -382,9 +392,14 @@ export async function handleAdminVoucherTextInput(
             return true;
         }
 
-        const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
+        const draft = ctx.state.getAdminVoucherDraft(effectiveSender, remoteJid);
         const code = draft?.code || "VOUCHER";
-        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_VALUE", { discountType: chosenType });
+        ctx.state.setAdminVoucherStep(
+            effectiveSender,
+            "ADMIN_AWAITING_VOUCHER_VALUE",
+            { discountType: chosenType },
+            remoteJid
+        );
 
         const promptText = chosenType === "PERCENT"
             ? t("adminVoucher.createStep3PercentPrompt", userLang, { code })
@@ -404,7 +419,7 @@ export async function handleAdminVoucherTextInput(
     // Step 3: Input Discount Value
     if (adminStep === "ADMIN_AWAITING_VOUCHER_VALUE") {
         const num = parseInt(text.replace(/[^0-9]/g, ""), 10);
-        const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
+        const draft = ctx.state.getAdminVoucherDraft(effectiveSender, remoteJid);
         const isPercent = draft?.discountType === "PERCENT";
 
         if (isNaN(num) || (isPercent && (num < 1 || num > 90)) || (!isPercent && num < 1000)) {
@@ -422,7 +437,7 @@ export async function handleAdminVoucherTextInput(
             return true;
         }
 
-        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_MAX_USES", { discountValue: num });
+        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_MAX_USES", { discountValue: num }, remoteJid);
         const promptText = t("adminVoucher.createStep4Prompt", userLang, { code: draft?.code || "VOUCHER" });
         const buttons = buildQuickReplyPayload(promptText, [
             { id: "btn_admin_voucher_cancel", text: t("adminVoucher.btnCancel", userLang) }
@@ -451,7 +466,7 @@ export async function handleAdminVoucherTextInput(
             return true;
         }
 
-        const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
+        const draft = ctx.state.getAdminVoucherDraft(effectiveSender, remoteJid);
         const maxUses = quota === 0 ? null : quota;
 
         try {
@@ -462,7 +477,7 @@ export async function handleAdminVoucherTextInput(
                 maxUses
             });
 
-            ctx.state.clearAdminVoucher(effectiveSender);
+            ctx.state.clearAdminVoucher(effectiveSender, remoteJid);
 
             const discountStr = created.discountType === "PERCENT"
                 ? `${created.discountValue}%`
@@ -501,7 +516,7 @@ export async function handleAdminVoucherTextInput(
     // Edit Discount Value execution
     if (adminStep === "ADMIN_AWAITING_VOUCHER_EDIT_DISCOUNT") {
         const num = parseInt(text.replace(/[^0-9]/g, ""), 10);
-        const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
+        const draft = ctx.state.getAdminVoucherDraft(effectiveSender, remoteJid);
         const code = draft?.targetCode || "";
 
         if (isNaN(num) || num <= 0) {
@@ -511,7 +526,7 @@ export async function handleAdminVoucherTextInput(
 
         try {
             const updated = await ctx.client.updateVoucher(code, { discountValue: num });
-            ctx.state.clearAdminVoucher(effectiveSender);
+            ctx.state.clearAdminVoucher(effectiveSender, remoteJid);
 
             const discountStr = updated.discountType === "PERCENT"
                 ? `${updated.discountValue}%`
@@ -541,7 +556,7 @@ export async function handleAdminVoucherTextInput(
     // Edit Quota execution
     if (adminStep === "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES") {
         const quota = parseInt(text.replace(/[^0-9]/g, ""), 10);
-        const draft = ctx.state.getAdminVoucherDraft(effectiveSender);
+        const draft = ctx.state.getAdminVoucherDraft(effectiveSender, remoteJid);
         const code = draft?.targetCode || "";
 
         if (isNaN(quota) || quota < 0) {
@@ -552,7 +567,7 @@ export async function handleAdminVoucherTextInput(
         try {
             const maxUses = quota === 0 ? null : quota;
             const updated = await ctx.client.updateVoucher(code, { maxUses });
-            ctx.state.clearAdminVoucher(effectiveSender);
+            ctx.state.clearAdminVoucher(effectiveSender, remoteJid);
 
             const maxUsesStr = updated.maxUses !== null
                 ? t("adminVoucher.usesSuffix", userLang, { count: updated.maxUses })
@@ -629,7 +644,7 @@ export async function showAdminVoucherDetail(
             return true;
         }
 
-        ctx.state.clearAdminVoucher(effectiveSender);
+        ctx.state.clearAdminVoucher(effectiveSender, remoteJid);
         const detail = buildAdminVoucherDetailCard(target, userLang);
         if (ctx.sendButtons) {
             await ctx.sendButtons(remoteJid, detail);
