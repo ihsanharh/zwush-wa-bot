@@ -6,6 +6,7 @@ import qrcodeTerminal from "qrcode-terminal";
 import { config } from "./config";
 import { CoreClient } from "./coreClient";
 import { StateManager } from "./state";
+import type { Language } from "./i18n";
 import { createWebhookApp, type BotMessageSender } from "./handlers/webhook";
 import { handleIncomingMessage, type BotContext } from "./handlers/message";
 import {
@@ -17,6 +18,7 @@ import {
     isPrivateChat
 } from "./utils/messageUtils";
 import { buildAdminPanelQuickReply } from "./utils/interactiveBuilders";
+import { computeReconnectDelayMs, MAX_RECONNECT_ATTEMPTS, shouldScheduleReconnect } from "./utils/connectionPolicy";
 import { AdminGroupLogger } from "./handlers/adminLogger";
 
 console.log(`⚡ Starting ${config.STORE_NAME} WhatsApp Bot...`);
@@ -47,7 +49,14 @@ const store = createStore({
     }
 });
 
-const client = new WaClient({ store, sessionId: "default" }, new ConsoleLogger("info"));
+const client = new WaClient(
+    {
+        store,
+        sessionId: "default",
+        recoverFromClientTooOld: true
+    },
+    new ConsoleLogger("info")
+);
 const coreClient = new CoreClient(config.CORE_API_URL);
 const stateManager = new StateManager();
 
@@ -270,8 +279,49 @@ async function discoverGroups() {
 }
 
 // 4. Paired Authentication & Connection Events
+let isShuttingDown = false;
+let reconnectAttempt = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleReconnect() {
+    if (isShuttingDown || reconnectTimer) {
+        return;
+    }
+    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+        console.error(`❌ Giving up WhatsApp reconnect after ${reconnectAttempt} attempts.`);
+        return;
+    }
+    const delayMs = computeReconnectDelayMs(reconnectAttempt);
+    reconnectAttempt += 1;
+    console.log(`🔄 Scheduling WhatsApp reconnect attempt ${reconnectAttempt}/${MAX_RECONNECT_ATTEMPTS} in ${delayMs}ms...`);
+    reconnectTimer = setTimeout(async () => {
+        reconnectTimer = null;
+        if (isShuttingDown) {
+            return;
+        }
+        try {
+            await client.connect();
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error("[Reconnect Error] Failed to reconnect to WhatsApp:", msg);
+            scheduleReconnect();
+        }
+    }, delayMs);
+}
+
+client.on("stream_failure", (event) => {
+    console.error(
+        `❌ WhatsApp stream failure: reason=${event.failureReason ?? "none"}, code=${event.failureCode ?? "none"}, message=${event.failureMessage ?? "none"}, url=${event.failureUrl ?? "none"}`
+    );
+});
+
 client.on("connection", async (event) => {
     if (event.status === "open") {
+        reconnectAttempt = 0;
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
         console.log(`✅ Connection open: ${event.reason}`);
         const creds = client.getCredentials();
         if (creds?.meJid) {
@@ -282,6 +332,22 @@ client.on("connection", async (event) => {
         }
         console.log(`[Bot Identity] botJid: ${botContext.botJid || "(none)"}, botLid: ${botContext.botLid || "(none)"}`);
         await discoverGroups();
+        return;
+    }
+
+    if (event.status === "close") {
+        console.warn(`⚠️ Connection closed: reason=${event.reason}, code=${event.code ?? "none"}, isLogout=${event.isLogout}`);
+        const decision = shouldScheduleReconnect(event, isShuttingDown);
+        if (decision.reason === "logout") {
+            console.error("❌ WhatsApp session logged out — re-pairing via QR required.");
+        } else if (decision.reason === "handled_by_client_too_old_recovery") {
+            console.warn("🔄 WA Web version rejected (405); relying on zapo-js recoverFromClientTooOld auto-recovery...");
+        } else if (decision.reason === "session_replaced") {
+            console.warn("⚠️ WhatsApp session was replaced by another connection; not auto-reconnecting.");
+        }
+        if (decision.reconnect) {
+            scheduleReconnect();
+        }
     }
 });
 
@@ -404,6 +470,24 @@ Bun.serve({
 });
 console.log(`🚀 Webhook server listening on http://0.0.0.0:${config.PORT}/webhook/order-update`);
 
+async function shutdown(signal: string) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log(`🛑 Received ${signal}, disconnecting WhatsApp client...`);
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+    await client.disconnect().catch(() => {});
+    process.exit(0);
+}
+
+process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+});
+process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+});
+
 // 8. Connect to WhatsApp
 await client.connect();
-await discoverGroups();
