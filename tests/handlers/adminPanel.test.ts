@@ -414,8 +414,34 @@ describe("Interactive Admin Panel System", () => {
 
             expect(sentButtons.length).toBe(1);
             expect(sentButtons[0]?.payload.text).toContain("MENU KONTROL TAMBAHAN ADMIN");
+            expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_sync")).toBe(true);
             expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_orders")).toBe(true);
             expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_maintenance")).toBe(true);
+        });
+
+        it("should trigger catalog synchronization when admin types 'sync' or '@bot sync' in admin group", async () => {
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "sync",
+                mockContext,
+                adminUser
+            );
+
+            expect(mockContext.client.syncCatalog).toHaveBeenCalledWith(adminGroupJid);
+            expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI KATALOG");
+
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "@628222222222 sync",
+                mockContext,
+                adminUser
+            );
+
+            expect(mockContext.client.syncCatalog).toHaveBeenCalledTimes(2);
+            expect(sentButtons.length).toBe(2);
         });
 
         it("should return to main menu when clicking 'btn_admin_panel'", async () => {

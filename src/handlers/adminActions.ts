@@ -103,14 +103,14 @@ export async function handleAdminAction(
         return true;
     }
 
-    // 0.05 Admin Panel: More Controls (Orders & Maintenance)
+    // 0.05 Admin Panel: More Controls (Sync, Orders & Maintenance)
     if (actionId === "admin_panel_more") {
         const store = config.STORE_NAME;
         const text = `⚙️ *MENU KONTROL TAMBAHAN ADMIN — ${store.toUpperCase()}*\n\nSilakan pilih menu:`;
         const buttons = [
+            { id: "admin_panel_sync", text: t("interactive.adminBtnSync", _userLang) },
             { id: "admin_panel_orders", text: t("interactive.adminBtnOrders", _userLang) },
-            { id: "admin_panel_maintenance", text: t("interactive.adminBtnMaintenance", _userLang) },
-            { id: "btn_admin_panel", text: "🔙 Panel Utama" }
+            { id: "admin_panel_maintenance", text: t("interactive.adminBtnMaintenance", _userLang) }
         ];
         const payload = buildQuickReplyPayload(text, buttons);
         if (ctx.sendButtons) {
@@ -199,7 +199,7 @@ export async function handleAdminAction(
     // 0.3 Admin Panel: Catalog Sync
     if (actionId === "admin_panel_sync") {
         try {
-            await ctx.client.syncCatalog();
+            await ctx.client.syncCatalog(remoteJid);
             clearPosterCache();
             const successMsg = t("admin.syncSuccess", _userLang);
             const payload = buildQuickReplyPayload(successMsg, [

@@ -486,7 +486,7 @@ export function buildAdminPanelQuickReply(
     const text = `⚙️ *PANEL KONTROL ADMIN — ${store.toUpperCase()}*\n\n` +
         `• Status Maintenance: *${maintStatus}*\n\n` +
         `Silakan pilih menu kontrol admin di bawah:\n` +
-        `_(💡 Ketik *voucher* atau *saldo* untuk akses cepat)_`;
+        `_(💡 Ketik *voucher*, *saldo*, atau *sync* untuk akses cepat)_`;
     const buttons = [
         { id: "admin_panel_balance", text: t("interactive.adminBtnBalance", lang) },
         { id: "admin_panel_vouchers", text: "🎟️ Kelola Voucher" },

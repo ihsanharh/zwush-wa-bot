@@ -364,8 +364,9 @@ export class CoreClient {
     /**
      * Triggers catalog synchronization from The Hive via gibot in core service.
      */
-    async syncCatalog(): Promise<{ success: boolean; message: string; inProgress?: boolean }> {
-        const res = await fetch(`${this.baseUrl}/api/catalog/sync`, {
+    async syncCatalog(notifyJid?: string): Promise<{ success: boolean; message: string; inProgress?: boolean }> {
+        const query = notifyJid ? `?notifyJid=${encodeURIComponent(notifyJid)}` : "";
+        const res = await fetch(`${this.baseUrl}/api/catalog/sync${query}`, {
             method: "GET",
             signal: AbortSignal.timeout(10000)
         });

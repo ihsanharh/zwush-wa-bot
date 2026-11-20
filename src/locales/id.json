@@ -89,7 +89,7 @@
         "balanceOffline": "OFFLINE / TERPUTUS",
         "balanceFetching": "🔄 Menyinkronkan saldo token langsung dari The Hive...",
         "balanceFailed": "❌ Gagal mengambil status saldo: {{error}}",
-        "syncSuccess": "🔄 *SINKRONISASI KATALOG DIMULAI!*\n\nProses sinkronisasi telah berjalan di latar belakang server via gibot. Item dan harga katalog akan otomatis terupdate setelah proses selesai.",
+        "syncSuccess": "🔄 *SINKRONISASI KATALOG DIMULAI!*\n\nProses sinkronisasi telah berjalan di latar belakang server via gibot. Notifikasi akan dikirim ke sini begitu sinkronisasi selesai dan poster katalog otomatis diperbarui.",
         "syncFailed": "❌ Gagal memulai sinkronisasi katalog: {{message}}",
         "maintenanceStatus": "🔧 *STATUS MAINTENANCE MODE — {{storeUpper}}*\n\nStatus saat ini: *{{status}}*\n\n💡 _Gunakan tombol di bawah untuk mengubah status maintenance bot._",
         "maintenanceEnabled": "✅ Mode Maintenance berhasil *DIAKTIFKAN* (ON) 🔴\n\nBot sekarang hanya akan merespon Admin & Owner. Pengguna umum akan menerima pesan pemeliharaan sistem.",

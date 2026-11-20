@@ -52,6 +52,38 @@ describe("Category Poster Generator", () => {
         expect(Buffer.isBuffer(cached)).toBe(true);
     });
 
+    it("should automatically invalidate cached poster when items or prices change", async () => {
+        const cat = CATEGORIES[2]!; // Mounts
+        const initialItems = makeItems(3, cat.dbCategory);
+        const buf1 = await generateCategoryPoster(cat, initialItems, "id", "IDR");
+        const buf2 = await generateCategoryPoster(cat, initialItems, "id", "IDR");
+        expect(buf2).toBe(buf1);
+
+        const withNewItem = [
+            ...initialItems,
+            {
+                id: "99",
+                name: "New Hover Mount",
+                category: cat.dbCategory,
+                tokenCost: 8,
+                minecoins: 500,
+                originalPrice: 40000,
+                rupiahPrice: 20000,
+                discountPercent: 50,
+                imageUrl: null,
+                active: true
+            }
+        ];
+        const buf3 = await generateCategoryPoster(cat, withNewItem, "id", "IDR");
+        expect(buf3).not.toBe(buf1);
+
+        const withUpdatedPrice = withNewItem.map((item, idx) =>
+            idx === 0 ? { ...item, rupiahPrice: item.rupiahPrice + 5000 } : item
+        );
+        const buf4 = await generateCategoryPoster(cat, withUpdatedPrice, "id", "IDR");
+        expect(buf4).not.toBe(buf3);
+    });
+
     it("should generate category poster in single selected currency (USD) without forced Rp", async () => {
         const cat = CATEGORIES[1]!;
         const items: CatalogItem[] = [

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { OrderNotificationPayload } from "../types";
 import type { AdminGroupLogger } from "./adminLogger";
 import type { StateManager } from "../state";
+import { clearPosterCache } from "../poster";
 import {
     formatStatusNotification,
     formatPlayerNotFoundRetry,
@@ -13,7 +14,8 @@ import {
     buildUserOrderFailureButtons,
     buildOrderSuccessButtons,
     buildOrderExpiredButtons,
-    buildOrderCancelledButtons
+    buildOrderCancelledButtons,
+    buildQuickReplyPayload
 } from "../utils/interactiveBuilders";
 
 export { formatStatusNotification, formatPlayerNotFoundRetry, formatPlayerNotFoundMaxExceeded };
@@ -45,6 +47,7 @@ export interface WebhookAppOptions {
     qrDeleter?: (jid: string, key?: any) => Promise<void>;
     getBuyerLanguage?: (jid: string) => Language;
     stateManager?: StateManager;
+    onCatalogSynced?: () => void;
 }
 
 export function createWebhookApp(
@@ -58,6 +61,7 @@ export function createWebhookApp(
     let qrDeleter: ((jid: string, key?: any) => Promise<void>) | undefined;
     let getBuyerLanguage: ((jid: string) => Language) | undefined;
     let stateManager: StateManager | undefined;
+    let onCatalogSynced: () => void = clearPosterCache;
 
     if ("sender" in senderOrOptions) {
         sender = senderOrOptions.sender;
@@ -65,6 +69,9 @@ export function createWebhookApp(
         qrDeleter = senderOrOptions.qrDeleter;
         getBuyerLanguage = senderOrOptions.getBuyerLanguage;
         stateManager = senderOrOptions.stateManager;
+        if (senderOrOptions.onCatalogSynced) {
+            onCatalogSynced = senderOrOptions.onCatalogSynced;
+        }
     } else {
         sender = senderOrOptions;
     }
@@ -262,6 +269,88 @@ export function createWebhookApp(
         } catch (err: unknown) {
             const errorMsg = err instanceof Error ? err.message : String(err);
             console.error("[Webhook Error]:", errorMsg);
+            return c.json({ success: false, error: errorMsg }, 500);
+        }
+    });
+
+    app.post("/webhook/catalog-sync", async (c) => {
+        try {
+            const body = (await c.req.json()) as {
+                success: boolean;
+                updated?: number;
+                added?: string[];
+                tokens?: number;
+                costumeTokens?: number;
+                error?: string;
+                notifyJid?: string;
+                source?: string;
+                timestamp?: number;
+            };
+
+            if (typeof body.success !== "boolean") {
+                return c.json({ success: false, message: "Missing required field: success" }, 400);
+            }
+
+            if (body.timestamp && (Date.now() - body.timestamp > 300000)) {
+                console.log(`[Webhook Ignored] Stale catalog sync notification (${Math.round((Date.now() - body.timestamp) / 1000)}s old > 300s limit)`);
+                return c.json({ success: true, ignored: true, reason: "Stale notification" });
+            }
+
+            const targetJid = body.notifyJid || adminLogger?.getAdminGroupJid() || adminLogger?.getLogGroupJid();
+
+            if (body.success) {
+                onCatalogSynced();
+
+                const addedItems = Array.isArray(body.added) ? body.added : [];
+                let msg = `✅ *SINKRONISASI KATALOG SELESAI!* 🎉\n\n`;
+                msg += `• Total Item Katalog: *${body.updated ?? 0} item*\n`;
+                if (typeof body.tokens === "number") {
+                    msg += `• Sisa Token Gift: *${body.tokens} Token*`;
+                    if (typeof body.costumeTokens === "number") {
+                        msg += ` • Costume: *${body.costumeTokens} Token*`;
+                    }
+                    msg += `\n`;
+                }
+                if (addedItems.length > 0) {
+                    msg += `\n🆕 *Item Baru Ditemukan (${addedItems.length}):*\n`;
+                    const shown = addedItems.slice(0, 15);
+                    for (const name of shown) {
+                        msg += `• ${name}\n`;
+                    }
+                    if (addedItems.length > 15) {
+                        msg += `• ...dan ${addedItems.length - 15} lainnya\n`;
+                    }
+                } else {
+                    msg += `\nℹ️ _Tidak ada item baru; daftar item & harga yang ada telah diperbarui._\n`;
+                }
+                msg += `\n🖼️ Cache poster katalog otomatis di-refresh.`;
+
+                if (targetJid) {
+                    if (sender.sendButtons) {
+                        try {
+                            const payload = buildQuickReplyPayload(msg, [
+                                { id: "btn_admin_panel", text: t("buttons.adminPanel", "id") }
+                            ]);
+                            await sender.sendButtons(targetJid, payload);
+                        } catch (btnErr) {
+                            console.warn("[Webhook] Failed to send catalog sync buttons, falling back to text:", btnErr);
+                            await sender.sendMessage(targetJid, msg);
+                        }
+                    } else {
+                        await sender.sendMessage(targetJid, msg);
+                    }
+                }
+            } else {
+                const msg = `❌ *SINKRONISASI KATALOG GAGAL*\n\nKendala: *${body.error || "Unknown error"}*`;
+                if (targetJid) {
+                    await sender.sendMessage(targetJid, msg);
+                }
+            }
+
+            return c.json({ success: true, notified: Boolean(targetJid) });
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error("[Catalog Sync Webhook Error]:", errorMsg);
             return c.json({ success: false, error: errorMsg }, 500);
         }
     });

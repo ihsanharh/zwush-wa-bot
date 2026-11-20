@@ -142,7 +142,11 @@ export async function generateCategoryPoster(
 
     const cur = (currency || "IDR").toUpperCase();
     const discountPercent = activeItems[0]?.discountPercent ?? 0;
-    const cacheKey = `${category.dbCategory}_d${discountPercent}_${lang}_${cur}`;
+    const itemsSignature = activeItems
+        .map((i) => `${i.id}:${i.name}:${i.originalPrice}:${i.displayPrice ?? i.rupiahPrice}:${i.discountPercent}:${i.imageUrl ?? ""}`)
+        .join("|");
+    const itemsHash = Bun.hash(itemsSignature).toString(36);
+    const cacheKey = `${category.dbCategory}_d${discountPercent}_${lang}_${cur}_${itemsHash}`;
     const cached = posterCache.get(cacheKey);
     if (cached) {
         return cached;
@@ -359,6 +363,11 @@ export async function generateCategoryPoster(
         ? await sharp(basePng).composite(resizedComposites).png().toBuffer()
         : basePng;
 
+    for (const existingKey of posterCache.keys()) {
+        if (existingKey.startsWith(`${category.dbCategory}_`) && existingKey.includes(`_${lang}_${cur}_`)) {
+            posterCache.delete(existingKey);
+        }
+    }
     posterCache.set(cacheKey, finalBuffer);
     return finalBuffer;
 }

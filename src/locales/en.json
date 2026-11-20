@@ -89,7 +89,7 @@
         "balanceOffline": "OFFLINE / DISCONNECTED",
         "balanceFetching": "🔄 Fetching live token balance directly from The Hive...",
         "balanceFailed": "❌ Failed to fetch balance status: {{error}}",
-        "syncSuccess": "🔄 *CATALOG SYNC INITIATED!*\n\nSync process has started in the server background via gibot. Catalog items and prices will automatically update once complete.",
+        "syncSuccess": "🔄 *CATALOG SYNC INITIATED!*\n\nSync process has started in the server background via gibot. You will receive a notification here once sync completes and catalog posters refresh.",
         "syncFailed": "❌ Failed to initiate catalog sync: {{message}}",
         "maintenanceStatus": "🔧 *MAINTENANCE MODE STATUS — {{storeUpper}}*\n\nCurrent status: *{{status}}*\n\n💡 _Use the buttons below to toggle bot maintenance mode._",
         "maintenanceEnabled": "✅ Maintenance Mode has been *ENABLED* (ON) 🔴\n\nThe bot will now only respond to Admins & Owners. Regular users will receive a maintenance notice.",

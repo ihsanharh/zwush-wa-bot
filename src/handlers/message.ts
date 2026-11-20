@@ -336,7 +336,21 @@ async function handleIncomingMessageInternal(
                 return;
             }
 
-            // 5. Truly mentioned (@<botPhone>, @<botLid>, or mentionedJid) -> Reply with Admin Panel
+            // 5. Direct Catalog Sync Keywords
+            if (
+                cleanCmd === "sync" ||
+                cleanCmd === "sync katalog" ||
+                cleanCmd === "sync catalog" ||
+                cleanCmd === "refresh katalog" ||
+                cleanCmd === "refresh poster" ||
+                cleanCmd.startsWith("!sync") ||
+                cleanCmd.startsWith("/sync")
+            ) {
+                await handleAdminAction(remoteJid, "admin_panel_sync", effectiveSender, true, userLang, ctx);
+                return;
+            }
+
+            // 6. Truly mentioned (@<botPhone>, @<botLid>, or mentionedJid) -> Reply with Admin Panel
             if (isMention) {
                 const isMaint = ctx.state.isMaintenanceMode ? ctx.state.isMaintenanceMode() : false;
                 try {

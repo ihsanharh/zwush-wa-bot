@@ -548,6 +548,124 @@ describe("Webhook Server", () => {
         expect(res.status).toBe(200);
         expect(stateManager.getActiveOrderId(buyerJid)).toBeUndefined();
     });
+
+    it("POST /webhook/catalog-sync should clear poster cache and notify notifyJid with added items", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const sentButtonsList: Array<{ jid: string; payload: any }> = [];
+        const onCatalogSynced = mock(() => {});
+
+        const mockSender = {
+            sendMessage: mock(async (jid: string, text: string) => {
+                sentMessages.push({ jid, text });
+            }),
+            sendButtons: mock(async (jid: string, payload: any) => {
+                sentButtonsList.push({ jid, payload });
+            })
+        };
+
+        const app = createWebhookApp({
+            sender: mockSender,
+            onCatalogSynced
+        });
+
+        const res = await app.request("/webhook/catalog-sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                success: true,
+                updated: 52,
+                added: ["Spring Dragon Pet", "Galaxy Hat"],
+                tokens: 44,
+                costumeTokens: 12,
+                notifyJid: "120363413508967055@g.us",
+                source: "manual",
+                timestamp: Date.now()
+            })
+        });
+
+        expect(res.status).toBe(200);
+        const json = (await res.json()) as { success: boolean; notified?: boolean };
+        expect(json.success).toBe(true);
+        expect(json.notified).toBe(true);
+        expect(onCatalogSynced).toHaveBeenCalledTimes(1);
+        expect(sentButtonsList.length).toBe(1);
+        expect(sentButtonsList[0]?.jid).toBe("120363413508967055@g.us");
+        expect(sentButtonsList[0]?.payload.text).toContain("SINKRONISASI KATALOG SELESAI");
+        expect(sentButtonsList[0]?.payload.text).toContain("52 item");
+        expect(sentButtonsList[0]?.payload.text).toContain("Spring Dragon Pet");
+        expect(sentButtonsList[0]?.payload.text).toContain("Galaxy Hat");
+        expect(sentButtonsList[0]?.payload.text).toContain("44 Token");
+    });
+
+    it("POST /webhook/catalog-sync should fallback to adminGroupJid when notifyJid is omitted", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const onCatalogSynced = mock(() => {});
+        const mockAdminLogger = {
+            getAdminGroupJid: () => "120363999@g.us",
+            getLogGroupJid: () => "120363888@g.us"
+        } as any;
+
+        const app = createWebhookApp({
+            sender: {
+                sendMessage: mock(async (jid: string, text: string) => {
+                    sentMessages.push({ jid, text });
+                })
+            },
+            adminLogger: mockAdminLogger,
+            onCatalogSynced
+        });
+
+        const res = await app.request("/webhook/catalog-sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                success: true,
+                updated: 50,
+                added: [],
+                source: "weekly",
+                timestamp: Date.now()
+            })
+        });
+
+        expect(res.status).toBe(200);
+        expect(onCatalogSynced).toHaveBeenCalledTimes(1);
+        expect(sentMessages.length).toBe(1);
+        expect(sentMessages[0]?.jid).toBe("120363999@g.us");
+        expect(sentMessages[0]?.text).toContain("50 item");
+        expect(sentMessages[0]?.text).toContain("Tidak ada item baru");
+    });
+
+    it("POST /webhook/catalog-sync should notify failure without clearing cache", async () => {
+        const sentMessages: Array<{ jid: string; text: string }> = [];
+        const onCatalogSynced = mock(() => {});
+
+        const app = createWebhookApp({
+            sender: {
+                sendMessage: mock(async (jid: string, text: string) => {
+                    sentMessages.push({ jid, text });
+                })
+            },
+            onCatalogSynced
+        });
+
+        const res = await app.request("/webhook/catalog-sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                success: false,
+                error: "Connection timed out after 1 attempt",
+                notifyJid: "120363413508967055@g.us",
+                timestamp: Date.now()
+            })
+        });
+
+        expect(res.status).toBe(200);
+        expect(onCatalogSynced).toHaveBeenCalledTimes(0);
+        expect(sentMessages.length).toBe(1);
+        expect(sentMessages[0]?.jid).toBe("120363413508967055@g.us");
+        expect(sentMessages[0]?.text).toContain("SINKRONISASI KATALOG GAGAL");
+        expect(sentMessages[0]?.text).toContain("Connection timed out after 1 attempt");
+    });
 });
 
 
