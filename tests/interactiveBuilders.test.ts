@@ -18,8 +18,7 @@ import {
     buildOrderCancelledButtons,
     buildOrderSuccessButtons,
     buildPaymentPendingButtons,
-    buildOrderExpiredButtons,
-    buildMinecoinsComingSoonButtons
+    buildOrderExpiredButtons
 } from "../src/utils/interactiveBuilders";
 import type { CategoryDefinition } from "../src/utils/categories";
 import type { CatalogItem } from "../src/types";
@@ -168,7 +167,7 @@ describe("interactiveBuilders", () => {
         expect(p0.display_text).toContain("Solved");
     });
 
-    it("should build welcome buttons with 3 quick-reply options (Hive, Minecoins, Settings)", () => {
+    it("should build welcome buttons with 3 quick-reply options (Catalog, History, Settings)", () => {
         const payload = buildWelcomeButtons("id");
         const buttons = payload.interactiveMessage.nativeFlowMessage.buttons;
         expect(buttons.length).toBe(3);
@@ -176,55 +175,37 @@ describe("interactiveBuilders", () => {
         const p1 = JSON.parse(buttons[1].buttonParamsJson);
         const p2 = JSON.parse(buttons[2].buttonParamsJson);
         expect(p0.id).toBe("btn_start_buying");
-        expect(p0.display_text).toBe("Kosmetik The Hive");
-        expect(p1.id).toBe("btn_minecoins");
-        expect(p1.display_text).toBe("Top Up Minecoins");
+        expect(p0.display_text).toBe("Beli Kosmetik");
+        expect(p1.id).toBe("btn_history");
+        expect(p1.display_text).toBe("Riwayat Pesanan");
         expect(p2.id).toBe("btn_settings");
         expect(p2.display_text).toBe("Pengaturan & Info");
+        expect(payload.interactiveMessage.body.text).not.toContain("Minecoins");
+        expect(payload.interactiveMessage.footer.text).not.toContain("Marketplace");
     });
 
-    it("should build settings list menu with order history, currency switch, and without exposing support button", () => {
+    it("should build settings list menu with currency switch and without exposing history or support button", () => {
         const payload = buildSettingsListMenu("id", "TestGamer", "USD");
         expect(payload.listMessage).toBeDefined();
         const rows = payload.listMessage.sections[0].rows;
-        expect(rows.length).toBe(5);
-        expect(rows[0].rowId).toBe("btn_history");
-        expect(rows[1].rowId).toBe("act_default_gamertag");
-        expect(rows[2].rowId).toBe("act_switch_lang");
-        expect(rows[3].rowId).toBe("act_switch_currency");
-        expect(rows[3].title).toContain("USD");
-        expect(rows[4].rowId).toBe("act_view_faq");
-        // Verify no CS/support row exists in settings drawer
+        expect(rows.length).toBe(4);
+        expect(rows[0].rowId).toBe("act_default_gamertag");
+        expect(rows[1].rowId).toBe("act_switch_lang");
+        expect(rows[2].rowId).toBe("act_switch_currency");
+        expect(rows[2].title).toContain("USD");
+        expect(rows[3].rowId).toBe("act_view_faq");
+        // Verify no CS/support or duplicate history row exists in settings drawer
         const rowIds = rows.map((r: any) => r.rowId);
+        expect(rowIds).not.toContain("btn_history");
         expect(rowIds).not.toContain("btn_support_confirm");
 
         const currencyMenu = buildCurrencySelectionMenu("id", "USD");
         expect(currencyMenu.listMessage.sections[0].rows.length).toBeGreaterThanOrEqual(10);
+        expect(currencyMenu.listMessage.footerText).not.toContain("Marketplace");
         const usdRow = currencyMenu.listMessage.sections[0].rows.find((r: any) => r.rowId === "curr_USD");
         expect(usdRow).toBeDefined();
         expect(usdRow.title).toContain("USD");
         expect(usdRow.title).toContain("✓");
-    });
-
-
-    it("should build minecoins coming soon interactive buttons card with voucher mention", () => {
-        const payloadId = buildMinecoinsComingSoonButtons("id");
-        expect(payloadId.text).toContain("MINECOINS");
-        expect(payloadId.text).toContain("620 MC");
-        expect(payloadId.text).toContain("voucher");
-        const buttonsId = payloadId.interactiveMessage.nativeFlowMessage.buttons;
-        expect(buttonsId.length).toBe(2);
-        const b0 = JSON.parse(buttonsId[0].buttonParamsJson);
-        const b1 = JSON.parse(buttonsId[1].buttonParamsJson);
-        expect(b0.id).toBe("btn_start_buying");
-        expect(b1.id).toBe("btn_welcome");
-
-        const payloadEn = buildMinecoinsComingSoonButtons("en");
-        expect(payloadEn.text).toContain("MINECOINS");
-        expect(payloadEn.text).toContain("620 MC");
-        expect(payloadEn.text).toContain("voucher");
-        const buttonsEn = payloadEn.interactiveMessage.nativeFlowMessage.buttons;
-        expect(buttonsEn.length).toBe(2);
     });
 
     it("should build gamertag prompt buttons with change item and cancel order", () => {
