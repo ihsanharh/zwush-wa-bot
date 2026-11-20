@@ -262,7 +262,7 @@ export class CoreClient {
         });
         const data = (await res.json()) as VoucherValidationResponse & { message?: string };
         if (!res.ok || !data.success) {
-            throw new Error(data.message || `Voucher '${code}' tidak valid`);
+            throw new Error(data.message || `Invalid voucher '${code}'`);
         }
         return data;
     }
@@ -372,7 +372,7 @@ export class CoreClient {
         });
         const data = (await res.json()) as any;
         if (!res.ok || !data.success) {
-            throw new Error(data.error || data.message || `Gagal sinkronisasi katalog (${res.status})`);
+            throw new Error(data.error || data.message || `Failed to sync catalog (${res.status})`);
         }
         return data;
     }

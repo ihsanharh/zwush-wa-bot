@@ -105,8 +105,7 @@ export async function handleAdminAction(
 
     // 0.05 Admin Panel: More Controls (Sync, Orders & Maintenance)
     if (actionId === "admin_panel_more") {
-        const store = config.STORE_NAME;
-        const text = `⚙️ *MENU KONTROL TAMBAHAN ADMIN — ${store.toUpperCase()}*\n\nSilakan pilih menu:`;
+        const text = t("admin.moreMenuPrompt", _userLang);
         const buttons = [
             { id: "admin_panel_sync", text: t("interactive.adminBtnSync", _userLang) },
             { id: "admin_panel_orders", text: t("interactive.adminBtnOrders", _userLang) },
@@ -223,11 +222,12 @@ export async function handleAdminAction(
             const res = await ctx.client.getBalance(false);
             const s = res.summary;
             const text = `${t("interactive.adminOrdersTitle", _userLang)}\n\n` +
-                `• Selesai Hari Ini: *${s.todayCompleted}* pesanan\n` +
-                `• Menunggu Pembayaran: *${s.pendingPayment}* pesanan\n` +
-                `• Antrean Gifting: *${s.giftingQueue}* pesanan\n` +
-                `• Tertahan Token: *${s.insufficientTokens}* pesanan\n\n` +
-                `💡 _Pesanan yang tertahan atau gagal dapat langsung diproses melalui tombol aksi pada grup log/admin._`;
+                t("admin.ordersSummary", _userLang, {
+                    todayCompleted: s.todayCompleted,
+                    pendingPayment: s.pendingPayment,
+                    giftingQueue: s.giftingQueue,
+                    insufficientTokens: s.insufficientTokens
+                });
             const payload = buildQuickReplyPayload(text, [
                 { id: "btn_admin_panel", text: t("buttons.adminPanel", _userLang) }
             ]);
@@ -238,7 +238,7 @@ export async function handleAdminAction(
             }
         } catch (err: unknown) {
             const errMsg = err instanceof Error ? err.message : String(err);
-            await ctx.sendText(remoteJid, `❌ Gagal memuat data pesanan: ${errMsg}`, mentions);
+            await ctx.sendText(remoteJid, t("admin.ordersLoadFailed", _userLang, { error: errMsg }), mentions);
         }
         return true;
     }
@@ -266,7 +266,7 @@ export async function handleAdminAction(
             if (upperStatus === "CANCELLED" || upperStatus === "EXPIRED") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah berstatus *${status}*! Tidak dapat ditandai lunas.`,
+                    t("admin.orderPaidClosed", "id", { orderId, status }),
                     mentions
                 );
                 return true;
@@ -275,7 +275,7 @@ export async function handleAdminAction(
             if (upperStatus === "SUCCESS") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah selesai (*SUCCESS*) sebelumnya! Tidak dapat ditandai lunas lagi.`,
+                    t("admin.orderPaidAlreadySuccess", "id", { orderId }),
                     mentions
                 );
                 return true;
@@ -284,7 +284,7 @@ export async function handleAdminAction(
             if (upperStatus === "QUEUED" || upperStatus === "PROCESSING") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah berstatus *${status}* (sedang diproses)!`,
+                    t("admin.orderPaidAlreadyProcessing", "id", { orderId, status }),
                     mentions
                 );
                 return true;
@@ -319,7 +319,7 @@ export async function handleAdminAction(
                 lowerMsg.includes("cancelled") ||
                 lowerMsg.includes("expired")
             ) {
-                await ctx.sendText(remoteJid, `⚠️ Gagal menandai lunas: ${msg}`, mentions);
+                await ctx.sendText(remoteJid, t("admin.orderPaidWarnFailed", "id", { error: msg }), mentions);
             } else {
                 const { buyerJid } = await getOrderDetails(ctx, orderId);
                 await notifyFailureWithButtons(ctx, remoteJid, orderId, msg, mentions, buyerJid, "admin.actionPaidFailed");
@@ -338,7 +338,7 @@ export async function handleAdminAction(
             if (upperStatus === "CANCELLED" || upperStatus === "EXPIRED") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah berstatus *${status}*! Tidak dapat diselesaikan secara manual.`,
+                    t("admin.orderDoneClosed", "id", { orderId, status }),
                     mentions
                 );
                 return true;
@@ -347,7 +347,7 @@ export async function handleAdminAction(
             if (upperStatus === "SUCCESS") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah berstatus *SUCCESS* sebelumnya!`,
+                    t("admin.orderDoneAlreadySuccess", "id", { orderId }),
                     mentions
                 );
                 return true;
@@ -389,7 +389,7 @@ export async function handleAdminAction(
             if (upperStatus === "CANCELLED" || upperStatus === "EXPIRED") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah berstatus *${status}*! Tidak dapat diproses ulang.`,
+                    t("admin.orderReprocessClosed", "id", { orderId, status }),
                     mentions
                 );
                 return true;
@@ -398,7 +398,7 @@ export async function handleAdminAction(
             if (upperStatus === "SUCCESS") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah berstatus *SUCCESS* (sudah selesai)!`,
+                    t("admin.orderReprocessAlreadySuccess", "id", { orderId }),
                     mentions
                 );
                 return true;
@@ -407,7 +407,7 @@ export async function handleAdminAction(
             if (upperStatus === "PENDING_PAYMENT") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* belum dibayar (*PENDING_PAYMENT*)! Tandai lunas terlebih dahulu sebelum reprocess.`,
+                    t("admin.orderReprocessPendingPayment", "id", { orderId }),
                     mentions
                 );
                 return true;
@@ -442,7 +442,7 @@ export async function handleAdminAction(
             if (upperStatus === "CANCELLED") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah dibatalkan sebelumnya.`,
+                    t("admin.orderCancelAlreadyCancelled", "id", { orderId }),
                     mentions
                 );
                 return true;
@@ -451,7 +451,7 @@ export async function handleAdminAction(
             if (upperStatus === "SUCCESS") {
                 await ctx.sendText(
                     remoteJid,
-                    `⚠️ Pesanan *#${orderId}* sudah selesai (*SUCCESS*) dan tidak dapat dibatalkan!`,
+                    t("admin.orderCancelAlreadySuccess", "id", { orderId }),
                     mentions
                 );
                 return true;

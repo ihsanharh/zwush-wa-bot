@@ -302,28 +302,27 @@ export function createWebhookApp(
                 onCatalogSynced();
 
                 const addedItems = Array.isArray(body.added) ? body.added : [];
-                let msg = `✅ *SINKRONISASI SALDO & KATALOG SELESAI!* 🎉\n\n`;
-                msg += `• Total Item Katalog: *${body.updated ?? 0} item*\n`;
+                let msg = t("admin.syncWebhookHeader", "id", { updated: body.updated ?? 0 });
                 if (typeof body.tokens === "number") {
-                    msg += `• Sisa Token Gift: *${body.tokens} Token*`;
+                    msg += t("admin.syncWebhookTokens", "id", { tokens: body.tokens });
                     if (typeof body.costumeTokens === "number") {
-                        msg += ` • Costume: *${body.costumeTokens} Token*`;
+                        msg += t("admin.syncWebhookCostumeTokens", "id", { costumeTokens: body.costumeTokens });
                     }
                     msg += `\n`;
                 }
                 if (addedItems.length > 0) {
-                    msg += `\n🆕 *Item Baru Ditemukan (${addedItems.length}):*\n`;
+                    msg += t("admin.syncWebhookAddedHeader", "id", { count: addedItems.length });
                     const shown = addedItems.slice(0, 15);
                     for (const name of shown) {
                         msg += `• ${name}\n`;
                     }
                     if (addedItems.length > 15) {
-                        msg += `• ...dan ${addedItems.length - 15} lainnya\n`;
+                        msg += t("admin.syncWebhookAddedOverflow", "id", { count: addedItems.length - 15 });
                     }
                 } else {
-                    msg += `\nℹ️ _Tidak ada item baru; daftar item & harga yang ada telah diperbarui._\n`;
+                    msg += t("admin.syncWebhookNoNewItems", "id");
                 }
-                msg += `\n🖼️ Cache poster katalog & saldo token otomatis diperbarui.`;
+                msg += t("admin.syncWebhookFooter", "id");
 
                 if (targetJid) {
                     if (sender.sendButtons) {
@@ -342,7 +341,9 @@ export function createWebhookApp(
                     }
                 }
             } else {
-                const msg = `❌ *SINKRONISASI SALDO & KATALOG GAGAL*\n\nKendala: *${body.error || "Unknown error"}*`;
+                const msg = t("admin.syncWebhookFailed", "id", {
+                    error: body.error || t("admin.unknownError", "id")
+                });
                 if (targetJid) {
                     if (sender.sendButtons) {
                         try {

@@ -61,7 +61,7 @@ export function buildCategoryListMenu(
             title,
             description,
             buttonText,
-            footerText: `${store} • The Hive Bedrock`,
+            footerText: t("interactive.footerDefault", lang),
             listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
             sections: [
                 {
@@ -132,7 +132,7 @@ export function buildPaginatedItemListMenu(
             title: categoryTitle,
             description: `${t("interactive.itemsListBtn", lang)} (${safePage}/${totalPages})`,
             buttonText: t("interactive.itemsListBtn", lang),
-            footerText: `${store} • The Hive Bedrock`,
+            footerText: t("interactive.footerDefault", lang),
             listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
             sections: [
                 {
@@ -244,7 +244,7 @@ export function buildOrderConfirmationButtons(
             { id: voucherBtnId, text: voucherBtnText },
             { id: "btn_modify_menu", text: t("buttons.modifyMenu", lang) }
         ],
-        { footer: `${store} • Automated Checkout` }
+        { footer: t("interactive.footerCheckout", lang) }
     );
 }
 
@@ -340,7 +340,7 @@ export function buildInvoiceButtons(
             { id: "btn_cancel_order", text: t("buttons.cancelOrder", lang) }
         ],
         {
-            footer: `${store} • QRIS Dinamis`,
+            footer: t("interactive.footerQris", lang),
             header: headerOption
         }
     );
@@ -424,48 +424,50 @@ export function buildAdminPanelMenu(
     const title = t("interactive.adminPanelTitle", lang, { store });
     const description = t("interactive.adminPanelDesc", lang, { store });
     const buttonText = t("interactive.adminPanelBtn", lang);
-    const maintStatus = isMaintenanceOn ? "🔴 Mode: ON (Aktif)" : "🟢 Mode: OFF (Normal)";
+    const maintStatus = isMaintenanceOn
+        ? t("interactive.adminMaintListOn", lang)
+        : t("interactive.adminMaintListOff", lang);
 
     return {
         listMessage: {
             title,
             description,
             buttonText,
-            footerText: `${store} • Admin Control Panel`,
+            footerText: t("interactive.footerAdminControl", lang),
             listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
             sections: [
                 {
-                    title: "Status & Kontrol Bot",
+                    title: t("interactive.adminSectionBotStatus", lang),
                     rows: [
                         {
                             rowId: "admin_panel_balance",
                             title: t("interactive.adminBtnBalance", lang),
-                            description: "Lihat saldo token Hive & omset penjualan"
+                            description: t("interactive.adminDescBalance", lang)
                         },
                         {
                             rowId: "admin_panel_maintenance",
                             title: t("interactive.adminBtnMaintenance", lang),
-                            description: `Status Maintenance (${maintStatus})`
+                            description: t("interactive.adminDescMaintenance", lang, { maintStatus })
                         },
                         {
                             rowId: "admin_panel_sync",
                             title: t("interactive.adminBtnSync", lang),
-                            description: "Sinkronisasi saldo token & katalog item Hive via gibot"
+                            description: t("interactive.adminDescSync", lang)
                         }
                     ]
                 },
                 {
-                    title: "Manajemen Toko",
+                    title: t("interactive.adminSectionStoreMgmt", lang),
                     rows: [
                         {
                             rowId: "admin_panel_orders",
                             title: t("interactive.adminBtnOrders", lang),
-                            description: "Daftar pesanan tertahan token / pending"
+                            description: t("interactive.adminDescOrders", lang)
                         },
                         {
                             rowId: "admin_panel_vouchers",
                             title: t("interactive.adminBtnVoucher", lang),
-                            description: "Ringkasan voucher promo & diskon toko"
+                            description: t("interactive.adminDescVoucher", lang)
                         }
                     ]
                 }
@@ -481,18 +483,16 @@ export function buildAdminPanelQuickReply(
     lang: Language = "id",
     isMaintenanceOn = false
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const store = config.STORE_NAME;
-    const maintStatus = isMaintenanceOn ? "🔴 ON" : "🟢 OFF";
-    const text = `⚙️ *PANEL KONTROL ADMIN — ${store.toUpperCase()}*\n\n` +
-        `• Status Maintenance: *${maintStatus}*\n\n` +
-        `Silakan pilih menu kontrol admin di bawah:\n` +
-        `_(💡 Ketik *voucher*, *saldo*, atau *sync* untuk akses cepat)_`;
+    const maintStatus = isMaintenanceOn
+        ? t("interactive.adminQuickReplyMaintOn", lang)
+        : t("interactive.adminQuickReplyMaintOff", lang);
+    const text = t("interactive.adminQuickReplyText", lang, { maintStatus });
     const buttons = [
         { id: "admin_panel_balance", text: t("interactive.adminBtnBalance", lang) },
-        { id: "admin_panel_vouchers", text: "🎟️ Kelola Voucher" },
-        { id: "admin_panel_more", text: "⚙️ Menu Lainnya ➡️" }
+        { id: "admin_panel_vouchers", text: t("interactive.adminBtnManageVouchers", lang) },
+        { id: "admin_panel_more", text: t("interactive.adminBtnMoreControls", lang) }
     ];
-    return buildQuickReplyPayload(text, buttons, { footer: `${store} • Admin Panel` });
+    return buildQuickReplyPayload(text, buttons, { footer: t("interactive.footerAdminPanel", lang) });
 }
 
 /**
@@ -503,7 +503,9 @@ export function buildAdminMaintenanceButtons(
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
     const store = config.STORE_NAME;
-    const statusText = isMaintenanceOn ? "AKTIF (ON) 🔴" : "NONAKTIF (OFF) 🟢";
+    const statusText = isMaintenanceOn
+        ? t("interactive.maintStatusActive", lang)
+        : t("interactive.maintStatusInactive", lang);
     const text = t("admin.maintenanceStatus", lang, { storeUpper: store.toUpperCase(), status: statusText });
     const buttons = [
         { id: isMaintenanceOn ? "btn_admin_maint_off" : "btn_admin_maint_on", text: isMaintenanceOn ? t("buttons.maintOff", lang) : t("buttons.maintOn", lang) },
@@ -536,7 +538,7 @@ export function buildWelcomeButtons(lang: Language = "id"): { interactiveMessage
         { id: "btn_history", text: t("buttons.orderHistory", lang) },
         { id: "btn_settings", text: t("buttons.settingsAndInfo", lang) }
     ];
-    return buildQuickReplyPayload(t("greeting", lang), buttons, { footer: `${store} • The Hive Bedrock` });
+    return buildQuickReplyPayload(t("greeting", lang), buttons, { footer: t("interactive.footerDefault", lang) });
 }
 
 /**
@@ -572,7 +574,7 @@ export function buildSettingsListMenu(
             title,
             description,
             buttonText,
-            footerText: `${store} • The Hive Bedrock`,
+            footerText: t("interactive.footerDefault", lang),
             listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
             sections: [
                 {
@@ -634,7 +636,7 @@ export function buildCurrencySelectionMenu(
             title,
             description,
             buttonText,
-            footerText: `${store} • The Hive Bedrock`,
+            footerText: t("interactive.footerDefault", lang),
             listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
             sections: [
                 {
@@ -708,7 +710,7 @@ export function buildOrderHistoryButtons(
         text: t("buttons.browseCatalog", lang)
     });
 
-    return buildQuickReplyPayload(out, buttonsList, { footer: `${store} • The Hive Bedrock` });
+    return buildQuickReplyPayload(out, buttonsList, { footer: t("interactive.footerDefault", lang) });
 }
 
 /**
@@ -727,7 +729,7 @@ export function buildOrderCancelledButtons(
         { id: "btn_start_buying", text: t("buttons.browseCatalog", lang) },
         { id: "btn_history", text: t("buttons.orderHistory", lang) }
     ];
-    return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
+    return buildQuickReplyPayload(message, buttons, { footer: t("interactive.footerDefault", lang) });
 }
 
 /**
@@ -751,7 +753,7 @@ export function buildOrderSuccessButtons(
         { id: buyAgainId, text: t("buttons.buyAgain", lang) },
         { id: "btn_history", text: t("buttons.orderHistory", lang) }
     ];
-    return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
+    return buildQuickReplyPayload(message, buttons, { footer: t("interactive.footerDefault", lang) });
 }
 
 /**
@@ -773,7 +775,7 @@ export function buildDefaultGamertagPromptButtons(
     if (hasExisting) {
         buttons.push({ id: "btn_delete_default_gt", text: t("buttons.deleteDefaultGamertag", lang) });
     }
-    return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
+    return buildQuickReplyPayload(message, buttons, { footer: t("interactive.footerDefault", lang) });
 }
 
 /**
@@ -791,7 +793,7 @@ export function buildPaymentPendingButtons(
     const buttons = [
         { id: "btn_check_payment", text: t("buttons.checkPayment", lang) }
     ];
-    return buildQuickReplyPayload(message, buttons, { footer: `${store} • QRIS Dinamis` });
+    return buildQuickReplyPayload(message, buttons, { footer: t("interactive.footerQris", lang) });
 }
 
 /**
@@ -810,7 +812,7 @@ export function buildOrderExpiredButtons(
         { id: "btn_start_buying", text: t("buttons.browseCatalog", lang) },
         { id: "btn_history", text: t("buttons.orderHistory", lang) }
     ];
-    return buildQuickReplyPayload(message, buttons, { footer: `${store} • The Hive Bedrock` });
+    return buildQuickReplyPayload(message, buttons, { footer: t("interactive.footerDefault", lang) });
 }
 
 /**
@@ -822,15 +824,14 @@ export function buildAdminVouchersOverview(
     totalVouchers: number,
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const text = `🎟️ *MANAJEMEN VOUCHER & DISKON*\n\n` +
-        `• Diskon Global Toko: *${discountPercent}%*\n` +
-        `• Total Voucher Aktif: *${activeVouchers}* voucher\n` +
-        `• Total Voucher Terdaftar: *${totalVouchers}* voucher\n\n` +
-        `💡 _Diskon toko diterapkan langsung ke seluruh katalog item. Voucher tambahan dapat diklaim pembeli saat konfirmasi order._\n\n` +
-        `Silakan pilih menu manajemen voucher di bawah:`;
+    const text = t("adminVoucher.overview", lang, {
+        discountPercent,
+        activeVouchers,
+        totalVouchers
+    });
     const buttons = [
-        { id: "btn_admin_voucher_list", text: "📋 List Voucher" },
-        { id: "btn_admin_voucher_create", text: "➕ Buat Voucher" },
+        { id: "btn_admin_voucher_list", text: t("adminVoucher.btnList", lang) },
+        { id: "btn_admin_voucher_create", text: t("adminVoucher.btnCreate", lang) },
         { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
     ];
     return buildQuickReplyPayload(text, buttons);
@@ -843,27 +844,34 @@ export function buildAdminVoucherListMessage(
     vouchers: VoucherItem[],
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    let text = `📋 *DAFTAR VOUCHER ZWUSH STORE*\n\n`;
+    let text = t("adminVoucher.listHeader", lang);
 
     if (vouchers.length === 0) {
-        text += `_Belum ada voucher yang terdaftar di database._\n\nKlik tombol *[➕ Buat Baru]* di bawah untuk membuat voucher pertama!`;
+        text += t("adminVoucher.listEmpty", lang);
     } else {
         vouchers.slice(0, 15).forEach((v, idx) => {
-            const statusBadge = v.active ? "🟢 Aktif" : "🔴 Nonaktif";
+            const statusBadge = v.active
+                ? t("adminVoucher.statusActive", lang)
+                : t("adminVoucher.statusInactive", lang);
             const discountStr = v.discountType === "PERCENT"
                 ? `${v.discountValue}%`
                 : `Rp ${v.discountValue.toLocaleString("id-ID")}`;
-            const maxUsesStr = v.maxUses !== null ? `${v.maxUses}` : "∞ (Tanpa Batas)";
-            text += `${idx + 1}. 🏷️ *${v.code}* (${statusBadge})\n` +
-                `   • Diskon: *${discountStr}*\n` +
-                `   • Kuota: *${v.usedCount} / ${maxUsesStr}*\n\n`;
+            const maxUsesStr = v.maxUses !== null ? `${v.maxUses}` : t("adminVoucher.unlimitedInfinite", lang);
+            text += t("adminVoucher.listItem", lang, {
+                idx: idx + 1,
+                code: v.code,
+                statusBadge,
+                discountStr,
+                usedCount: v.usedCount,
+                maxUsesStr
+            });
         });
-        text += `👉 *Ketik KODE voucher* (contoh: *${vouchers[0].code}*) di chat ini untuk mengedit atau menghapus voucher secara permanen!`;
+        text += t("adminVoucher.listHint", lang, { sampleCode: vouchers[0]?.code || "HEMAT10" });
     }
 
     const buttons = [
-        { id: "btn_admin_voucher_create", text: "➕ Buat Baru" },
-        { id: "btn_admin_voucher_list", text: "🔄 Refresh" },
+        { id: "btn_admin_voucher_create", text: t("adminVoucher.btnCreateNew", lang) },
+        { id: "btn_admin_voucher_list", text: t("adminVoucher.btnRefresh", lang) },
         { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
     ];
     return buildQuickReplyPayload(text, buttons);
@@ -876,25 +884,35 @@ export function buildAdminVoucherDetailCard(
     voucher: VoucherItem,
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const statusText = voucher.active ? "🟢 Aktif" : "🔴 Nonaktif";
+    const statusText = voucher.active
+        ? t("adminVoucher.statusActive", lang)
+        : t("adminVoucher.statusInactive", lang);
     const discountStr = voucher.discountType === "PERCENT"
         ? `${voucher.discountValue}%`
         : `Rp ${voucher.discountValue.toLocaleString("id-ID")}`;
-    const maxUsesStr = voucher.maxUses !== null ? `${voucher.maxUses} kali` : "Tanpa Batas";
-    const expiredStr = voucher.expiresAt ? new Date(voucher.expiresAt).toLocaleDateString("id-ID") : "Tanpa Batas";
+    const maxUsesStr = voucher.maxUses !== null
+        ? t("adminVoucher.usesSuffix", lang, { count: voucher.maxUses })
+        : t("adminVoucher.unlimited", lang);
+    const expiredStr = voucher.expiresAt
+        ? new Date(voucher.expiresAt).toLocaleDateString(lang === "en" ? "en-US" : "id-ID")
+        : t("adminVoucher.unlimited", lang);
 
-    const text = `🏷️ *DETAIL VOUCHER: ${voucher.code}*\n\n` +
-        `• Status: *${statusText}*\n` +
-        `• Tipe Potongan: *${discountStr}*\n` +
-        `• Penggunaan: *${voucher.usedCount} / ${maxUsesStr}*\n` +
-        `• Kadaluwarsa: *${expiredStr}*\n\n` +
-        `Silakan pilih tindakan untuk voucher ini:`;
+    const text = t("adminVoucher.detailCard", lang, {
+        code: voucher.code,
+        statusText,
+        discountStr,
+        usedCount: voucher.usedCount,
+        maxUsesStr,
+        expiredStr
+    });
 
-    const toggleText = voucher.active ? "🔴 Nonaktifkan" : "🟢 Aktifkan";
+    const toggleText = voucher.active
+        ? t("adminVoucher.btnToggleDeactivate", lang)
+        : t("adminVoucher.btnToggleActivate", lang);
     const buttons = [
         { id: `btn_admin_voucher_toggle_${voucher.code}`, text: toggleText },
-        { id: `btn_admin_voucher_edit_menu_${voucher.code}`, text: "✏️ Edit Voucher" },
-        { id: `btn_admin_voucher_del_confirm_${voucher.code}`, text: "🗑️ Hapus Permanen" }
+        { id: `btn_admin_voucher_edit_menu_${voucher.code}`, text: t("adminVoucher.btnEdit", lang) },
+        { id: `btn_admin_voucher_del_confirm_${voucher.code}`, text: t("adminVoucher.btnDeletePermanent", lang) }
     ];
     return buildQuickReplyPayload(text, buttons);
 }
@@ -906,11 +924,11 @@ export function buildAdminVoucherEditMenu(
     code: string,
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const text = `✏️ *EDIT VOUCHER: ${code}*\n\nPilih bagian voucher yang ingin Anda ubah:`;
+    const text = t("adminVoucher.editMenu", lang, { code });
     const buttons = [
-        { id: `btn_admin_voucher_edit_val_${code}`, text: "1. Nilai Diskon" },
-        { id: `btn_admin_voucher_edit_max_${code}`, text: "2. Kuota Maksimal" },
-        { id: "btn_admin_voucher_cancel", text: "❌ Batal" }
+        { id: `btn_admin_voucher_edit_val_${code}`, text: t("adminVoucher.btnEditValue", lang) },
+        { id: `btn_admin_voucher_edit_max_${code}`, text: t("adminVoucher.btnEditMaxUses", lang) },
+        { id: "btn_admin_voucher_cancel", text: t("adminVoucher.btnCancel", lang) }
     ];
     return buildQuickReplyPayload(text, buttons);
 }
@@ -922,12 +940,10 @@ export function buildAdminVoucherDeleteConfirm(
     code: string,
     lang: Language = "id"
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
-    const text = `⚠️ *KONFIRMASI HAPUS VOUCHER*\n\n` +
-        `Voucher *${code}* akan *benar-benar dihapus secara permanen dari database*!\n\n` +
-        `Apakah Anda yakin ingin menghapus voucher ini selamanya?`;
+    const text = t("adminVoucher.deleteConfirm", lang, { code });
     const buttons = [
-        { id: `btn_admin_voucher_del_exec_${code}`, text: "🗑️ Ya, Hapus Permanen" },
-        { id: "btn_admin_voucher_cancel", text: "❌ Batal" }
+        { id: `btn_admin_voucher_del_exec_${code}`, text: t("adminVoucher.btnConfirmDelete", lang) },
+        { id: "btn_admin_voucher_cancel", text: t("adminVoucher.btnCancel", lang) }
     ];
     return buildQuickReplyPayload(text, buttons);
 }

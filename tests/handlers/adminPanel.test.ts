@@ -233,7 +233,7 @@ describe("Interactive Admin Panel System", () => {
             expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_vouchers")).toBe(true);
         });
 
-        it("should directly open voucher management when admin types 'voucher' or '@bot voucher' in admin group", async () => {
+        it("should silently ignore plain 'voucher' text and open Admin Panel on '@bot voucher' without direct command handling", async () => {
             await handleIncomingMessage(
                 adminGroupJid,
                 false,
@@ -242,8 +242,9 @@ describe("Interactive Admin Panel System", () => {
                 adminUser
             );
 
-            expect(sentButtons.length).toBe(1);
-            expect(sentButtons[0]?.payload.text).toContain("MANAJEMEN VOUCHER & DISKON");
+            expect(sentLists.length).toBe(0);
+            expect(sentButtons.length).toBe(0);
+            expect(sentTexts.length).toBe(0);
 
             await handleIncomingMessage(
                 adminGroupJid,
@@ -253,8 +254,8 @@ describe("Interactive Admin Panel System", () => {
                 adminUser
             );
 
-            expect(sentButtons.length).toBe(2);
-            expect(sentButtons[1]?.payload.text).toContain("MANAJEMEN VOUCHER & DISKON");
+            expect(sentLists.length).toBe(1);
+            expect(sentButtons.length).toBe(0);
         });
 
         it("should NOT open Admin Panel on regular conversation in admin group without bot tag", async () => {
@@ -315,25 +316,39 @@ describe("Interactive Admin Panel System", () => {
             expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI SALDO & KATALOG");
         });
 
-        it("should route 'saldo refresh' and '/saldo refresh' in admin group to unified sync", async () => {
-            await handleIncomingMessage(
-                adminGroupJid,
-                false,
+        it("should silently ignore direct text and slash commands in admin group", async () => {
+            const directCommands = [
+                "saldo",
                 "saldo refresh",
-                mockContext,
-                adminUser
-            );
-
-            await handleIncomingMessage(
-                adminGroupJid,
-                false,
                 "/saldo refresh",
-                mockContext,
-                adminUser
-            );
+                "!saldo",
+                "sync",
+                "/sync",
+                "!sync",
+                "pesanan",
+                "orders",
+                "/orders",
+                "maintenance",
+                "/maintenance",
+                "/voucher",
+                "!voucher"
+            ];
 
-            expect(mockContext.client.syncCatalog).toHaveBeenCalledTimes(2);
-            expect(mockContext.client.syncCatalog).toHaveBeenCalledWith(adminGroupJid);
+            for (const cmd of directCommands) {
+                await handleIncomingMessage(
+                    adminGroupJid,
+                    false,
+                    cmd,
+                    mockContext,
+                    adminUser
+                );
+            }
+
+            expect(mockContext.client.syncCatalog).not.toHaveBeenCalled();
+            expect(mockContext.client.getBalance).not.toHaveBeenCalled();
+            expect(sentLists.length).toBe(0);
+            expect(sentButtons.length).toBe(0);
+            expect(sentTexts.length).toBe(0);
         });
 
         it("should handle 'admin_panel_maintenance' and show toggle buttons", async () => {
@@ -441,19 +456,7 @@ describe("Interactive Admin Panel System", () => {
             expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_maintenance")).toBe(true);
         });
 
-        it("should trigger catalog synchronization when admin types 'sync' or '@bot sync' in admin group", async () => {
-            await handleIncomingMessage(
-                adminGroupJid,
-                false,
-                "sync",
-                mockContext,
-                adminUser
-            );
-
-            expect(mockContext.client.syncCatalog).toHaveBeenCalledWith(adminGroupJid);
-            expect(sentButtons.length).toBe(1);
-            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI SALDO & KATALOG");
-
+        it("should open Admin Panel instead of auto-syncing when admin types '@bot sync' in admin group", async () => {
             await handleIncomingMessage(
                 adminGroupJid,
                 false,
@@ -462,8 +465,9 @@ describe("Interactive Admin Panel System", () => {
                 adminUser
             );
 
-            expect(mockContext.client.syncCatalog).toHaveBeenCalledTimes(2);
-            expect(sentButtons.length).toBe(2);
+            expect(mockContext.client.syncCatalog).not.toHaveBeenCalled();
+            expect(sentLists.length).toBe(1);
+            expect(sentLists[0]?.payload.listMessage.title).toContain("Panel Kontrol Admin");
         });
 
         it("should return to main menu when clicking 'btn_admin_panel'", async () => {

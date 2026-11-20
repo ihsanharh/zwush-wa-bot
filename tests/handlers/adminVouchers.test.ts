@@ -240,12 +240,13 @@ describe("Interactive Admin Voucher Management", () => {
         expect(mockContext.state.getAdminVoucherStep(adminUser)).toBeUndefined();
     });
 
-    it("should support direct voucher inspection command 'voucher HEMAT10'", async () => {
+    it("should silently ignore plain 'voucher HEMAT10' text outside an active voucher wizard step", async () => {
         sentButtons = [];
+        sentTexts = [];
         await handleIncomingMessage(adminGroupJid, false, "voucher HEMAT10", mockContext, adminUser);
 
-        expect(sentButtons.length).toBe(1);
-        expect(sentButtons[0]?.payload.text).toContain("DETAIL VOUCHER: HEMAT10");
+        expect(sentButtons.length).toBe(0);
+        expect(sentTexts.length).toBe(0);
     });
 
     it("should NOT lock or block private chat session when admin views voucher list or panel in admin group", async () => {

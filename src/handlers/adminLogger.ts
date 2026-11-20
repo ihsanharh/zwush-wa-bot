@@ -1,6 +1,5 @@
 import type { OrderStatus } from "../types";
-import { config } from "../config";
-import { formatStatusBadge } from "../i18n";
+import { formatStatusBadge, t } from "../i18n";
 import { extractPhoneNumber } from "../utils/messageUtils";
 import {
     buildAdminOrderActionButtons,
@@ -151,32 +150,32 @@ export class AdminGroupLogger {
     private formatBuyerContact(platformUserId: string): string {
         if (!platformUserId) return "";
         if (platformUserId.endsWith("@g.us")) {
-            return `👥 Chat Grup: ${platformUserId.split("@")[0]}`;
+            return t("adminLog.contactGroup", "id", { groupId: platformUserId.split("@")[0] || "" });
         }
         if (platformUserId.endsWith("@lid")) {
-            const lidNum = platformUserId.split("@")[0]?.replace(/[^0-9]/g, "");
-            return `📱 Akun: WhatsApp User (ID Privasi: ${lidNum})\n💡 _(Nomor disembunyikan oleh WhatsApp Privacy / Multi-Device. Buka chat langsung di HP bot)_`;
+            const lidNum = platformUserId.split("@")[0]?.replace(/[^0-9]/g, "") || "";
+            return t("adminLog.contactLid", "id", { lidNum });
         }
         const cleanDigits = platformUserId.replace(/[^0-9]/g, "");
         if (cleanDigits.length >= 10 && cleanDigits.length <= 14) {
-            return `📱 Pembeli: wa.me/${cleanDigits} (+${cleanDigits})`;
+            return t("adminLog.contactPhoneWithPlus", "id", { digits: cleanDigits });
         }
-        return `📱 Pembeli: wa.me/${cleanDigits}`;
+        return t("adminLog.contactPhone", "id", { digits: cleanDigits });
     }
 
     private formatLogMessage(entry: OrderLogEntry): string {
         const statusBadge = this.formatStatusBadge(entry.status, entry.failureReason);
         const buyerContact = this.formatBuyerContact(entry.platformUserId);
 
-        let out = `📦 *ORDER BARU — ${config.STORE_NAME.toUpperCase()}*\n\n`;
-        out += `🆔 ID: *#${entry.orderId}*\n`;
-        out += `🛍️ Item: *${entry.itemName}*\n`;
-        out += `👤 Gamertag: *${entry.gamertag}*\n`;
-        out += `💰 Total: *Rp ${entry.totalNominal.toLocaleString("id-ID")}*\n`;
+        let out = t("adminLog.newOrderHeader", "id");
+        out += t("adminLog.fieldOrderId", "id", { orderId: entry.orderId });
+        out += t("adminLog.fieldItem", "id", { itemName: entry.itemName });
+        out += t("adminLog.fieldGamertag", "id", { gamertag: entry.gamertag });
+        out += t("adminLog.fieldTotal", "id", { totalFormatted: entry.totalNominal.toLocaleString("id-ID") });
         if (buyerContact) {
             out += `${buyerContact}\n`;
         }
-        out += `📊 Status: *${statusBadge}*`;
+        out += t("adminLog.fieldStatus", "id", { statusBadge });
 
         return out;
     }
@@ -236,15 +235,15 @@ export class AdminGroupLogger {
         // If order was not in memory (e.g. after bot restart), send status update to group
         if (!entry) {
             const statusBadge = this.formatStatusBadge(status, extra?.failureReason);
-            let updateMsg = `🔔 *UPDATE STATUS PESANAN — ${config.STORE_NAME.toUpperCase()}*\n\n`;
-            updateMsg += `🆔 ID: *#${orderId}*\n`;
-            if (extra?.itemName) updateMsg += `🛍️ Item: *${extra.itemName}*\n`;
-            if (extra?.gamertag) updateMsg += `👤 Gamertag: *${extra.gamertag}*\n`;
+            let updateMsg = t("adminLog.updateStatusHeader", "id");
+            updateMsg += t("adminLog.fieldOrderId", "id", { orderId });
+            if (extra?.itemName) updateMsg += t("adminLog.fieldItem", "id", { itemName: extra.itemName });
+            if (extra?.gamertag) updateMsg += t("adminLog.fieldGamertag", "id", { gamertag: extra.gamertag });
             if (extra?.platformUserId) {
                 const cleanPhone = extra.platformUserId.replace(/[^0-9]/g, "");
-                if (cleanPhone) updateMsg += `📱 Pembeli: wa.me/${cleanPhone}\n`;
+                if (cleanPhone) updateMsg += `${t("adminLog.contactPhone", "id", { digits: cleanPhone })}\n`;
             }
-            updateMsg += `📊 Status: *${statusBadge}*`;
+            updateMsg += t("adminLog.fieldStatus", "id", { statusBadge });
 
             try {
                 const sent = await this.sender.sendMessage(this.logGroupJid, updateMsg);
@@ -330,11 +329,11 @@ export class AdminGroupLogger {
         if (this.logGroupJid) targetJids.add(this.logGroupJid);
         if (targetJids.size === 0) return;
 
-        const alertText = (
-            `⚠️ *PERHATIAN ADMIN — RESTOCK TOKEN DIBUTUHKAN!*\n\n` +
-            `Pesanan *#${order.orderId}* (*${order.itemName}* untuk Gamertag *${order.gamertag}*) tertahan karena stok token Gibot kurang.\n\n` +
-            `👉 Silakan restock token The Hive, lalu ketik */reprocess* di grup ini ya kak! 😊`
-        );
+        const alertText = t("adminLog.insufficientTokensAlert", "id", {
+            orderId: order.orderId,
+            itemName: order.itemName,
+            gamertag: order.gamertag
+        });
 
         for (const jid of targetJids) {
             try {
@@ -360,11 +359,11 @@ export class AdminGroupLogger {
         if (this.logGroupJid) targetJids.add(this.logGroupJid);
         if (targetJids.size === 0) return;
 
-        const alertText = (
-            `⚠️ *PERHATIAN ADMIN — PEMBAYARAN MASUK SETELAH KEDALUWARSA!*\n\n` +
-            `Pesanan *#${order.orderId}* (*${order.itemName}* untuk Gamertag *${order.gamertag}*) menerima pembayaran setelah QR kedaluwarsa (notifikasi MacroDroid terlambat).\n\n` +
-            `👉 Silakan ketik */reprocess ${order.orderId}* di grup ini untuk memproses pesanan ke The Hive! 🚀`
-        );
+        const alertText = t("adminLog.delayedPaymentAlert", "id", {
+            orderId: order.orderId,
+            itemName: order.itemName,
+            gamertag: order.gamertag
+        });
 
         for (const jid of targetJids) {
             try {
@@ -388,20 +387,19 @@ export class AdminGroupLogger {
         if (!targetJid) return;
 
         const cleanPhone = info.platformUserId.replace(/[^0-9]/g, "");
-        const reasonText = info.reason || (info.attempts ? `Gamertag tidak ditemukan di The Hive setelah ${info.attempts}x percobaan` : "Pembeli meminta bantuan manual admin");
+        const reasonText = info.reason || (
+            info.attempts
+                ? t("adminLog.supportDefaultReasonAttempts", "id", { attempts: info.attempts })
+                : t("adminLog.supportDefaultReasonManual", "id")
+        );
 
-        let alertText = `🚨 *PERMINTAAN BANTUAN PELANGGAN — SUPPORT TICKET* 🚨\n`;
-        alertText += `@everyone\n\n`;
-        alertText += `Ada pembeli yang memerlukan bantuan manual admin:\n`;
-        if (cleanPhone) alertText += `📱 WhatsApp: wa.me/${cleanPhone} (+${cleanPhone})\n`;
-        if (info.orderId) alertText += `🆔 Order ID: *#${info.orderId}*\n`;
-        if (info.itemName) alertText += `🛍️ Item: *${info.itemName}*\n`;
-        if (info.gamertag) alertText += `🎮 Gamertag: *${info.gamertag}*\n`;
-        alertText += `⚠️ Kendala: *${reasonText}*\n\n`;
-        alertText += `👉 *INSTRUKSI ADMIN:*\n`;
-        alertText += `• Mode *Live Chat* saat ini AKTIF untuk pelanggan ini (perintah otomatis bot dinonaktifkan).\n`;
-        alertText += `• Silakan buka WhatsApp di HP Anda dan balas chat pelanggan secara langsung.\n\n`;
-        alertText += `💡 *Setelah selesai membantu pelanggan, klik tombol di bawah untuk mengaktifkan bot kembali:*`;
+        let alertText = t("adminLog.supportTicketAlert", "id");
+        if (cleanPhone) alertText += t("adminLog.supportFieldWhatsapp", "id", { phone: cleanPhone });
+        if (info.orderId) alertText += t("adminLog.fieldOrderId", "id", { orderId: info.orderId });
+        if (info.itemName) alertText += t("adminLog.fieldItem", "id", { itemName: info.itemName });
+        if (info.gamertag) alertText += t("adminLog.supportFieldGamertag", "id", { gamertag: info.gamertag });
+        alertText += t("adminLog.supportFieldReason", "id", { reason: reasonText });
+        alertText += t("adminLog.supportInstructions", "id");
 
         try {
             let participantJids: string[] = [];

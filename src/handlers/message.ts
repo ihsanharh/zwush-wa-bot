@@ -33,7 +33,7 @@ import {
 } from "../flows/supportFlow";
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import { handleAdminAction } from "./adminActions";
-import { handleAdminVoucherAction, handleAdminVoucherTextInput, showAdminVoucherDetail } from "./adminVouchers";
+import { handleAdminVoucherTextInput } from "./adminVouchers";
 import {
     buildAdminPanelMenu,
     buildAdminPanelQuickReply,
@@ -270,93 +270,7 @@ async function handleIncomingMessageInternal(
         if (isAdminGroup) {
             const isMention = trimmed === "@" || isBotMentioned(trimmed, mentionedJids, ctx.botJid, ctx.botLid);
 
-            // Clean any @bot mentions from command text
-            let cleanCmd = trimmed.trim();
-            if (ctx.botJid) {
-                const phone = extractPhoneNumber(ctx.botJid);
-                if (phone) cleanCmd = cleanCmd.replace(new RegExp(`@${phone}\\b`, "gi"), "");
-            }
-            if (ctx.botLid) {
-                const lid = extractPhoneNumber(ctx.botLid);
-                if (lid) cleanCmd = cleanCmd.replace(new RegExp(`@${lid}\\b`, "gi"), "");
-            }
-            cleanCmd = cleanCmd.replace(/^@\s*/, "").trim().toLowerCase();
-
-            // 1. Direct Voucher Keywords
-            if (
-                cleanCmd === "voucher" ||
-                cleanCmd === "vouchers" ||
-                cleanCmd === "cek voucher" ||
-                cleanCmd === "kelola voucher" ||
-                cleanCmd.startsWith("!voucher") ||
-                cleanCmd.startsWith("/voucher") ||
-                cleanCmd.startsWith("voucher ")
-            ) {
-                const parts = cleanCmd.split(/\s+/);
-                if (parts.length > 1 && parts[1]) {
-                    const handledVoucherDirect = await showAdminVoucherDetail(
-                        remoteJid,
-                        parts[1],
-                        effectiveSender,
-                        true,
-                        userLang,
-                        ctx
-                    );
-                    if (handledVoucherDirect) return;
-                }
-                await handleAdminVoucherAction(remoteJid, "admin_panel_vouchers", effectiveSender, true, userLang, ctx);
-                return;
-            }
-
-            if (cleanCmd === "list voucher" || cleanCmd === "daftar voucher") {
-                await handleAdminVoucherAction(remoteJid, "btn_admin_voucher_list", effectiveSender, true, userLang, ctx);
-                return;
-            }
-
-            if (cleanCmd === "buat voucher" || cleanCmd === "tambah voucher") {
-                await handleAdminVoucherAction(remoteJid, "btn_admin_voucher_create", effectiveSender, true, userLang, ctx);
-                return;
-            }
-
-            // 2. Direct Saldo Keywords (with refresh/sync routes to unified sync)
-            if (cleanCmd === "saldo" || cleanCmd.startsWith("saldo ") || cleanCmd.startsWith("!saldo") || cleanCmd.startsWith("/saldo")) {
-                if (cleanCmd.includes("refresh") || cleanCmd.includes("sync")) {
-                    await handleAdminAction(remoteJid, "admin_panel_sync", effectiveSender, true, userLang, ctx);
-                    return;
-                }
-                await handleAdminAction(remoteJid, "admin_panel_balance", effectiveSender, true, userLang, ctx);
-                return;
-            }
-
-            // 3. Direct Orders Keywords
-            if (cleanCmd === "pesanan" || cleanCmd === "orders" || cleanCmd.startsWith("!pesanan") || cleanCmd.startsWith("/orders")) {
-                await handleAdminAction(remoteJid, "admin_panel_orders", effectiveSender, true, userLang, ctx);
-                return;
-            }
-
-            // 4. Direct Maintenance Keywords
-            if (cleanCmd === "maintenance" || cleanCmd.startsWith("!maintenance") || cleanCmd.startsWith("/maintenance")) {
-                await handleAdminAction(remoteJid, "admin_panel_maintenance", effectiveSender, true, userLang, ctx);
-                return;
-            }
-
-            // 5. Direct Balance & Catalog Sync Keywords
-            if (
-                cleanCmd === "sync" ||
-                cleanCmd === "sync saldo" ||
-                cleanCmd === "refresh saldo" ||
-                cleanCmd === "sync katalog" ||
-                cleanCmd === "sync catalog" ||
-                cleanCmd === "refresh katalog" ||
-                cleanCmd === "refresh poster" ||
-                cleanCmd.startsWith("!sync") ||
-                cleanCmd.startsWith("/sync")
-            ) {
-                await handleAdminAction(remoteJid, "admin_panel_sync", effectiveSender, true, userLang, ctx);
-                return;
-            }
-
-            // 6. Truly mentioned (@<botPhone>, @<botLid>, or mentionedJid) -> Reply with Admin Panel
+            // Truly mentioned (@<botPhone>, @<botLid>, or mentionedJid) -> Reply with Admin Panel
             if (isMention) {
                 const isMaint = ctx.state.isMaintenanceMode ? ctx.state.isMaintenanceMode() : false;
                 try {
