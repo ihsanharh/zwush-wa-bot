@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { ConsoleLogger, createStore, WaClient } from "zapo-js";
+import { ConsoleLogger, createStore, WaClient, downloadMediaMessage } from "zapo-js";
 import { createSqliteStore } from "@zapo-js/store-sqlite";
 import qrcodeTerminal from "qrcode-terminal";
 import { config } from "./config";
 import { CoreClient } from "./coreClient";
 import { StateManager } from "./state";
 import type { Language } from "./i18n";
+import type { IncomingImageAttachment } from "./types";
 import { createWebhookApp, type BotMessageSender } from "./handlers/webhook";
 import { handleIncomingMessage, type BotContext } from "./handlers/message";
 import {
@@ -15,6 +16,7 @@ import {
     extractEventTimestampSeconds,
     isEventStale,
     extractMentionedJids,
+    extractIncomingImageInfo,
     isPrivateChat
 } from "./utils/messageUtils";
 import { buildAdminPanelQuickReply } from "./utils/interactiveBuilders";
@@ -181,12 +183,16 @@ const botContext: BotContext = {
         }
         return await client.message.send(jid, payload);
     },
-    async sendButtons(jid: string, payload: { interactiveMessage?: any; buttonsMessage?: any; headerImage?: Buffer }) {
+    async sendButtons(
+        jid: string,
+        payload: { interactiveMessage?: any; buttonsMessage?: any; headerImage?: Buffer; headerImageMimetype?: string }
+    ) {
         if (payload.headerImage && payload.interactiveMessage && !payload.interactiveMessage.header) {
             try {
+                const mime = payload.headerImageMimetype || "image/png";
                 const uploaded = await client.message.upload(payload.headerImage, {
                     type: "image",
-                    mimetype: "image/png"
+                    mimetype: mime
                 });
                 payload.interactiveMessage.header = {
                     hasMediaAttachment: true,
@@ -197,7 +203,7 @@ const botContext: BotContext = {
                         fileSha256: uploaded.fileSha256,
                         fileEncSha256: uploaded.fileEncSha256,
                         fileLength: uploaded.fileLength,
-                        mimetype: "image/png"
+                        mimetype: mime
                     }
                 };
             } catch (err) {
@@ -420,9 +426,27 @@ client.on("message", async (event) => {
         const tsSec = extractEventTimestampSeconds(event) ?? undefined;
         const quotedId = extractQuotedMessageId(event.message);
         const mentionedJids = extractMentionedJids(event.message);
-        console.log(`[WhatsApp Message Event] from: ${remoteJid}, participant: ${participant}, fromMe: ${fromMe}, text: "${text}"${quotedId ? `, quotedId: ${quotedId}` : ""}`);
+        const imgInfo = extractIncomingImageInfo(event.message);
+        const incomingImage: IncomingImageAttachment | undefined = imgInfo
+            ? {
+                  mimetype: imgInfo.mimetype,
+                  caption: imgInfo.caption,
+                  download: async () => {
+                      const stream = await downloadMediaMessage(event, {
+                          timeoutMs: 20000,
+                          maxBytes: 5 * 1024 * 1024
+                      });
+                      const chunks: Buffer[] = [];
+                      for await (const chunk of stream) {
+                          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+                      }
+                      return Buffer.concat(chunks);
+                  }
+              }
+            : undefined;
+        console.log(`[WhatsApp Message Event] from: ${remoteJid}, participant: ${participant}, fromMe: ${fromMe}, text: "${text}"${quotedId ? `, quotedId: ${quotedId}` : ""}${incomingImage ? `, image: ${incomingImage.mimetype}` : ""}`);
 
-        await handleIncomingMessage(remoteJid, fromMe, text, botContext, participant, tsSec, quotedId, mentionedJids);
+        await handleIncomingMessage(remoteJid, fromMe, text, botContext, participant, tsSec, quotedId, mentionedJids, incomingImage);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[Message Event Error]:", msg);

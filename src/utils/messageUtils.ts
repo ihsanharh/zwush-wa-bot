@@ -306,6 +306,46 @@ export function isUserAdmin(
     return false;
 }
 
+const ALLOWED_DOC_IMAGE_MIMETYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/**
+ * Extracts image attachment metadata and caption from imageMessage or image documentMessage.
+ */
+export function extractIncomingImageInfo(message: unknown): { mimetype: string; caption: string } | undefined {
+    if (!message || typeof message !== "object") return undefined;
+
+    const msgObj = message as Record<string, unknown>;
+    const innerMsg =
+        (msgObj.ephemeralMessage as Record<string, unknown> | undefined)?.message ??
+        (msgObj.viewOnceMessage as Record<string, unknown> | undefined)?.message ??
+        (msgObj.viewOnceMessageV2 as Record<string, unknown> | undefined)?.message ??
+        (msgObj.documentWithCaptionMessage as Record<string, unknown> | undefined)?.message ??
+        msgObj;
+
+    if (!innerMsg || typeof innerMsg !== "object") return undefined;
+    const innerObj = innerMsg as Record<string, unknown>;
+
+    const image = innerObj.imageMessage as Record<string, unknown> | undefined;
+    if (image && typeof image === "object") {
+        const rawMime = typeof image.mimetype === "string" ? image.mimetype.split(";")[0]?.trim().toLowerCase() : "";
+        const mimetype = rawMime === "image/jpg" ? "image/jpeg" : rawMime || "image/jpeg";
+        const caption = typeof image.caption === "string" ? image.caption : "";
+        return { mimetype, caption };
+    }
+
+    const doc = innerObj.documentMessage as Record<string, unknown> | undefined;
+    if (doc && typeof doc === "object") {
+        const rawMime = typeof doc.mimetype === "string" ? doc.mimetype.split(";")[0]?.trim().toLowerCase() : "";
+        const normalizedMime = rawMime === "image/jpg" ? "image/jpeg" : rawMime;
+        if (normalizedMime && ALLOWED_DOC_IMAGE_MIMETYPES.has(normalizedMime)) {
+            const caption = typeof doc.caption === "string" ? doc.caption : "";
+            return { mimetype: normalizedMime, caption };
+        }
+    }
+
+    return undefined;
+}
+
 
 const userMessageQueues = new Map<string, Promise<void>>();
 

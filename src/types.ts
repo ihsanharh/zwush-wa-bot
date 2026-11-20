@@ -216,4 +216,38 @@ export interface UserProfileResponse {
     message?: string;
 }
 
+export interface FeaturedBundleConfig {
+    configured: boolean;
+    enabled: boolean;
+    available: boolean;
+    unavailableReason?: "ITEM_NOT_FOUND" | "ITEM_INACTIVE" | "IMAGE_MISSING" | null;
+    itemName: string | null;
+    customMessage: string | null;
+    hasImage: boolean;
+    imageMimetype: string | null;
+    updatedAt: string | null;
+    item: CatalogItem | null;
+}
+
+export interface FeaturedBundleResponse {
+    success: boolean;
+    currency?: string;
+    featured: FeaturedBundleConfig;
+    message?: string;
+}
+
+export interface SaveFeaturedBundleInput {
+    itemName: string;
+    customMessage: string;
+    enabled: boolean;
+    imageBase64?: string;
+    imageMimetype?: "image/jpeg" | "image/png" | "image/webp";
+}
+
+export interface IncomingImageAttachment {
+    mimetype: string;
+    caption: string;
+    download: () => Promise<Buffer>;
+}
+
 

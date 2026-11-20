@@ -67,6 +67,83 @@ async function sendItemSelectionAndGamertagPrompt(
     }
 }
 
+async function selectItemForCheckout(
+    remoteJid: string,
+    selected: CatalogItem,
+    catalog: CatalogItem[],
+    session: ReturnType<BotContext["state"]["getSession"]>,
+    userLang: Language,
+    userCurrency: string,
+    ctx: BotContext
+): Promise<void> {
+    ctx.state.setItem(remoteJid, selected);
+    if (selected.category) {
+        session.selectedCategory = selected.category;
+        const catItems = catalog.filter((i) => i.active && i.category === selected.category);
+        const idx = catItems.findIndex((i) => i.id === selected.id || i.name === selected.name);
+        if (idx >= 0) {
+            ctx.state.setCatalogPage(remoteJid, Math.floor(idx / 8) + 1);
+        }
+    }
+
+    // Auto-revalidate applied voucher if user changed item
+    if (session.appliedVoucherCode) {
+        try {
+            const res = await ctx.client.validateVoucher(session.appliedVoucherCode, selected.name);
+            ctx.state.setAppliedVoucher(remoteJid, {
+                code: res.code,
+                discountNominal: res.discountNominal,
+                finalPrice: res.finalPrice
+            });
+        } catch {
+            ctx.state.clearAppliedVoucher(remoteJid);
+        }
+    }
+
+    // Auto-fill default gamertag if session doesn't have one
+    if (!session.gamertag && ctx.state.getDefaultGamertag) {
+        const defaultGt = ctx.state.getDefaultGamertag(remoteJid);
+        if (defaultGt) {
+            session.gamertag = defaultGt;
+        }
+    }
+
+    // If user already entered gamertag previously, skip gamertag prompt and go directly to confirmation
+    if (session.gamertag) {
+        session.step = "AWAITING_CONFIRMATION";
+        const appliedVoucher = session.appliedVoucher;
+        let voucherLine = "";
+        if (appliedVoucher) {
+            voucherLine = t("buying.invoiceVoucherLine", userLang, {
+                code: appliedVoucher.code,
+                formattedDiscount: formatRupiah(appliedVoucher.discountNominal)
+            });
+        }
+
+        const displayPrice = selected.displayPrice ?? (appliedVoucher ? appliedVoucher.finalPrice : selected.rupiahPrice);
+        const summaryText = t("buying.confirmPrompt", userLang, {
+            itemName: selected.name,
+            gamertag: session.gamertag,
+            formattedPrice: formatCurrency(displayPrice, userCurrency),
+            voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
+        });
+
+        if (ctx.sendButtons) {
+            const sent = await ctx.sendButtons(
+                remoteJid,
+                buildOrderConfirmationButtons(summaryText, Boolean(appliedVoucher), userLang)
+            );
+            const msgId = sent?.key?.id || sent?.id;
+            if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
+        } else {
+            await ctx.sendText(remoteJid, summaryText);
+        }
+        return;
+    }
+
+    await sendItemSelectionAndGamertagPrompt(remoteJid, selected, userLang, ctx);
+}
+
 export async function handleBuyingFlow(
     remoteJid: string,
     fromMe: boolean,
@@ -141,6 +218,34 @@ export async function handleBuyingFlow(
             return true;
         }
 
+        if (trimmed.startsWith("btn_featured_buy_")) {
+            const targetId = trimmed.replace(/^btn_featured_buy_/, "").trim();
+            const catalog = await ctx.client.getCatalog(userCurrency);
+            const selected = catalog.find(
+                (i) =>
+                    i.active &&
+                    (String(i.id) === targetId ||
+                        i.name.toLowerCase() === targetId.toLowerCase() ||
+                        (i.sku && i.sku.toLowerCase() === targetId.toLowerCase()))
+            );
+
+            if (!selected) {
+                const unavailableMsg = t("featured.itemUnavailable", userLang);
+                const payload = buildQuickReplyPayload(unavailableMsg, [
+                    { id: "btn_start_buying", text: t("buttons.browseCatalog", userLang) }
+                ]);
+                if (ctx.sendButtons) {
+                    await ctx.sendButtons(remoteJid, payload);
+                } else {
+                    await ctx.sendText(remoteJid, unavailableMsg);
+                }
+                return true;
+            }
+
+            await selectItemForCheckout(remoteJid, selected, catalog, session, userLang, userCurrency, ctx);
+            return true;
+        }
+
         if (trimmed.startsWith("item_")) {
             const itemId = trimmed.replace(/^item_/, "");
             const catalog = await ctx.client.getCatalog(userCurrency);
@@ -164,72 +269,7 @@ export async function handleBuyingFlow(
                 );
 
             if (selected) {
-                ctx.state.setItem(remoteJid, selected);
-                if (selected.category) {
-                    session.selectedCategory = selected.category;
-                    const catItems = catalog.filter((i) => i.active && i.category === selected.category);
-                    const idx = catItems.findIndex((i) => i.id === selected.id || i.name === selected.name);
-                    if (idx >= 0) {
-                        ctx.state.setCatalogPage(remoteJid, Math.floor(idx / 8) + 1);
-                    }
-                }
-
-                // Auto-revalidate applied voucher if user changed item
-                if (session.appliedVoucherCode) {
-                    try {
-                        const res = await ctx.client.validateVoucher(session.appliedVoucherCode, selected.name);
-                        ctx.state.setAppliedVoucher(remoteJid, {
-                            code: res.code,
-                            discountNominal: res.discountNominal,
-                            finalPrice: res.finalPrice
-                        });
-                    } catch {
-                        ctx.state.clearAppliedVoucher(remoteJid);
-                    }
-                }
-
-                // Auto-fill default gamertag if session doesn't have one
-                if (!session.gamertag && ctx.state.getDefaultGamertag) {
-                    const defaultGt = ctx.state.getDefaultGamertag(remoteJid);
-                    if (defaultGt) {
-                        session.gamertag = defaultGt;
-                    }
-                }
-
-                // If user already entered gamertag previously, skip gamertag prompt and go directly to confirmation
-                if (session.gamertag) {
-                    session.step = "AWAITING_CONFIRMATION";
-                    const appliedVoucher = session.appliedVoucher;
-                    let voucherLine = "";
-                    if (appliedVoucher) {
-                        voucherLine = t("buying.invoiceVoucherLine", userLang, {
-                            code: appliedVoucher.code,
-                            formattedDiscount: formatRupiah(appliedVoucher.discountNominal)
-                        });
-                    }
-
-                    const displayPrice = selected.displayPrice ?? (appliedVoucher ? appliedVoucher.finalPrice : selected.rupiahPrice);
-                    const summaryText = t("buying.confirmPrompt", userLang, {
-                        itemName: selected.name,
-                        gamertag: session.gamertag,
-                        formattedPrice: formatCurrency(displayPrice, userCurrency),
-                        voucherLine: appliedVoucher ? `\n${voucherLine}` : ""
-                    });
-
-                    if (ctx.sendButtons) {
-                        const sent = await ctx.sendButtons(
-                            remoteJid,
-                            buildOrderConfirmationButtons(summaryText, Boolean(appliedVoucher), userLang)
-                        );
-                        const msgId = sent?.key?.id || sent?.id;
-                        if (msgId) ctx.state.setPromptMessageId(remoteJid, String(msgId));
-                    } else {
-                        await ctx.sendText(remoteJid, summaryText);
-                    }
-                    return true;
-                }
-
-                await sendItemSelectionAndGamertagPrompt(remoteJid, selected, userLang, ctx);
+                await selectItemForCheckout(remoteJid, selected, catalog, session, userLang, userCurrency, ctx);
                 return true;
             }
             return true;

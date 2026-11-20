@@ -16,16 +16,29 @@ import type {
     UserProfileResponse,
     AccountsListResponse,
     AccountLoginStartResponse,
-    GiftAccountItem
+    GiftAccountItem,
+    FeaturedBundleConfig,
+    FeaturedBundleResponse,
+    SaveFeaturedBundleInput
 } from "./types";
 import type { Language } from "./i18n";
 import { config } from "./config";
 
 export class CoreClient {
     private readonly baseUrl: string;
+    private featuredCache = new Map<string, { data: FeaturedBundleConfig; expiresAt: number }>();
+    private featuredImageCache: { updatedAt: string; buffer: Buffer; mimetype: string } | null = null;
 
     constructor(baseUrl: string) {
         this.baseUrl = baseUrl.replace(/\/$/, "");
+    }
+
+    /**
+     * Clears cached featured bundle config and image bytes.
+     */
+    invalidateFeaturedCache(): void {
+        this.featuredCache.clear();
+        this.featuredImageCache = null;
     }
 
     /**
@@ -365,6 +378,7 @@ export class CoreClient {
         if (!res.ok || !data.success || typeof data.discountPercent !== "number") {
             throw new Error(data.message || `Failed to update global store discount (${res.status})`);
         }
+        this.invalidateFeaturedCache();
         return data.discountPercent;
     }
 
@@ -554,6 +568,105 @@ export class CoreClient {
             throw new Error(data.message || `Failed to refresh accounts (${res.status})`);
         }
         return data;
+    }
+
+    /**
+     * Fetches the featured bundle configuration and live regional pricing for a currency.
+     */
+    async getFeaturedBundle(currency = "IDR", bypassCache = false): Promise<FeaturedBundleConfig> {
+        const cur = (currency || "IDR").toUpperCase();
+        const now = Date.now();
+        if (!bypassCache) {
+            const cached = this.featuredCache.get(cur);
+            if (cached && cached.expiresAt > now) {
+                return cached.data;
+            }
+        }
+
+        const res = await fetch(`${this.baseUrl}/api/featured?currency=${encodeURIComponent(cur)}`, {
+            signal: AbortSignal.timeout(5000),
+        });
+        const data = (await res.json()) as FeaturedBundleResponse;
+        if (!res.ok || !data.success || !data.featured) {
+            throw new Error(data.message || `Failed to fetch featured bundle (${res.status})`);
+        }
+        this.featuredCache.set(cur, { data: data.featured, expiresAt: now + 5000 });
+        return data.featured;
+    }
+
+    /**
+     * Fetches the stored featured bundle promo image, caching by updatedAt timestamp.
+     */
+    async getFeaturedBundleImage(
+        updatedAt?: string | null
+    ): Promise<{ buffer: Buffer; mimetype: string } | null> {
+        if (updatedAt && this.featuredImageCache && this.featuredImageCache.updatedAt === updatedAt) {
+            return {
+                buffer: this.featuredImageCache.buffer,
+                mimetype: this.featuredImageCache.mimetype,
+            };
+        }
+
+        const res = await fetch(`${this.baseUrl}/api/featured/image`, {
+            signal: AbortSignal.timeout(10000),
+        });
+        if (res.status === 404) {
+            return null;
+        }
+        if (!res.ok) {
+            throw new Error(`Failed to fetch featured bundle image (${res.status})`);
+        }
+
+        const arrayBuf = await res.arrayBuffer();
+        const buffer = Buffer.from(arrayBuf);
+        const mimetype = res.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
+
+        if (updatedAt) {
+            this.featuredImageCache = { updatedAt, buffer, mimetype };
+        }
+        return { buffer, mimetype };
+    }
+
+    /**
+     * Creates or updates the featured bundle configuration and optional image.
+     */
+    async saveFeaturedBundle(payload: SaveFeaturedBundleInput): Promise<FeaturedBundleConfig> {
+        const res = await fetch(`${this.baseUrl}/api/featured`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Webhook-Secret": config.WEBHOOK_SECRET,
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(20000),
+        });
+        const data = (await res.json()) as FeaturedBundleResponse;
+        if (!res.ok || !data.success || !data.featured) {
+            throw new Error(data.message || `Failed to save featured bundle (${res.status})`);
+        }
+        this.invalidateFeaturedCache();
+        return data.featured;
+    }
+
+    /**
+     * Enables or disables the featured bundle promo without re-uploading assets.
+     */
+    async toggleFeaturedBundle(enabled: boolean): Promise<FeaturedBundleConfig> {
+        const res = await fetch(`${this.baseUrl}/api/featured/toggle`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Webhook-Secret": config.WEBHOOK_SECRET,
+            },
+            body: JSON.stringify({ enabled }),
+            signal: AbortSignal.timeout(15000),
+        });
+        const data = (await res.json()) as FeaturedBundleResponse;
+        if (!res.ok || !data.success || !data.featured) {
+            throw new Error(data.message || `Failed to toggle featured bundle (${res.status})`);
+        }
+        this.invalidateFeaturedCache();
+        return data.featured;
     }
 }
 

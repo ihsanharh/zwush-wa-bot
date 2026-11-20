@@ -14,6 +14,7 @@ import {
     buildUserOrderFailureButtons
 } from "../utils/interactiveBuilders";
 import { handleAdminVoucherAction } from "./adminVouchers";
+import { handleAdminFeaturedAction } from "./adminFeatured";
 
 async function getOrderDetails(ctx: BotContext, orderId: string) {
     let buyerJid = "";
@@ -79,7 +80,7 @@ export async function handleAdminAction(
     const cleanSenderPhone = extractPhoneNumber(effectiveSender);
     const senderTag = cleanSenderPhone ? `@${cleanSenderPhone}` : "Admin";
 
-    // Clear any active voucher wizard state if navigating away to other admin actions
+    // Clear any active voucher or featured wizard state if navigating away to other admin actions
     if (
         ctx.state.clearAdminVoucher &&
         !actionId.startsWith("btn_admin_voucher_") &&
@@ -87,6 +88,13 @@ export async function handleAdminAction(
         actionId !== "admin_panel_discount"
     ) {
         ctx.state.clearAdminVoucher(effectiveSender);
+    }
+    if (
+        ctx.state.clearAdminFeatured &&
+        actionId !== "admin_panel_featured" &&
+        !actionId.startsWith("btn_admin_featured_")
+    ) {
+        ctx.state.clearAdminFeatured(effectiveSender);
     }
 
     // 0. Admin Panel Main Drawer / Fallback
@@ -109,13 +117,13 @@ export async function handleAdminAction(
         return true;
     }
 
-    // 0.05 Admin Panel: More Controls (Sync, Orders & Maintenance)
+    // 0.05 Admin Panel: More Controls (Page 1/2: Featured, Sync & Page 2)
     if (actionId === "admin_panel_more") {
         const text = t("admin.moreMenuPrompt", _userLang);
         const buttons = [
+            { id: "admin_panel_featured", text: t("interactive.adminBtnFeatured", _userLang) },
             { id: "admin_panel_sync", text: t("interactive.adminBtnSync", _userLang) },
-            { id: "admin_panel_orders", text: t("interactive.adminBtnOrders", _userLang) },
-            { id: "admin_panel_maintenance", text: t("interactive.adminBtnMaintenance", _userLang) }
+            { id: "admin_panel_more_2", text: t("interactive.adminBtnMoreControls2", _userLang) }
         ];
         const payload = buildQuickReplyPayload(text, buttons);
         if (ctx.sendButtons) {
@@ -124,6 +132,28 @@ export async function handleAdminAction(
             await ctx.sendText(remoteJid, text, mentions);
         }
         return true;
+    }
+
+    // 0.06 Admin Panel: More Controls (Page 2/2: Orders, Maintenance & Main Panel)
+    if (actionId === "admin_panel_more_2") {
+        const text = t("admin.moreMenu2Prompt", _userLang);
+        const buttons = [
+            { id: "admin_panel_orders", text: t("interactive.adminBtnOrders", _userLang) },
+            { id: "admin_panel_maintenance", text: t("interactive.adminBtnMaintenance", _userLang) },
+            { id: "btn_admin_panel", text: t("buttons.adminPanel", _userLang) }
+        ];
+        const payload = buildQuickReplyPayload(text, buttons);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, payload);
+        } else {
+            await ctx.sendText(remoteJid, text, mentions);
+        }
+        return true;
+    }
+
+    // 0.07 Admin Panel: Featured Bundle Management & Setup Wizard
+    if (actionId === "admin_panel_featured" || actionId.startsWith("btn_admin_featured_")) {
+        return await handleAdminFeaturedAction(remoteJid, actionId, effectiveSender, isGroup, _userLang, ctx);
     }
 
     // 0.1 Admin Panel: Balance Summary (cached; live refresh uses unified sync below)

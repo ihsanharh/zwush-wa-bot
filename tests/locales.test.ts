@@ -17,7 +17,8 @@ describe("Locale keys validation", () => {
             "nextPage",
             "nextPageShort",
             "prevPage",
-            "changeItem"
+            "changeItem",
+            "featuredBuyNow"
         ];
 
         for (const key of requiredButtons) {

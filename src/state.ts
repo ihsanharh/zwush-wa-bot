@@ -23,6 +23,10 @@ export type StepStatus =
     | "ADMIN_AWAITING_VOUCHER_EDIT_DISCOUNT"
     | "ADMIN_AWAITING_VOUCHER_EDIT_MAX_USES"
     | "ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT"
+    | "ADMIN_AWAITING_FEATURED_IMAGE"
+    | "ADMIN_AWAITING_FEATURED_MESSAGE"
+    | "ADMIN_AWAITING_FEATURED_ITEM"
+    | "ADMIN_AWAITING_FEATURED_CONFIRM"
     | "AWAITING_DEFAULT_GAMERTAG";
 
 export interface AppliedVoucherInfo {
@@ -37,6 +41,21 @@ export interface AdminVoucherDraft {
     discountValue?: number;
     maxUses?: number | null;
     targetCode?: string;
+}
+
+export interface AdminFeaturedDraft {
+    imageBase64?: string;
+    imageMimetype?: "image/jpeg" | "image/png" | "image/webp";
+    keepExistingImage?: boolean;
+    existingImageBuffer?: Buffer;
+    existingImageMimetype?: string;
+    customMessage?: string;
+    existingMessage?: string;
+    itemName?: string;
+    itemId?: string;
+    existingItemName?: string;
+    candidateItems?: Array<{ id: string; name: string }>;
+    isEditing?: boolean;
 }
 
 export interface RetryOrderInfo {
@@ -838,6 +857,58 @@ export class StateManager {
             current.adminVoucherDraft = undefined;
             current.lastUpdated = Date.now();
         }
+    }
+
+    private adminFeaturedSessions = new Map<string, { step: StepStatus; draft: AdminFeaturedDraft; lastUpdated: number }>();
+
+    /**
+     * Updates admin featured bundle wizard step and merges draft properties in isolated admin storage.
+     */
+    setAdminFeaturedStep(jid: string, step: StepStatus, draft?: Partial<AdminFeaturedDraft>): void {
+        const existing = this.adminFeaturedSessions.get(jid);
+        const nextDraft: AdminFeaturedDraft = {
+            ...(existing?.draft || {}),
+            ...(draft || {})
+        };
+        this.adminFeaturedSessions.set(jid, {
+            step,
+            draft: nextDraft,
+            lastUpdated: Date.now()
+        });
+    }
+
+    /**
+     * Gets the active admin featured wizard step (5-minute TTL).
+     */
+    getAdminFeaturedStep(jid: string): StepStatus | undefined {
+        const adminSession = this.adminFeaturedSessions.get(jid);
+        if (adminSession) {
+            if (Date.now() - adminSession.lastUpdated > 300000) {
+                this.adminFeaturedSessions.delete(jid);
+                return undefined;
+            }
+            return adminSession.step;
+        }
+        return undefined;
+    }
+
+    /**
+     * Gets the active admin featured bundle draft if any.
+     */
+    getAdminFeaturedDraft(jid: string): AdminFeaturedDraft | undefined {
+        const adminSession = this.adminFeaturedSessions.get(jid);
+        if (adminSession && Date.now() - adminSession.lastUpdated > 300000) {
+            this.adminFeaturedSessions.delete(jid);
+            return undefined;
+        }
+        return adminSession?.draft;
+    }
+
+    /**
+     * Clears admin featured bundle wizard step and resets draft state.
+     */
+    clearAdminFeatured(jid: string): void {
+        this.adminFeaturedSessions.delete(jid);
     }
 }
 

@@ -2,7 +2,7 @@ import { proto } from "zapo-js";
 import { formatRupiah, formatCurrency, formatStatusBadge, t, SUPPORTED_CURRENCIES, type Language } from "../i18n";
 import { config } from "../config";
 import type { CategoryDefinition } from "./categories";
-import type { CatalogItem, OrderInfo, PaginationInfo, VoucherItem } from "../types";
+import type { CatalogItem, FeaturedBundleConfig, OrderInfo, PaginationInfo, VoucherItem } from "../types";
 
 /**
  * Generic helper to construct interactive native flow quick reply messages.
@@ -478,6 +478,11 @@ export function buildAdminPanelMenu(
                             rowId: "admin_panel_discount",
                             title: t("interactive.adminBtnGlobalDiscount", lang),
                             description: t("interactive.adminDescGlobalDiscount", lang)
+                        },
+                        {
+                            rowId: "admin_panel_featured",
+                            title: t("interactive.adminBtnFeatured", lang),
+                            description: t("interactive.adminDescFeatured", lang)
                         }
                     ]
                 }
@@ -974,5 +979,116 @@ export function buildAdminVoucherDeleteConfirm(
     return buildQuickReplyPayload(text, buttons);
 }
 
+/**
+ * Builds the buyer-facing (or admin preview) Featured Bundle interactive card.
+ */
+export function buildFeaturedBundleCard(
+    featured: FeaturedBundleConfig,
+    lang: Language = "id",
+    currency: string = "IDR",
+    headerImage?: Buffer,
+    headerImageMimetype?: string,
+    options?: { isPreview?: boolean }
+): {
+    interactiveMessage: any;
+    text: string;
+    buttons: Array<{ id: string; text: string }>;
+    headerImage?: Buffer;
+    headerImageMimetype?: string;
+} {
+    const item = featured.item;
+    if (!item) {
+        throw new Error("Cannot build featured bundle card without item details");
+    }
+
+    const cur = (currency || item.currency || "IDR").toUpperCase();
+    const displayPrice = item.displayPrice ?? item.rupiahPrice;
+    const originalPrice = item.originalPrice;
+    const discountPercent = item.discountPercent ?? 0;
+
+    const priceLine =
+        discountPercent > 0 && originalPrice > displayPrice
+            ? t("featured.priceLineWithDiscount", lang, {
+                  itemName: item.name,
+                  price: formatCurrency(displayPrice, cur),
+                  originalPrice: formatCurrency(originalPrice, cur),
+                  discountPercent
+              })
+            : t("featured.priceLineNoDiscount", lang, {
+                  itemName: item.name,
+                  price: formatCurrency(displayPrice, cur)
+              });
+
+    const customMessage = (featured.customMessage || "").trim();
+    const text = customMessage ? `${customMessage}\n\n${priceLine}` : priceLine;
+
+    const buttons = [
+        {
+            id: options?.isPreview ? "btn_admin_featured_noop" : `btn_featured_buy_${item.id}`,
+            text: t("buttons.featuredBuyNow", lang)
+        }
+    ];
+
+    const payload = buildQuickReplyPayload(text, buttons, {
+        footer: t("interactive.footerFeatured", lang)
+    });
+
+    return {
+        ...payload,
+        headerImage,
+        headerImageMimetype
+    };
+}
+
+/**
+ * Builds Admin Featured Bundle Overview Card (Setup / Enable-Disable / Edit / Preview).
+ */
+export function buildAdminFeaturedOverviewCard(
+    featured: FeaturedBundleConfig,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    if (!featured.configured) {
+        const text = t("adminFeatured.overviewNotConfigured", lang);
+        const buttons = [
+            { id: "btn_admin_featured_setup", text: t("adminFeatured.btnSetup", lang) },
+            { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
+        ];
+        return buildQuickReplyPayload(text, buttons);
+    }
+
+    const statusText = featured.enabled
+        ? t("adminFeatured.statusOn", lang)
+        : t("adminFeatured.statusOff", lang);
+
+    let warningLine = "";
+    if (featured.unavailableReason === "IMAGE_MISSING") {
+        warningLine = t("adminFeatured.statusImageMissingWarning", lang);
+    } else if (!featured.available) {
+        warningLine = t("adminFeatured.statusItemUnavailableWarning", lang);
+    }
+
+    const priceSuffix = featured.item ? ` (${formatRupiah(featured.item.rupiahPrice)})` : "";
+    const rawMsg = (featured.customMessage || "").trim().replace(/\s+/g, " ");
+    const messagePreview = rawMsg.length > 120 ? `${rawMsg.slice(0, 117)}...` : rawMsg;
+
+    const text = t("adminFeatured.overviewConfigured", lang, {
+        statusText,
+        warningLine,
+        itemName: featured.itemName || "-",
+        priceSuffix,
+        messagePreview: messagePreview || "-"
+    });
+
+    const buttons = [
+        {
+            id: featured.enabled ? "btn_admin_featured_toggle_off" : "btn_admin_featured_toggle_on",
+            text: featured.enabled ? t("adminFeatured.btnDisable", lang) : t("adminFeatured.btnEnable", lang)
+        },
+        { id: "btn_admin_featured_setup", text: t("adminFeatured.btnEdit", lang) },
+        { id: "btn_admin_featured_preview", text: t("adminFeatured.btnPreview", lang) }
+    ];
+
+    return buildQuickReplyPayload(text, buttons);
+}
 
 

@@ -34,10 +34,13 @@ import {
 import { handleBuyingFlow } from "../flows/buyingFlow";
 import { handleAdminAction } from "./adminActions";
 import { handleAdminVoucherTextInput } from "./adminVouchers";
+import { handleAdminFeaturedInput } from "./adminFeatured";
+import type { IncomingImageAttachment } from "../types";
 import {
     buildAdminPanelMenu,
     buildAdminPanelQuickReply,
     buildCategoryListMenu,
+    buildFeaturedBundleCard,
     buildOrderCancelledButtons,
     buildOrderHistoryButtons,
     buildSettingsListMenu,
@@ -104,7 +107,8 @@ export async function handleIncomingMessage(
     participant?: string,
     timestampSeconds?: number,
     quotedMessageId?: string,
-    mentionedJidsList?: string[]
+    mentionedJidsList?: string[],
+    incomingImage?: IncomingImageAttachment
 ): Promise<void> {
     let remoteJid: string | undefined;
     let fromMe = false;
@@ -139,14 +143,23 @@ export async function handleIncomingMessage(
     }
 
     if (!remoteJid || !context) return;
-    if (!text || !text.trim()) return;
+    if ((!text || !text.trim()) && !incomingImage) return;
 
     const userKey = remoteJid.endsWith("@g.us")
         ? `${remoteJid}:${part || remoteJid}`
         : remoteJid;
 
     await executeUserSequential(userKey, () =>
-        handleIncomingMessageInternal(remoteJid!, fromMe, text, context, part, quotedId, mentionedJids)
+        handleIncomingMessageInternal(
+            remoteJid!,
+            fromMe,
+            text,
+            context,
+            part,
+            quotedId,
+            mentionedJids,
+            incomingImage
+        )
     );
 }
 
@@ -157,7 +170,8 @@ async function handleIncomingMessageInternal(
     ctx: BotContext,
     participant?: string,
     quotedMessageId?: string,
-    mentionedJids: string[] = []
+    mentionedJids: string[] = [],
+    incomingImage?: IncomingImageAttachment
 ): Promise<void> {
     const isGroup = remoteJid.endsWith("@g.us");
     if (!isPrivateChat(remoteJid) && !isGroup) {
@@ -165,7 +179,7 @@ async function handleIncomingMessageInternal(
     }
 
     const trimmed = bodyText.trim();
-    if (!trimmed) return;
+    if (!trimmed && !incomingImage) return;
     const lower = trimmed.toLowerCase();
 
     // Determine sender identity and language preference
@@ -189,6 +203,14 @@ async function handleIncomingMessageInternal(
     // If message comes from Admin Group, register the participant as an authorized admin for private chat
     if (isGroup && ctx.adminLogger && remoteJid === ctx.adminLogger.getAdminGroupJid() && participant) {
         ctx.adminLogger.addAdminUser(participant);
+    }
+
+    // Drop captionless images unless sender is an admin actively uploading a featured bundle image
+    if (!trimmed && incomingImage) {
+        const featStep = isAdmin ? ctx.state.getAdminFeaturedStep?.(effectiveSender) : undefined;
+        if (featStep !== "ADMIN_AWAITING_FEATURED_IMAGE") {
+            return;
+        }
     }
 
     // Maintenance Mode enforcement:
@@ -257,6 +279,20 @@ async function handleIncomingMessageInternal(
                     ctx
                 );
                 if (handledVoucherInput) return;
+            }
+
+            const featuredStep = ctx.state.getAdminFeaturedStep?.(effectiveSender);
+            if (featuredStep && featuredStep.startsWith("ADMIN_AWAITING_FEATURED_")) {
+                const handledFeaturedInput = await handleAdminFeaturedInput(
+                    remoteJid,
+                    trimmed,
+                    effectiveSender,
+                    true,
+                    userLang,
+                    ctx,
+                    incomingImage
+                );
+                if (handledFeaturedInput) return;
             }
         }
 
@@ -350,6 +386,19 @@ async function handleIncomingMessageInternal(
         if (adminStep && adminStep.startsWith("ADMIN_AWAITING_VOUCHER_")) {
             const handledVoucher = await handleAdminVoucherTextInput(remoteJid, trimmed, remoteJid, false, userLang, ctx);
             if (handledVoucher) return;
+        }
+        const featuredStep = ctx.state.getAdminFeaturedStep?.(effectiveSender);
+        if (featuredStep && featuredStep.startsWith("ADMIN_AWAITING_FEATURED_")) {
+            const handledFeatured = await handleAdminFeaturedInput(
+                remoteJid,
+                trimmed,
+                remoteJid,
+                false,
+                userLang,
+                ctx,
+                incomingImage
+            );
+            if (handledFeatured) return;
         }
     }
 
@@ -619,8 +668,14 @@ async function handleIncomingMessageInternal(
             return;
         }
 
-        // Stale interactive button/list clicks when session is IDLE are silently dropped
-        if (/^(btn_|act_|opt_)/.test(trimmed)) {
+        // Route direct featured-bundle Buy clicks into buying flow; drop other stale IDLE buttons
+        if (trimmed.startsWith("btn_featured_buy_")) {
+            ctx.state.clearAdminVoucher?.(remoteJid);
+            ctx.state.clearAdminFeatured?.(remoteJid);
+            if (session.step !== "IDLE") {
+                session.step = "IDLE";
+            }
+        } else if (/^(btn_|act_|opt_)/.test(trimmed)) {
             return;
         }
     }
@@ -657,14 +712,16 @@ async function handleIncomingMessageInternal(
         return;
     }
 
-    // When IDLE: any message received triggers the welcome interactive greeting (with 5-second anti-spam cooldown)
+    // When IDLE: any message received triggers the welcome interactive greeting (with 10-second anti-spam cooldown)
     if (session.step === "IDLE" && !activeOrderId) {
         const now = Date.now();
         const lastGreeting = ctx.state.getLastGreetingAt(remoteJid) || 0;
-        if (now - lastGreeting < 5000) {
-            return; // 5-second anti-spam cooldown: silently drop to avoid flooding customer
+        if (now - lastGreeting < 10000) {
+            return; // 10-second anti-spam cooldown: silently drop to avoid flooding customer
         }
         ctx.state.setLastGreetingAt(remoteJid, now);
+
+        await maybeSendFeaturedBundleCard(remoteJid, userLang, ctx);
 
         if (ctx.sendButtons) {
             await ctx.sendButtons(remoteJid, buildWelcomeButtons(userLang));
@@ -676,6 +733,46 @@ async function handleIncomingMessageInternal(
 
     // Non-command, non-greeting messages outside active flow are ignored
     return;
+}
+
+async function maybeSendFeaturedBundleCard(
+    remoteJid: string,
+    userLang: Language,
+    ctx: BotContext
+): Promise<void> {
+    try {
+        if (typeof ctx.client?.getFeaturedBundle !== "function") {
+            return;
+        }
+        const userCurrency = (ctx.state.getCurrency ? ctx.state.getCurrency(remoteJid) : "IDR").toUpperCase();
+        const featured = await ctx.client.getFeaturedBundle(userCurrency);
+        if (!featured || !featured.enabled || !featured.available || !featured.item) {
+            return;
+        }
+
+        const img =
+            typeof ctx.client.getFeaturedBundleImage === "function"
+                ? await ctx.client.getFeaturedBundleImage(featured.updatedAt).catch(() => null)
+                : null;
+
+        const card = buildFeaturedBundleCard(
+            featured,
+            userLang,
+            userCurrency,
+            img?.buffer,
+            img?.mimetype || featured.imageMimetype || undefined
+        );
+
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, card);
+        } else if (card.headerImage) {
+            await ctx.sendImage(remoteJid, card.headerImage, card.text);
+        } else {
+            await ctx.sendText(remoteJid, card.text);
+        }
+    } catch (err: unknown) {
+        console.warn("[Greeting] Failed to send featured bundle card (fail-open):", err);
+    }
 }
 
 async function handleCustomerCheckPayment(

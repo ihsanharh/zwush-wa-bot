@@ -399,7 +399,7 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         expect(fresh.step).toBe("IDLE");
     });
 
-    it("should reply with welcome buttons to any text when IDLE with 5-second cooldown", async () => {
+    it("should reply with welcome buttons to any text when IDLE with 10-second cooldown", async () => {
         state.clear(testJid);
         sentButtons = [];
 
@@ -407,12 +407,13 @@ describe("Interactive Buying Flow & Zero-Text Policy", () => {
         await handleIncomingMessage(testJid, false, "mau nanya dong kak", mockContext);
         expect(sentButtons.length).toBe(1);
 
-        // 2. Rapid message within 5 seconds is dropped by cooldown
+        // 2. Rapid message within 10 seconds (even after 6s) is dropped by cooldown
+        state.setLastGreetingAt(testJid, Date.now() - 6000);
         await handleIncomingMessage(testJid, false, "p", mockContext);
         expect(sentButtons.length).toBe(1);
 
-        // 3. After 5 seconds, message triggers greeting again
-        state.setLastGreetingAt(testJid, Date.now() - 6000);
+        // 3. After 10 seconds, message triggers greeting again
+        state.setLastGreetingAt(testJid, Date.now() - 11000);
         await handleIncomingMessage(testJid, false, "halo", mockContext);
         expect(sentButtons.length).toBe(2);
     });

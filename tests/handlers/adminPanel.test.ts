@@ -84,6 +84,7 @@ describe("Interactive Admin Panel System", () => {
             expect(sentLists[0]?.payload.listMessage.title).toContain("Panel Kontrol Admin");
             const allRows = sentLists[0]?.payload.listMessage.sections.flatMap((s: any) => s.rows) ?? [];
             expect(allRows.some((r: any) => r.rowId === "admin_panel_discount")).toBe(true);
+            expect(allRows.some((r: any) => r.rowId === "admin_panel_featured")).toBe(true);
         });
 
         it("should open Admin Panel when message contains bot in WhatsApp mentionedJids array", async () => {
@@ -116,6 +117,7 @@ describe("Interactive Admin Panel System", () => {
             expect(sentLists[0]?.payload.listMessage.title).toContain("Panel Kontrol Admin");
             const allRows = sentLists[0]?.payload.listMessage.sections.flatMap((s: any) => s.rows) ?? [];
             expect(allRows.some((r: any) => r.rowId === "admin_panel_discount")).toBe(true);
+            expect(allRows.some((r: any) => r.rowId === "admin_panel_featured")).toBe(true);
         });
 
         it("should open Admin Panel when message contains bot in WhatsApp mentionedJids array with LID", async () => {
@@ -477,7 +479,7 @@ describe("Interactive Admin Panel System", () => {
             expect(sentButtons[0]?.payload.text).toContain("Diskon Global Toko: *10%*");
         });
 
-        it("should handle 'admin_panel_more' action and show extra controls", async () => {
+        it("should handle 'admin_panel_more' and 'admin_panel_more_2' actions and show extra controls", async () => {
             await handleIncomingMessage(
                 adminGroupJid,
                 false,
@@ -488,9 +490,25 @@ describe("Interactive Admin Panel System", () => {
 
             expect(sentButtons.length).toBe(1);
             expect(sentButtons[0]?.payload.text).toContain("MENU KONTROL TAMBAHAN ADMIN");
+            expect(sentButtons[0]?.payload.buttons.length).toBe(3);
+            expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_featured")).toBe(true);
             expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_sync")).toBe(true);
+            expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_more_2")).toBe(true);
+
+            sentButtons = [];
+            await handleIncomingMessage(
+                adminGroupJid,
+                false,
+                "admin_panel_more_2",
+                mockContext,
+                adminUser
+            );
+
+            expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]?.payload.buttons.length).toBe(3);
             expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_orders")).toBe(true);
             expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "admin_panel_maintenance")).toBe(true);
+            expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "btn_admin_panel")).toBe(true);
         });
 
         it("should open Admin Panel instead of auto-syncing when admin types '@bot sync' in admin group", async () => {
