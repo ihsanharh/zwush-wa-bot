@@ -346,7 +346,7 @@ describe("Interactive Admin Panel System", () => {
 
             expect(mockContext.client.syncCatalog).toHaveBeenCalledWith(adminGroupJid);
             expect(sentButtons.length).toBe(1);
-            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI SALDO & KATALOG");
+            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI KATALOG");
         });
 
         it("should silently ignore direct text and slash commands in admin group", async () => {
@@ -440,7 +440,7 @@ describe("Interactive Admin Panel System", () => {
 
             expect(mockContext.client.syncCatalog).toHaveBeenCalled();
             expect(sentButtons.length).toBe(1);
-            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI SALDO & KATALOG");
+            expect(sentButtons[0]?.payload.text).toContain("SINKRONISASI KATALOG");
         });
 
         it("should handle 'admin_panel_orders' and show order counts", async () => {
