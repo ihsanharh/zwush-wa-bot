@@ -445,6 +445,11 @@ export function buildAdminPanelMenu(
                             description: t("interactive.adminDescBalance", lang)
                         },
                         {
+                            rowId: "admin_panel_accounts",
+                            title: t("interactive.adminBtnAccounts", lang),
+                            description: t("interactive.adminDescAccounts", lang)
+                        },
+                        {
                             rowId: "admin_panel_maintenance",
                             title: t("interactive.adminBtnMaintenance", lang),
                             description: t("interactive.adminDescMaintenance", lang, { maintStatus })
@@ -523,9 +528,25 @@ export function buildAdminBalanceButtons(
 ): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
     const buttons = [
         { id: "btn_admin_balance_refresh", text: t("buttons.refreshBalance", lang) },
+        { id: "admin_panel_accounts", text: t("buttons.accountsManage", lang) },
         { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
     ];
     return buildQuickReplyPayload(balanceText, buttons);
+}
+
+/**
+ * Builds Gift Accounts Action Buttons (Add Account, Refresh All, Back to Panel)
+ */
+export function buildAdminAccountsButtons(
+    accountsText: string,
+    lang: Language = "id"
+): { interactiveMessage: any; text: string; buttons: Array<{ id: string; text: string }> } {
+    const buttons = [
+        { id: "admin_account_add", text: t("buttons.accountsAdd", lang) },
+        { id: "admin_account_refresh_all", text: t("buttons.accountsRefreshAll", lang) },
+        { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
+    ];
+    return buildQuickReplyPayload(accountsText, buttons);
 }
 
 /**

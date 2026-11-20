@@ -251,5 +251,39 @@ describe("CoreClient", () => {
         expect(sentBody.silent).toBe(true);
         expect(sentBody.reason).toBe("Buyer cancelled");
     });
+
+    it("should fetch accounts and start account login", async () => {
+        global.fetch = mock(() =>
+            Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                totalTokens: 32,
+                totalCostumeTokens: 2,
+                accounts: [
+                    { id: "a1", gamertag: "ZwushGift01", tokenBalance: 20, costumeTokens: 2, status: "ACTIVE" },
+                    { id: "a2", gamertag: "ZwushGift02", tokenBalance: 12, costumeTokens: 0, status: "ACTIVE" }
+                ]
+            }), { status: 200 }))
+        ) as unknown as typeof fetch;
+
+        const list = await client.getAccounts();
+        expect(list.totalTokens).toBe(32);
+        expect(list.accounts.length).toBe(2);
+
+        let sentBody: any = null;
+        global.fetch = mock((_url, init) => {
+            sentBody = JSON.parse(init?.body as string);
+            return Promise.resolve(new Response(JSON.stringify({
+                success: true,
+                loginId: "acc-123",
+                verificationUri: "https://www.microsoft.com/link",
+                userCode: "ABCD1234",
+                fullUrl: "https://www.microsoft.com/link?otc=ABCD1234"
+            }), { status: 200 }));
+        }) as unknown as typeof fetch;
+
+        const login = await client.startAccountLogin("admin@g.us");
+        expect(sentBody.notifyJid).toBe("admin@g.us");
+        expect(login.userCode).toBe("ABCD1234");
+    });
 });
 

@@ -98,6 +98,44 @@ export interface VoucherValidationResponse {
     finalPrice: number;
 }
 
+export interface GiftAccountItem {
+    id: string;
+    gamertag: string;
+    authPath?: string;
+    tokenBalance: number;
+    costumeTokens: number;
+    status: "ACTIVE" | "DRAINED" | "AUTH_EXPIRED" | "DISABLED" | string;
+    lastSyncedAt?: string | null;
+    lastUsedAt?: string | null;
+}
+
+export interface AccountsListResponse {
+    success: boolean;
+    totalTokens: number;
+    totalCostumeTokens: number;
+    accounts: GiftAccountItem[];
+}
+
+export interface AccountLoginStartResponse {
+    success: boolean;
+    loginId: string;
+    verificationUri: string;
+    userCode: string;
+    fullUrl: string;
+    message?: string;
+}
+
+export interface AccountLoginWebhookPayload {
+    success: boolean;
+    loginId: string;
+    gamertag?: string;
+    tokens?: number;
+    costumeTokens?: number;
+    error?: string;
+    notifyJid?: string;
+    timestamp: number;
+}
+
 export interface BotBalanceResponse {
     success: boolean;
     bot: {
@@ -106,6 +144,7 @@ export interface BotBalanceResponse {
         costumeTokens?: number;
         status: string;
     };
+    accounts?: GiftAccountItem[];
     summary: {
         todayOrders: number;
         todayCompleted: number;

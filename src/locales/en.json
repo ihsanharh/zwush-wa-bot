@@ -130,7 +130,19 @@
         "buyerCompletedNotice": "🎉 *ORDER DELIVERED SUCCESSFULLY!* ✨\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n🆔 Order ID: #{{orderId}}\n\nOrder has been successfully completed by Admin! Item is now available in The Hive Bedrock.\nThank you for shopping with {{storeUpper}}! Enjoy! 🎮✨",
         "solvedBuyerClosing": "✅ *SUPPORT SESSION RESOLVED*\n\nAdmin has resolved this live support session. Our automated bot is now active again! ✨\n\nPlease use the menu below to browse our collection 😊",
         "ticketSolvedSummary": "✅ *LIVE CHAT TICKET SOLVED*\n• Customer: *+{{phone}}*\n• Handled by: {{senderTag}}\n• Status: *Bot Active Again ✅*",
-        "ticketSolvedNotFound": "⚠️ No active live chat session found for *{{target}}*."
+        "ticketSolvedNotFound": "⚠️ No active live chat session found for *{{target}}*.",
+        "accountsHeader": "👥 *GIFTING ACCOUNTS — {{storeUpper}}*\n\n• Total Active Tokens: *{{totalTokens}} Token(s)* ({{totalCostumeTokens}} Costume)\n• Total Accounts: *{{count}} account(s)*\n\n",
+        "accountsEmpty": "_No gifting accounts registered yet. Tap [➕ Add Account] to sign in a new Microsoft account._",
+        "accountsItem": "{{idx}}. *{{gamertag}}* — *{{tokens}} Token(s)* ({{status}})\n",
+        "accountsLoadFailed": "❌ Failed to load gifting accounts: {{error}}",
+        "accountLoginStarting": "⏳ Starting Microsoft account login... Please wait a moment.",
+        "accountLoginPrompt": "🔐 *NEW MICROSOFT ACCOUNT LOGIN*\n\n1. Open this link in your browser:\n{{fullUrl}}\n\n2. Or visit {{verificationUri}} and enter code:\n*{{userCode}}*\n\n⏳ _Complete sign-in within 5 minutes. The bot will notify you automatically once the account is linked._",
+        "accountLoginStartFailed": "❌ Failed to start Microsoft login: {{error}}",
+        "accountRefreshStarting": "🔄 Refreshing token balances for all active accounts from The Hive... (may take 1-2 minutes)",
+        "accountRefreshComplete": "✅ *ACCOUNT REFRESH COMPLETE!*\n• Refreshed: *{{refreshed}} account(s)*\n• Failed: *{{failed}} account(s)*\n\n",
+        "accountRefreshFailed": "❌ Failed to refresh accounts: {{error}}",
+        "accountLoginWebhookSuccess": "✅ *GIFTING ACCOUNT LINKED!* 🎉\n\n• Gamertag: *{{gamertag}}*\n• Gift Tokens: *{{tokens}} Token(s)*\n• Costume Tokens: *{{costumeTokens}} Token(s)*\n\nThe account is now active in the Best-Fit routing pool!",
+        "accountLoginWebhookFailed": "❌ *MICROSOFT ACCOUNT LOGIN FAILED*\n\nReason: *{{error}}*"
     },
     "adminVoucher": {
         "overview": "🎟️ *VOUCHER & DISCOUNT MANAGEMENT*\n\n• Global Store Discount: *{{discountPercent}}%*\n• Active Vouchers: *{{activeVouchers}}* vouchers\n• Total Registered Vouchers: *{{totalVouchers}}* vouchers\n\n💡 _Store discount applies directly to all catalog items. Extra vouchers can be claimed by buyers during order confirmation._\n\nPlease choose a voucher management option below:",
@@ -267,7 +279,11 @@
         "maintOn": "🔴 Enable (ON)",
         "maintOff": "🟢 Disable (OFF)",
         "maintToggle": "Toggle Maintenance Mode",
-        "deleteDefaultGamertag": "Delete Default Gamertag"
+        "deleteDefaultGamertag": "Delete Default Gamertag",
+        "accountsAdd": "➕ Add Account",
+        "accountsRefreshAll": "🔄 Refresh All",
+        "accountsManage": "👥 Gift Accounts",
+        "accountsRetryLogin": "➕ Try Login Again"
     },
     "interactive": {
         "footerDefault": "{{store}} • The Hive Bedrock",
@@ -332,6 +348,8 @@
         "adminBtnVoucher": "🎟️ Promo Vouchers Info",
         "adminBtnManageVouchers": "🎟️ Manage Vouchers",
         "adminBtnMoreControls": "⚙️ More Controls ➡️",
+        "adminBtnAccounts": "👥 Gift Accounts",
+        "adminDescAccounts": "Manage multi-accounts, per-account tokens & add accounts",
         "maintStatusActive": "ACTIVE (ON) 🔴",
         "maintStatusInactive": "INACTIVE (OFF) 🟢",
         "adminOrdersTitle": "📦 *PENDING & STUCK ORDERS SUMMARY*",

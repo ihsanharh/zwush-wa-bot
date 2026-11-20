@@ -368,5 +368,76 @@ export function createWebhookApp(
         }
     });
 
+    app.post("/webhook/account-login", async (c) => {
+        try {
+            const body = (await c.req.json()) as {
+                success?: boolean;
+                loginId?: string;
+                gamertag?: string;
+                tokens?: number;
+                costumeTokens?: number;
+                error?: string;
+                notifyJid?: string;
+                timestamp?: number;
+            };
+
+            if (typeof body.success !== "boolean") {
+                return c.json({ success: false, message: "Missing required field: success" }, 400);
+            }
+
+            if (body.timestamp && (Date.now() - body.timestamp > 300000)) {
+                return c.json({ success: true, ignored: true, reason: "Stale notification" });
+            }
+
+            const targetJid = body.notifyJid || adminLogger?.getAdminGroupJid() || adminLogger?.getLogGroupJid();
+            if (!targetJid) {
+                return c.json({ success: true, notified: false });
+            }
+
+            if (body.success) {
+                const msg = t("admin.accountLoginWebhookSuccess", "id", {
+                    gamertag: body.gamertag || body.loginId || "Account",
+                    tokens: body.tokens ?? 0,
+                    costumeTokens: body.costumeTokens ?? 0
+                });
+                if (sender.sendButtons) {
+                    try {
+                        const payload = buildQuickReplyPayload(msg, [
+                            { id: "admin_panel_accounts", text: t("buttons.accountsManage", "id") },
+                            { id: "btn_admin_panel", text: t("buttons.adminPanel", "id") }
+                        ]);
+                        await sender.sendButtons(targetJid, payload);
+                    } catch {
+                        await sender.sendMessage(targetJid, msg);
+                    }
+                } else {
+                    await sender.sendMessage(targetJid, msg);
+                }
+            } else {
+                const msg = t("admin.accountLoginWebhookFailed", "id", {
+                    error: body.error || t("admin.unknownError", "id")
+                });
+                if (sender.sendButtons) {
+                    try {
+                        const payload = buildQuickReplyPayload(msg, [
+                            { id: "admin_account_add", text: t("buttons.accountsRetryLogin", "id") }
+                        ]);
+                        await sender.sendButtons(targetJid, payload);
+                    } catch {
+                        await sender.sendMessage(targetJid, msg);
+                    }
+                } else {
+                    await sender.sendMessage(targetJid, msg);
+                }
+            }
+
+            return c.json({ success: true, notified: true });
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error("[Account Login Webhook Error]:", errorMsg);
+            return c.json({ success: false, error: errorMsg }, 500);
+        }
+    });
+
     return app;
 }

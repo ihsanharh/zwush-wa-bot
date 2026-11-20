@@ -666,6 +666,49 @@ describe("Webhook Server", () => {
         expect(sentMessages[0]?.text).toContain("SINKRONISASI SALDO & KATALOG GAGAL");
         expect(sentMessages[0]?.text).toContain("Connection timed out after 1 attempt");
     });
+
+    it("POST /webhook/account-login should notify success and failure", async () => {
+        const sentButtonsList: Array<{ jid: string; payload: any }> = [];
+        const app = createWebhookApp({
+            sender: {
+                sendMessage: mock(async () => {}),
+                sendButtons: mock(async (jid: string, payload: any) => {
+                    sentButtonsList.push({ jid, payload });
+                })
+            }
+        });
+
+        const okRes = await app.request("/webhook/account-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                success: true,
+                loginId: "acc-1",
+                gamertag: "ZwushGift03",
+                tokens: 12,
+                costumeTokens: 1,
+                notifyJid: "120363@g.us",
+                timestamp: Date.now()
+            })
+        });
+        expect(okRes.status).toBe(200);
+        expect(sentButtonsList[0]?.payload.text).toContain("ZwushGift03");
+        expect(sentButtonsList[0]?.payload.text).toContain("12 Token");
+
+        const failRes = await app.request("/webhook/account-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                success: false,
+                loginId: "acc-2",
+                error: "Login timed out",
+                notifyJid: "120363@g.us",
+                timestamp: Date.now()
+            })
+        });
+        expect(failRes.status).toBe(200);
+        expect(sentButtonsList[1]?.payload.text).toContain("Login timed out");
+    });
 });
 
 

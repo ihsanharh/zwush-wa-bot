@@ -4,6 +4,7 @@ import { formatRupiah, t, type Language } from "../i18n";
 import { extractPhoneNumber } from "../utils/messageUtils";
 import { clearPosterCache } from "../poster";
 import {
+    buildAdminAccountsButtons,
     buildAdminBalanceButtons,
     buildAdminMaintenanceButtons,
     buildAdminOrderFailureButtons,
@@ -156,6 +157,89 @@ export async function handleAdminAction(
         } catch (err: unknown) {
             const errMsg = err instanceof Error ? err.message : String(err);
             await ctx.sendText(remoteJid, t("admin.balanceFailed", _userLang, { error: errMsg }), mentions);
+        }
+        return true;
+    }
+
+    // 0.15 Admin Panel: Gift Accounts Management
+    if (actionId === "admin_panel_accounts") {
+        try {
+            const res = await ctx.client.getAccounts();
+            let text = t("admin.accountsHeader", _userLang, {
+                storeUpper: config.STORE_NAME.toUpperCase(),
+                totalTokens: res.totalTokens,
+                totalCostumeTokens: res.totalCostumeTokens ?? 0,
+                count: res.accounts.length
+            });
+
+            if (res.accounts.length === 0) {
+                text += t("admin.accountsEmpty", _userLang);
+            } else {
+                res.accounts.forEach((acc, idx) => {
+                    text += t("admin.accountsItem", _userLang, {
+                        idx: idx + 1,
+                        gamertag: acc.gamertag,
+                        tokens: acc.tokenBalance,
+                        status: acc.status
+                    });
+                });
+            }
+
+            const payload = buildAdminAccountsButtons(text.trim(), _userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, payload);
+            } else {
+                await ctx.sendText(remoteJid, text.trim(), mentions);
+            }
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            await ctx.sendText(remoteJid, t("admin.accountsLoadFailed", _userLang, { error: errMsg }), mentions);
+        }
+        return true;
+    }
+
+    if (actionId === "admin_account_add") {
+        await ctx.sendText(remoteJid, t("admin.accountLoginStarting", _userLang), mentions);
+        try {
+            const res = await ctx.client.startAccountLogin(remoteJid);
+            const prompt = t("admin.accountLoginPrompt", _userLang, {
+                fullUrl: res.fullUrl,
+                verificationUri: res.verificationUri,
+                userCode: res.userCode
+            });
+            await ctx.sendText(remoteJid, prompt, mentions);
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            await ctx.sendText(remoteJid, t("admin.accountLoginStartFailed", _userLang, { error: errMsg }), mentions);
+        }
+        return true;
+    }
+
+    if (actionId === "admin_account_refresh_all") {
+        await ctx.sendText(remoteJid, t("admin.accountRefreshStarting", _userLang), mentions);
+        try {
+            const res = await ctx.client.refreshAllAccounts();
+            let text = t("admin.accountRefreshComplete", _userLang, {
+                refreshed: res.refreshed,
+                failed: res.failed
+            });
+            res.accounts.forEach((acc, idx) => {
+                text += t("admin.accountsItem", _userLang, {
+                    idx: idx + 1,
+                    gamertag: acc.gamertag,
+                    tokens: acc.tokenBalance,
+                    status: acc.status
+                });
+            });
+            const payload = buildAdminAccountsButtons(text.trim(), _userLang);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, payload);
+            } else {
+                await ctx.sendText(remoteJid, text.trim(), mentions);
+            }
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            await ctx.sendText(remoteJid, t("admin.accountRefreshFailed", _userLang, { error: errMsg }), mentions);
         }
         return true;
     }

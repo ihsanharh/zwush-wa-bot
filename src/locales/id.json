@@ -130,7 +130,19 @@
         "buyerCompletedNotice": "🎉 *PESANAN BERHASIL DIKIRIM!* ✨\n\n📦 Item: *{{itemName}}*\n👤 Gamertag: *{{gamertag}}*\n🆔 Order ID: #{{orderId}}\n\nPesanan telah berhasil diselesaikan oleh Admin! Item sudah meluncur ke The Hive Bedrock kakak.\nMakasih banyak udah belanja di {{storeUpper}} kak! Selamat seru-seruan! 🎮✨",
         "solvedBuyerClosing": "✅ *SESI BANTUAN SELESAI*\n\nAdmin telah menyelesaikan sesi live support. Bot otomatis kami sekarang telah aktif kembali! ✨\n\nSilakan gunakan menu di bawah untuk melihat koleksi item kami ya kak 😊",
         "ticketSolvedSummary": "✅ *TIKET LIVE CHAT DISELESAIKAN*\n• Pelanggan: *+{{phone}}*\n• Ditangani oleh: {{senderTag}}\n• Status: *Bot Aktif Kembali ✅*",
-        "ticketSolvedNotFound": "⚠️ Tidak ditemukan sesi live chat aktif untuk *{{target}}*."
+        "ticketSolvedNotFound": "⚠️ Tidak ditemukan sesi live chat aktif untuk *{{target}}*.",
+        "accountsHeader": "👥 *AKUN GIFTING — {{storeUpper}}*\n\n• Total Token Aktif: *{{totalTokens}} Token* ({{totalCostumeTokens}} Costume)\n• Jumlah Akun: *{{count}} akun*\n\n",
+        "accountsEmpty": "_Belum ada akun gifting terdaftar. Klik [➕ Tambah Akun] untuk login akun Microsoft baru._",
+        "accountsItem": "{{idx}}. *{{gamertag}}* — *{{tokens}} Token* ({{status}})\n",
+        "accountsLoadFailed": "❌ Gagal memuat daftar akun gifting: {{error}}",
+        "accountLoginStarting": "⏳ Memulai proses login akun Microsoft... Mohon tunggu sebentar.",
+        "accountLoginPrompt": "🔐 *LOGIN AKUN MICROSOFT BARU*\n\n1. Buka link berikut di browser:\n{{fullUrl}}\n\n2. Atau kunjungi {{verificationUri}} lalu masukkan kode:\n*{{userCode}}*\n\n⏳ _Selesaikan login dalam 5 menit. Bot akan otomatis mengirim konfirmasi setelah akun terhubung._",
+        "accountLoginStartFailed": "❌ Gagal memulai login Microsoft: {{error}}",
+        "accountRefreshStarting": "🔄 Menyegarkan saldo token seluruh akun aktif dari The Hive... (bisa memakan waktu 1-2 menit)",
+        "accountRefreshComplete": "✅ *REFRESH AKUN SELESAI!*\n• Berhasil: *{{refreshed}} akun*\n• Gagal: *{{failed}} akun*\n\n",
+        "accountRefreshFailed": "❌ Gagal menyegarkan akun: {{error}}",
+        "accountLoginWebhookSuccess": "✅ *AKUN GIFTING BERHASIL DITAMBAHKAN!* 🎉\n\n• Gamertag: *{{gamertag}}*\n• Sisa Token Gift: *{{tokens}} Token*\n• Token Costume: *{{costumeTokens}} Token*\n\nAkun sekarang aktif dan siap digunakan oleh sistem routing Best-Fit!",
+        "accountLoginWebhookFailed": "❌ *LOGIN AKUN MICROSOFT GAGAL*\n\nKendala: *{{error}}*"
     },
     "adminVoucher": {
         "overview": "🎟️ *MANAJEMEN VOUCHER & DISKON*\n\n• Diskon Global Toko: *{{discountPercent}}%*\n• Total Voucher Aktif: *{{activeVouchers}}* voucher\n• Total Voucher Terdaftar: *{{totalVouchers}}* voucher\n\n💡 _Diskon toko diterapkan langsung ke seluruh katalog item. Voucher tambahan dapat diklaim pembeli saat konfirmasi order._\n\nSilakan pilih menu manajemen voucher di bawah:",
@@ -267,7 +279,11 @@
         "maintOn": "🔴 Aktifkan (ON)",
         "maintOff": "🟢 Nonaktifkan (OFF)",
         "maintToggle": "Ubah Status Maintenance",
-        "deleteDefaultGamertag": "Hapus Default Gamertag"
+        "deleteDefaultGamertag": "Hapus Default Gamertag",
+        "accountsAdd": "➕ Tambah Akun",
+        "accountsRefreshAll": "🔄 Refresh Semua",
+        "accountsManage": "👥 Akun Gifting",
+        "accountsRetryLogin": "➕ Coba Login Lagi"
     },
     "interactive": {
         "footerDefault": "{{store}} • The Hive Bedrock",
@@ -332,6 +348,8 @@
         "adminBtnVoucher": "🎟️ Info Voucher Promo",
         "adminBtnManageVouchers": "🎟️ Kelola Voucher",
         "adminBtnMoreControls": "⚙️ Menu Lainnya ➡️",
+        "adminBtnAccounts": "👥 Akun Gifting",
+        "adminDescAccounts": "Kelola multi-akun, cek saldo per akun & login akun baru",
         "maintStatusActive": "AKTIF (ON) 🔴",
         "maintStatusInactive": "NONAKTIF (OFF) 🟢",
         "adminOrdersTitle": "📦 *DAFTAR PESANAN TERTAHAN / PENDING*",

@@ -13,7 +13,10 @@ import type {
     CreateVoucherInput,
     UpdateVoucherInput,
     UserProfile,
-    UserProfileResponse
+    UserProfileResponse,
+    AccountsListResponse,
+    AccountLoginStartResponse,
+    GiftAccountItem
 } from "./types";
 import type { Language } from "./i18n";
 import { config } from "./config";
@@ -472,6 +475,65 @@ export class CoreClient {
             throw new Error(result.message || `Failed to update user profile (${res.status})`);
         }
         return result.user;
+    }
+
+    /**
+     * Fetches all registered gifting accounts and total active token balance.
+     */
+    async getAccounts(): Promise<AccountsListResponse> {
+        const res = await fetch(`${this.baseUrl}/api/accounts`, {
+            signal: AbortSignal.timeout(10000),
+        });
+        const data = (await res.json()) as AccountsListResponse & { message?: string };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to fetch gift accounts (${res.status})`);
+        }
+        return data;
+    }
+
+    /**
+     * Initiates headless Microsoft Device Code login for a new gifting account.
+     */
+    async startAccountLogin(notifyJid?: string): Promise<AccountLoginStartResponse> {
+        const res = await fetch(`${this.baseUrl}/api/accounts/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ notifyJid }),
+            signal: AbortSignal.timeout(25000),
+        });
+        const data = (await res.json()) as AccountLoginStartResponse;
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to start Microsoft account login (${res.status})`);
+        }
+        return data;
+    }
+
+    /**
+     * Refreshes token balances across all active gifting accounts.
+     */
+    async refreshAllAccounts(): Promise<{
+        success: boolean;
+        refreshed: number;
+        failed: number;
+        accounts: GiftAccountItem[];
+        message?: string;
+    }> {
+        const res = await fetch(`${this.baseUrl}/api/accounts/refresh-all`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(180000),
+        });
+        const data = (await res.json()) as {
+            success: boolean;
+            refreshed: number;
+            failed: number;
+            accounts: GiftAccountItem[];
+            message?: string;
+        };
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || `Failed to refresh accounts (${res.status})`);
+        }
+        return data;
     }
 }
 
