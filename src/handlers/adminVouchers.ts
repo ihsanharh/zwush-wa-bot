@@ -1,6 +1,7 @@
 import type { BotContext } from "./message";
 import type { Language } from "../i18n";
 import { t } from "../i18n";
+import { clearPosterCache } from "../poster";
 import {
     buildAdminVouchersOverview,
     buildAdminVoucherListMessage,
@@ -9,6 +10,35 @@ import {
     buildAdminVoucherDeleteConfirm,
     buildQuickReplyPayload
 } from "../utils/interactiveBuilders";
+
+async function applyGlobalDiscount(
+    remoteJid: string,
+    percent: number,
+    effectiveSender: string,
+    userLang: Language,
+    ctx: BotContext,
+    mentions?: string[]
+): Promise<void> {
+    try {
+        const updatedPercent = await ctx.client.setGlobalDiscount(percent);
+        clearPosterCache();
+        ctx.state.clearAdminVoucher(effectiveSender);
+
+        const successText = t("adminVoucher.globalDiscountSuccess", userLang, { percent: updatedPercent });
+        const buttons = buildQuickReplyPayload(successText, [
+            { id: "admin_panel_vouchers", text: t("adminVoucher.btnMenu", userLang) },
+            { id: "btn_admin_panel", text: t("buttons.adminPanel", userLang) }
+        ]);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, buttons);
+        } else {
+            await ctx.sendText(remoteJid, successText, mentions);
+        }
+    } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await ctx.sendText(remoteJid, t("adminVoucher.globalDiscountFailed", userLang, { error: errMsg }), mentions);
+    }
+}
 
 /**
  * Handles interactive button clicks related to Voucher Management
@@ -226,6 +256,37 @@ export async function handleAdminVoucherAction(
             const errMsg = err instanceof Error ? err.message : String(err);
             await ctx.sendText(remoteJid, t("adminVoucher.deleteFailed", userLang, { code, error: errMsg }), mentions);
         }
+        return true;
+    }
+
+    // 12. Global Store Discount Configuration Prompt
+    if (actionId === "admin_panel_discount" || actionId === "btn_admin_voucher_global_discount") {
+        let currentPercent = 0;
+        try {
+            const res = await ctx.client.getBalance(false);
+            if (typeof res?.summary?.discountPercent === "number") {
+                currentPercent = res.summary.discountPercent;
+            }
+        } catch {
+            // fallback to 0 when balance summary is unavailable
+        }
+        ctx.state.setAdminVoucherStep(effectiveSender, "ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT", {});
+        const promptText = t("adminVoucher.globalDiscountPrompt", userLang, { currentPercent });
+        const buttons = buildQuickReplyPayload(promptText, [
+            { id: "btn_admin_voucher_global_discount_0", text: t("adminVoucher.btnGlobalDiscountOff", userLang) },
+            { id: "btn_admin_voucher_cancel", text: t("adminVoucher.btnCancel", userLang) }
+        ]);
+        if (ctx.sendButtons) {
+            await ctx.sendButtons(remoteJid, buttons);
+        } else {
+            await ctx.sendText(remoteJid, promptText, mentions);
+        }
+        return true;
+    }
+
+    // 13. Quick Button: Disable Global Discount (0%)
+    if (actionId === "btn_admin_voucher_global_discount_0") {
+        await applyGlobalDiscount(remoteJid, 0, effectiveSender, userLang, ctx, mentions);
         return true;
     }
 
@@ -514,6 +575,29 @@ export async function handleAdminVoucherTextInput(
                 mentions
             );
         }
+        return true;
+    }
+
+    // Global Store Discount execution
+    if (adminStep === "ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT") {
+        const cleaned = text.trim();
+        const match = /^(\d+)%?$/.exec(cleaned);
+        const percent = match ? parseInt(match[1]!, 10) : NaN;
+
+        if (isNaN(percent) || percent < 0 || percent > 90) {
+            const warnText = t("adminVoucher.invalidGlobalDiscountValue", userLang);
+            const buttons = buildQuickReplyPayload(warnText, [
+                { id: "btn_admin_voucher_cancel", text: t("adminVoucher.btnCancel", userLang) }
+            ]);
+            if (ctx.sendButtons) {
+                await ctx.sendButtons(remoteJid, buttons);
+            } else {
+                await ctx.sendText(remoteJid, warnText, mentions);
+            }
+            return true;
+        }
+
+        await applyGlobalDiscount(remoteJid, percent, effectiveSender, userLang, ctx, mentions);
         return true;
     }
 

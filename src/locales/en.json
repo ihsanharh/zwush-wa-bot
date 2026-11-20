@@ -208,7 +208,13 @@
         "invalidEditQuota": "⚠️ Quota must be a number (example: *100*, or *0* for unlimited):",
         "editQuotaSuccess": "✅ Max usage quota for voucher *{{code}}* updated to *{{maxUsesStr}}*!",
         "editQuotaFailed": "❌ Failed to update quota for voucher *{{code}}*: {{error}}",
-        "searchFailed": "❌ Failed to search voucher: {{error}}"
+        "searchFailed": "❌ Failed to search voucher: {{error}}",
+        "btnGlobalDiscount": "🏷️ Global Discount",
+        "btnGlobalDiscountOff": "0% (Disable)",
+        "globalDiscountPrompt": "🏷️ *CONFIGURE GLOBAL STORE DISCOUNT*\n\n• Current active discount: *{{currentPercent}}%*\n\nPlease type the new discount percentage (*0* - *90*, e.g. *15* for 15%, or *0* to disable):",
+        "invalidGlobalDiscountValue": "⚠️ Global discount must be a whole number between *0* and *90* (e.g. *15* or *0*). Please try again:",
+        "globalDiscountSuccess": "✅ *GLOBAL STORE DISCOUNT UPDATED!*\n\n• New Global Discount: *{{percent}}%*\n\n🖼️ Catalog prices & poster cache have been refreshed automatically.",
+        "globalDiscountFailed": "❌ Failed to update global store discount: {{error}}"
     },
     "adminLog": {
         "contactGroup": "👥 Group Chat: {{groupId}}",
@@ -353,6 +359,8 @@
         "adminBtnMoreControls": "⚙️ More Controls ➡️",
         "adminBtnAccounts": "👥 Gift Accounts",
         "adminDescAccounts": "Manage multi-accounts, per-account tokens & add accounts",
+        "adminBtnGlobalDiscount": "🏷️ Global Store Discount",
+        "adminDescGlobalDiscount": "Configure store-wide catalog discount (0–90%)",
         "maintStatusActive": "ACTIVE (ON) 🔴",
         "maintStatusInactive": "INACTIVE (OFF) 🟢",
         "adminOrdersTitle": "📦 *PENDING & STUCK ORDERS SUMMARY*",

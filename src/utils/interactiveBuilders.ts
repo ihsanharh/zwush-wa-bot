@@ -473,6 +473,11 @@ export function buildAdminPanelMenu(
                             rowId: "admin_panel_vouchers",
                             title: t("interactive.adminBtnVoucher", lang),
                             description: t("interactive.adminDescVoucher", lang)
+                        },
+                        {
+                            rowId: "admin_panel_discount",
+                            title: t("interactive.adminBtnGlobalDiscount", lang),
+                            description: t("interactive.adminDescGlobalDiscount", lang)
                         }
                     ]
                 }
@@ -853,7 +858,7 @@ export function buildAdminVouchersOverview(
     const buttons = [
         { id: "btn_admin_voucher_list", text: t("adminVoucher.btnList", lang) },
         { id: "btn_admin_voucher_create", text: t("adminVoucher.btnCreate", lang) },
-        { id: "btn_admin_panel", text: t("buttons.adminPanel", lang) }
+        { id: "btn_admin_voucher_global_discount", text: t("adminVoucher.btnGlobalDiscount", lang) }
     ];
     return buildQuickReplyPayload(text, buttons);
 }

@@ -348,6 +348,26 @@ export class CoreClient {
         return true;
     }
 
+    /**
+     * Updates the global store-wide discount percentage (0-90).
+     */
+    async setGlobalDiscount(percent: number): Promise<number> {
+        const res = await fetch(`${this.baseUrl}/api/vouchers/discount`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Webhook-Secret": config.WEBHOOK_SECRET
+            },
+            body: JSON.stringify({ percent }),
+            signal: AbortSignal.timeout(15000)
+        });
+        const data = (await res.json()) as { success: boolean; discountPercent?: number; message?: string };
+        if (!res.ok || !data.success || typeof data.discountPercent !== "number") {
+            throw new Error(data.message || `Failed to update global store discount (${res.status})`);
+        }
+        return data.discountPercent;
+    }
+
 
     /**
      * Gets The Hive bot token balance and daily sales summary.

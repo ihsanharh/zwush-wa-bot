@@ -82,6 +82,8 @@ describe("Interactive Admin Panel System", () => {
             expect(sentLists.length).toBe(1);
             expect(sentLists[0]?.jid).toBe(adminGroupJid);
             expect(sentLists[0]?.payload.listMessage.title).toContain("Panel Kontrol Admin");
+            const allRows = sentLists[0]?.payload.listMessage.sections.flatMap((s: any) => s.rows) ?? [];
+            expect(allRows.some((r: any) => r.rowId === "admin_panel_discount")).toBe(true);
         });
 
         it("should open Admin Panel when message contains bot in WhatsApp mentionedJids array", async () => {
@@ -112,6 +114,8 @@ describe("Interactive Admin Panel System", () => {
             expect(sentLists.length).toBe(1);
             expect(sentLists[0]?.jid).toBe(adminGroupJid);
             expect(sentLists[0]?.payload.listMessage.title).toContain("Panel Kontrol Admin");
+            const allRows = sentLists[0]?.payload.listMessage.sections.flatMap((s: any) => s.rows) ?? [];
+            expect(allRows.some((r: any) => r.rowId === "admin_panel_discount")).toBe(true);
         });
 
         it("should open Admin Panel when message contains bot in WhatsApp mentionedJids array with LID", async () => {

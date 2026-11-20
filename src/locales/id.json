@@ -208,7 +208,13 @@
         "invalidEditQuota": "⚠️ Kuota harus berupa angka (contoh: *100*, atau *0* jika tanpa batas):",
         "editQuotaSuccess": "✅ Kuota maksimal voucher *{{code}}* berhasil diubah menjadi *{{maxUsesStr}}*!",
         "editQuotaFailed": "❌ Gagal mengubah kuota voucher *{{code}}*: {{error}}",
-        "searchFailed": "❌ Gagal mencari voucher: {{error}}"
+        "searchFailed": "❌ Gagal mencari voucher: {{error}}",
+        "btnGlobalDiscount": "🏷️ Diskon Global",
+        "btnGlobalDiscountOff": "0% (Nonaktifkan)",
+        "globalDiscountPrompt": "🏷️ *ATUR DISKON GLOBAL TOKO*\n\n• Diskon aktif saat ini: *{{currentPercent}}%*\n\nSilakan ketik persentase diskon baru (*0* - *90*, contoh: *15* untuk 15%, atau *0* untuk mematikan diskon):",
+        "invalidGlobalDiscountValue": "⚠️ Persentase diskon global harus berupa angka bulat antara *0* sampai *90* (contoh: *15* atau *0*). Silakan ketik kembali:",
+        "globalDiscountSuccess": "✅ *DISKON GLOBAL TOKO DIPERBARUI!*\n\n• Diskon Global Baru: *{{percent}}%*\n\n🖼️ Harga katalog & cache poster telah diperbarui secara otomatis.",
+        "globalDiscountFailed": "❌ Gagal mengubah diskon global toko: {{error}}"
     },
     "adminLog": {
         "contactGroup": "👥 Chat Grup: {{groupId}}",
@@ -353,6 +359,8 @@
         "adminBtnMoreControls": "⚙️ Menu Lainnya ➡️",
         "adminBtnAccounts": "👥 Akun Gifting",
         "adminDescAccounts": "Kelola multi-akun, cek saldo per akun & login akun baru",
+        "adminBtnGlobalDiscount": "🏷️ Diskon Global Toko",
+        "adminDescGlobalDiscount": "Atur persentase diskon global katalog (0–90%)",
         "maintStatusActive": "AKTIF (ON) 🔴",
         "maintStatusInactive": "NONAKTIF (OFF) 🟢",
         "adminOrdersTitle": "📦 *DAFTAR PESANAN TERTAHAN / PENDING*",

@@ -99,7 +99,8 @@ describe("Interactive Admin Voucher Management", () => {
                     if (idx === -1) throw new Error("Voucher not found");
                     vouchersStore.splice(idx, 1);
                     return true;
-                })
+                }),
+                setGlobalDiscount: mock(async (percent: number) => percent)
             },
             sendText: async (jid: string, text: string, mentions?: string[]) => {
                 sentTexts.push({ jid, text, mentions });
@@ -117,6 +118,7 @@ describe("Interactive Admin Voucher Management", () => {
         expect(sentButtons[0]?.payload.text).toContain("MANAJEMEN VOUCHER & DISKON");
         expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "btn_admin_voucher_list")).toBe(true);
         expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "btn_admin_voucher_create")).toBe(true);
+        expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "btn_admin_voucher_global_discount")).toBe(true);
     });
 
     it("should display voucher list on 'btn_admin_voucher_list' and allow selecting a voucher", async () => {
@@ -261,6 +263,42 @@ describe("Interactive Admin Voucher Management", () => {
 
         // Should respond with category menu, NOT be silently ignored!
         expect(sentButtons.length + sentTexts.length).toBeGreaterThan(0);
+    });
+
+    it("should configure global store discount via admin panel and voucher overview buttons", async () => {
+        // 1. Admin opens global discount prompt from Admin Panel list or Voucher overview
+        await handleIncomingMessage(adminGroupJid, false, "admin_panel_discount", mockContext, adminUser);
+        expect(mockContext.state.getAdminVoucherStep(adminUser)).toBe("ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT");
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("Diskon aktif saat ini: *10%*");
+        expect(sentButtons[0]?.payload.buttons.some((b: any) => b.id === "btn_admin_voucher_global_discount_0")).toBe(true);
+
+        // 2. Rejects invalid inputs (-5, 95, abc) while keeping step active
+        for (const badInput of ["-5", "95", "12.5", "abc"]) {
+            sentButtons = [];
+            await handleIncomingMessage(adminGroupJid, false, badInput, mockContext, adminUser);
+            expect(mockContext.client.setGlobalDiscount).not.toHaveBeenCalled();
+            expect(mockContext.state.getAdminVoucherStep(adminUser)).toBe("ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT");
+            expect(sentButtons.length).toBe(1);
+            expect(sentButtons[0]?.payload.text).toContain("angka bulat antara *0* sampai *90*");
+        }
+
+        // 3. Accepts valid percentage (e.g. '15%') and clears step
+        sentButtons = [];
+        await handleIncomingMessage(adminGroupJid, false, "15%", mockContext, adminUser);
+        expect(mockContext.client.setGlobalDiscount).toHaveBeenCalledWith(15);
+        expect(mockContext.state.getAdminVoucherStep(adminUser)).toBeUndefined();
+        expect(sentButtons.length).toBe(1);
+        expect(sentButtons[0]?.payload.text).toContain("*15%*");
+
+        // 4. Quick button disables global discount (0%) directly
+        sentButtons = [];
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_voucher_global_discount", mockContext, adminUser);
+        expect(mockContext.state.getAdminVoucherStep(adminUser)).toBe("ADMIN_AWAITING_VOUCHER_GLOBAL_DISCOUNT");
+        await handleIncomingMessage(adminGroupJid, false, "btn_admin_voucher_global_discount_0", mockContext, adminUser);
+        expect(mockContext.client.setGlobalDiscount).toHaveBeenCalledWith(0);
+        expect(mockContext.state.getAdminVoucherStep(adminUser)).toBeUndefined();
+        expect(sentButtons[sentButtons.length - 1]?.payload.text).toContain("*0%*");
     });
 });
 
